@@ -234,6 +234,7 @@ public sealed record OrganizationDto(
     Guid ThemeId,
     ThemeDto Theme,
     string? WordmarkUrl,
+    string? WordmarkOnLightUrl,
     string? MarkUrl,
     string? AccentImageUrl)
 {
@@ -247,6 +248,7 @@ public sealed record OrganizationDto(
         organization.ThemeId,
         ThemeDto.From(organization.Theme),
         organization.WordmarkUrl,
+        organization.WordmarkOnLightUrl,
         organization.MarkUrl,
         organization.AccentImageUrl);
 }
@@ -265,6 +267,7 @@ public sealed record UpdateOrganizationRequest(
     Optional<OrganizationPreferencesDto> Preferences,
     Optional<Guid> ThemeId,
     Optional<string?> WordmarkUrl,
+    Optional<string?> WordmarkOnLightUrl,
     Optional<string?> MarkUrl,
     Optional<string?> AccentImageUrl)
 {
@@ -289,6 +292,7 @@ public sealed record UpdateOrganizationRequest(
             Optional.Read(body, "preferences", (b, k) => OrganizationPreferencesDto.Parse(b[k])),
             Optional.Read(body, "themeId", Fields.RequiredGuid),
             Optional.Read(body, "wordmarkUrl", BrandUrl),
+            Optional.Read(body, "wordmarkOnLightUrl", BrandUrl),
             Optional.Read(body, "markUrl", BrandUrl),
             Optional.Read(body, "accentImageUrl", BrandUrl));
         if (!request.Name.HasValue
@@ -298,6 +302,7 @@ public sealed record UpdateOrganizationRequest(
             && !request.Preferences.HasValue
             && !request.ThemeId.HasValue
             && !request.WordmarkUrl.HasValue
+            && !request.WordmarkOnLightUrl.HasValue
             && !request.MarkUrl.HasValue
             && !request.AccentImageUrl.HasValue)
         {

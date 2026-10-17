@@ -112,6 +112,7 @@ public class Organization
     public OrganizationPreferences Preferences { get; set; } = new();
     public Guid ThemeId { get; set; } = Theme.ClockedInId;
     public string? WordmarkUrl { get; set; }
+    public string? WordmarkOnLightUrl { get; set; }
     public string? MarkUrl { get; set; }
     public string? AccentImageUrl { get; set; }
 

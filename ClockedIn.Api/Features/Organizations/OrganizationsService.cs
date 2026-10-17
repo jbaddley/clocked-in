@@ -69,6 +69,7 @@ public sealed class OrganizationsService(ClockedInDbContext db, Access access, T
         organization.RateSourceYear = request.RateSourceYear.Or(organization.RateSourceYear);
         organization.DefaultRateType = request.DefaultRateType.Or(organization.DefaultRateType);
         organization.WordmarkUrl = request.WordmarkUrl.Or(organization.WordmarkUrl);
+        organization.WordmarkOnLightUrl = request.WordmarkOnLightUrl.Or(organization.WordmarkOnLightUrl);
         organization.MarkUrl = request.MarkUrl.Or(organization.MarkUrl);
         organization.AccentImageUrl = request.AccentImageUrl.Or(organization.AccentImageUrl);
         if (request.VolunteerHourlyRate.HasValue)

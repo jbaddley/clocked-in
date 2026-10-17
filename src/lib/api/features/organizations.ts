@@ -120,6 +120,7 @@ export function organizationJson(
     themeId: string;
     theme: Parameters<typeof themeJson>[0];
     wordmarkUrl: string | null;
+    wordmarkOnLightUrl: string | null;
     markUrl: string | null;
     accentImageUrl: string | null;
   },
@@ -135,6 +136,7 @@ export function organizationJson(
     themeId: organization.themeId,
     theme: themeJson(organization.theme),
     wordmarkUrl: organization.wordmarkUrl,
+    wordmarkOnLightUrl: organization.wordmarkOnLightUrl,
     markUrl: organization.markUrl,
     accentImageUrl: organization.accentImageUrl,
   };
@@ -154,6 +156,7 @@ export type UpdateOrganizationRequest = {
   preferences: Optional<OrganizationPreferences>;
   themeId: Optional<string>;
   wordmarkUrl: Optional<string | null>;
+  wordmarkOnLightUrl: Optional<string | null>;
   markUrl: Optional<string | null>;
   accentImageUrl: Optional<string | null>;
 };
@@ -174,6 +177,7 @@ export function parseUpdateOrganization(body: Body): UpdateOrganizationRequest {
     preferences: optional(body, "preferences", (b, k) => parsePreferences(b[k])),
     themeId: optional(body, "themeId", (b, k) => requireString(b, k)),
     wordmarkUrl: optional(body, "wordmarkUrl", brandUrl),
+    wordmarkOnLightUrl: optional(body, "wordmarkOnLightUrl", brandUrl),
     markUrl: optional(body, "markUrl", brandUrl),
     accentImageUrl: optional(body, "accentImageUrl", brandUrl),
   };
@@ -185,6 +189,7 @@ export function parseUpdateOrganization(body: Body): UpdateOrganizationRequest {
     !request.preferences.set &&
     !request.themeId.set &&
     !request.wordmarkUrl.set &&
+    !request.wordmarkOnLightUrl.set &&
     !request.markUrl.set &&
     !request.accentImageUrl.set
   ) {
@@ -269,6 +274,7 @@ export async function updateOrganization(access: Access, organizationId: string,
         defaultRateType: request.defaultRateType.set ? request.defaultRateType.value : undefined,
         themeId: request.themeId.set ? request.themeId.value : undefined,
         wordmarkUrl: request.wordmarkUrl.set ? request.wordmarkUrl.value : undefined,
+        wordmarkOnLightUrl: request.wordmarkOnLightUrl.set ? request.wordmarkOnLightUrl.value : undefined,
         markUrl: request.markUrl.set ? request.markUrl.value : undefined,
         accentImageUrl: request.accentImageUrl.set ? request.accentImageUrl.value : undefined,
         preferences: nextPreferences,

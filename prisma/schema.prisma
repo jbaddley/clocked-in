@@ -59,19 +59,20 @@ model Role {
 }
 
 model Organization {
-  id                                       String                   @id(map: "PK_Organization") @default(uuid()) @db.Uuid
-  name                                     String
+  id                    String                   @id(map: "PK_Organization") @default(uuid()) @db.Uuid
+  name                  String
   /// Volunteer or Professional.
-  defaultRateType                          String                   @default("Volunteer")
-  rateSourceYear                           Int                      @default(2025)
+  defaultRateType       String                   @default("Volunteer")
+  rateSourceYear        Int                      @default(2025)
   /// Org settings. Known fields are defined by OrganizationPreferences.
-  preferences                              Json                     @default("{\"allowTimeEntryEditing\": false}")
-  accentImageUrl                           String?
-  markUrl                                  String?
-  wordmarkUrl                              String?
-  themeId                                  String                   @default(dbgenerated("'44444444-4444-4444-8444-444444444441'::uuid")) @db.Uuid
-  collectiveTimeEntries                    CollectiveTimeEntry[]
-  departments                              Department[]
+  preferences           Json                     @default("{\"allowTimeEntryEditing\": false}")
+  accentImageUrl        String?
+  markUrl               String?
+  wordmarkUrl           String?
+  themeId               String                   @default(dbgenerated("'44444444-4444-4444-8444-444444444441'::uuid")) @db.Uuid
+  wordmarkOnLightUrl    String?
+  collectiveTimeEntries CollectiveTimeEntry[]
+  departments           Department[]
   hourlyRates           HourlyRate[]
   invitations           Invitation[]
   theme                 Theme                    @relation("OrganizationTheme", fields: [themeId], references: [id], onUpdate: NoAction, map: "FK_Organization_Theme_themeId")
@@ -353,24 +354,24 @@ model HourlyRate {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model Theme {
-  id                   String         @id(map: "PK_Theme") @default(uuid()) @db.Uuid
-  name                 String         @unique(map: "Theme_global_name_key", where: raw("(\"organizationId\" IS NULL)"))
-  organizationId       String?        @db.Uuid
-  primary              String
-  primaryForeground    String
-  highlight            String
-  accent               String
-  success              String
-  surface              String
-  surfaceForeground    String
-  foreground           String
-  headingFont          String
-  bodyFont             String
-  categoricalPalette   String
-  sequentialPalette    String
-  divergingPalette     String
+  id                    String         @id(map: "PK_Theme") @default(uuid()) @db.Uuid
+  name                  String         @unique(map: "Theme_global_name_key", where: raw("(\"organizationId\" IS NULL)"))
+  organizationId        String?        @db.Uuid
+  primary               String
+  primaryForeground     String
+  highlight             String
+  accent                String
+  success               String
+  surface               String
+  surfaceForeground     String
+  foreground            String
+  headingFont           String
+  bodyFont              String
+  categoricalPalette    String
+  sequentialPalette     String
+  divergingPalette      String
   assignedOrganizations Organization[] @relation("OrganizationTheme")
-  organization         Organization?  @relation("OrganizationThemes", fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_Theme_Organization_organizationId")
+  organization          Organization?  @relation("OrganizationThemes", fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_Theme_Organization_organizationId")
 
   @@unique([organizationId, name], map: "Theme_organization_name_key", where: raw("(\"organizationId\" IS NOT NULL)"))
 }

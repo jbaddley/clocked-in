@@ -1,6 +1,6 @@
 "use client";
 
-import { PlayIcon, SquareIcon } from "lucide-react";
+import { PlusIcon, SquareIcon } from "lucide-react";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { useClock } from "@/hooks/use-clock";
@@ -15,8 +15,8 @@ export function TimerChip() {
   if (!punch) {
     return (
       <Link href="/log" className={buttonVariants({ variant: "ghost", className: "h-9 gap-2" })}>
-        <PlayIcon className="text-primary" />
-        <span className="hidden sm:inline">Start timer</span>
+        <PlusIcon className="text-primary" />
+        <span className="hidden sm:inline">Add Time</span>
       </Link>
     );
   }

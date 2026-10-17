@@ -206,6 +206,7 @@ export function assertOrganization(org, name) {
     "themeId",
     "theme",
     "wordmarkUrl",
+    "wordmarkOnLightUrl",
     "markUrl",
     "accentImageUrl",
   ]);
@@ -218,6 +219,7 @@ export function assertOrganization(org, name) {
   assert.equal(org.themeId, clockedInThemeId);
   assert.equal(org.theme.name, "Clocked In");
   assert.equal(org.wordmarkUrl, null);
+  assert.equal(org.wordmarkOnLightUrl, null);
   assert.equal(org.markUrl, null);
   assert.equal(org.accentImageUrl, null);
 }

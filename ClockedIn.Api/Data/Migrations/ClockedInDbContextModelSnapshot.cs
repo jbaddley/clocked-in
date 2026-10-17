@@ -344,6 +344,10 @@ namespace ClockedIn.Api.Data.Migrations
                         .HasDefaultValue(new Guid("44444444-4444-4444-8444-444444444441"))
                         .HasColumnName("themeId");
 
+                    b.Property<string>("WordmarkOnLightUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("wordmarkOnLightUrl");
+
                     b.Property<string>("WordmarkUrl")
                         .HasColumnType("text")
                         .HasColumnName("wordmarkUrl");

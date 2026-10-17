@@ -45,6 +45,7 @@ classDiagram
     json preferences
     uuid themeId
     string wordmarkUrl
+    string wordmarkOnLightUrl
     string markUrl
     string accentImageUrl
   }
@@ -250,7 +251,8 @@ In-kind valuation catalogs live on `HourlyRate`. Creating an organization seeds 
 | defaultRateType | yes | `Volunteer` or `Professional`, default `Volunteer` |
 | preferences | yes | jsonb. `allowTimeEntryEditing` defaults to false. When false, a time entry update cannot change `startedAt`, `endedAt`, `durationMinutes`, or `occurredOn`. `entityLabels` holds display names for `organization`, `project`, `department`, and `taskCategory` (defaults: Organization, Project, Department, Task category). |
 | themeId | yes | Foreign key to Theme. Defaults to the seeded Clocked In global theme. |
-| wordmarkUrl | no | Sidebar wordmark. Stays on the organization so switching themes does not wipe marks. Uploads are resized to fit 800×200, stored privately, and served at `/brand/wordmark` for members. |
+| wordmarkUrl | no | Light-on-dark sidebar wordmark. Stays on the organization so switching themes does not wipe marks. Uploads are resized to fit 800×200, stored privately, and served at `/brand/wordmark` for members. |
+| wordmarkOnLightUrl | no | Dark-on-light wordmark for light surfaces. Same resize and private storage as `wordmarkUrl`, served at `/brand/wordmarkOnLight`. |
 | markUrl | no | Compact mark for favicon-sized use. Uploads are cropped to 64×64, stored privately, and served at `/brand/mark` for members. |
 | accentImageUrl | no | Decorative image for login, enrollment, empty states, and header bands, never behind tables or forms |
 

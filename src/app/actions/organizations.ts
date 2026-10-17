@@ -100,7 +100,7 @@ export async function deleteThemeAction(organizationId: string, themeId: string)
 
 function requireBrandKind(kind: string): BrandKind {
   if (!isBrandKind(kind)) {
-    validation("kind must be mark or wordmark.");
+    validation("kind must be mark, wordmark, or wordmarkOnLight.");
   }
 
   return kind;
@@ -155,5 +155,9 @@ export async function removeOrganizationBrandAction(
 }
 
 function assetLabel(kind: BrandKind) {
-  return kind === "mark" ? "Favicon" : "Logo";
+  if (kind === "mark") {
+    return "Favicon";
+  }
+
+  return kind === "wordmark" ? "Light on dark logo" : "Dark on light logo";
 }

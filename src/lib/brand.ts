@@ -109,15 +109,21 @@ export function chartColor(index: number) {
   return `var(--chart-${(index % 8) + 1})`;
 }
 
-export const brandKinds = ["mark", "wordmark"] as const;
+export const brandKinds = ["mark", "wordmark", "wordmarkOnLight"] as const;
 export type BrandKind = (typeof brandKinds)[number];
 
+const brandFields = {
+  mark: "markUrl",
+  wordmark: "wordmarkUrl",
+  wordmarkOnLight: "wordmarkOnLightUrl",
+} as const;
+
 export function isBrandKind(value: string): value is BrandKind {
-  return value === "mark" || value === "wordmark";
+  return value === "mark" || value === "wordmark" || value === "wordmarkOnLight";
 }
 
 export function brandField(kind: BrandKind) {
-  return kind === "mark" ? "markUrl" : "wordmarkUrl";
+  return brandFields[kind];
 }
 
 export function isVercelBlobUrl(url: string) {
@@ -139,4 +145,19 @@ export function brandAssetSrc(kind: BrandKind, storedUrl: string | null) {
   }
 
   return `/brand/${kind}?v=${encodeURIComponent(storedUrl)}`;
+}
+
+export function wordmarkSrc(
+  organization: { wordmarkUrl: string | null; wordmarkOnLightUrl: string | null } | null,
+  surface: "dark" | "light",
+) {
+  if (!organization) {
+    return null;
+  }
+
+  const preferred = surface === "dark" ? organization.wordmarkUrl : organization.wordmarkOnLightUrl;
+  const fallback = surface === "dark" ? organization.wordmarkOnLightUrl : organization.wordmarkUrl;
+  const preferredKind = surface === "dark" ? "wordmark" : "wordmarkOnLight";
+  const fallbackKind = surface === "dark" ? "wordmarkOnLight" : "wordmark";
+  return brandAssetSrc(preferredKind, preferred) ?? brandAssetSrc(fallbackKind, fallback);
 }

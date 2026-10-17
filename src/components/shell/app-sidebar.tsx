@@ -12,7 +12,7 @@ import {
   SidebarHeader,
   SidebarMenu,
 } from "@/components/ui/sidebar";
-import { brandAssetSrc } from "@/lib/brand";
+import { brandAssetSrc, wordmarkSrc } from "@/lib/brand";
 import type { Organization } from "@/lib/types";
 
 const sections = [
@@ -31,7 +31,7 @@ const sections = [
 
 export function AppSidebar({ organization, isAdmin }: { organization: Organization | null; isAdmin: boolean }) {
   const markUrl = brandAssetSrc("mark", organization?.markUrl ?? null);
-  const wordmarkUrl = brandAssetSrc("wordmark", organization?.wordmarkUrl ?? null);
+  const wordmarkUrl = wordmarkSrc(organization, "dark");
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="h-16 flex-row items-center gap-0 overflow-hidden border-b border-sidebar-border px-2 py-0">

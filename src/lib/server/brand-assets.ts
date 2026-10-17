@@ -97,6 +97,9 @@ export async function deleteBrandAsset(storedUrl: string | null) {
   }
 }
 
-export function storedBrandUrl(organization: { markUrl: string | null; wordmarkUrl: string | null }, kind: BrandKind) {
+export function storedBrandUrl(
+  organization: { markUrl: string | null; wordmarkUrl: string | null; wordmarkOnLightUrl: string | null },
+  kind: BrandKind,
+) {
   return organization[brandField(kind)];
 }
