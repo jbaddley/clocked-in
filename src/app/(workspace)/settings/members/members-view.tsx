@@ -571,6 +571,7 @@ function EditPersonForm({
   const [role, setRole] = useState(member.role.code);
   const [departmentIds, setDepartmentIds] = useState(member.departmentIds ?? []);
   const [profile, setProfile] = useState({
+    email: member.user.email,
     firstName: member.user.firstName ?? "",
     lastName: member.user.lastName ?? "",
     displayName: member.user.displayName ?? "",
@@ -587,6 +588,7 @@ function EditPersonForm({
   useEffect(() => {
     let cancelled = false;
     fetchJson<{
+      email: string;
       profile: {
         firstName: string;
         lastName: string;
@@ -600,6 +602,7 @@ function EditPersonForm({
       .then((user) => {
         if (cancelled || !user.profile) return;
         setProfile({
+          email: user.email,
           firstName: user.profile.firstName,
           lastName: user.profile.lastName,
           displayName: user.profile.displayName ?? "",
@@ -623,6 +626,7 @@ function EditPersonForm({
         save.mutate({
           role,
           departmentIds,
+          email: profile.email,
           firstName: profile.firstName,
           lastName: profile.lastName,
           displayName: profile.displayName.trim() || null,
@@ -645,6 +649,18 @@ function EditPersonForm({
           <DepartmentChecks value={departmentIds} onChange={setDepartmentIds} />
         </TabsContent>
         <TabsContent value="profile" className="mt-4 grid gap-4 sm:grid-cols-2">
+          <Field label="Email" htmlFor="edit-email" className="sm:col-span-2" hint="Invite and password codes go to this address.">
+            <Input
+              id="edit-email"
+              type="email"
+              autoComplete="email"
+              value={profile.email}
+              onChange={(event) => setProfile({ ...profile, email: event.target.value })}
+              required
+              maxLength={254}
+              className="h-9"
+            />
+          </Field>
           <Field label="First name" htmlFor="edit-firstName">
             <Input
               id="edit-firstName"

@@ -164,6 +164,11 @@ public sealed class MembershipsService(ClockedInDbContext db, Access access, Tim
             throw ApiException.Validation("professionalBillingRate is required when rateType is Professional.");
         }
 
+        if (request.Email.HasValue)
+        {
+            membership.User.Email = request.Email.Value;
+        }
+
         if (request.FirstName.HasValue
             || request.LastName.HasValue
             || request.DisplayName.HasValue

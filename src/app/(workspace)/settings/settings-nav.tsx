@@ -18,7 +18,7 @@ export function SettingsNav() {
     { href: "/settings/brand", label: "Brand", icon: ImageIcon },
   ];
   return (
-    <nav className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+    <nav className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0 lg:overflow-visible">
       <ul className="flex gap-1 border-b lg:flex-col lg:border-b-0">
         {items.map((item) => {
           const active = pathname.startsWith(item.href);
@@ -28,9 +28,9 @@ export function SettingsNav() {
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex items-center gap-2 border-b-2 px-3 py-2 text-sm whitespace-nowrap transition-colors lg:rounded-lg lg:border-b-0",
+                  "flex items-center gap-2 px-3 py-2 text-sm whitespace-nowrap transition-colors max-lg:border-b-2 lg:rounded-lg lg:border",
                   active
-                    ? "border-primary font-medium text-foreground lg:bg-card lg:shadow-xs lg:ring-1 lg:ring-foreground/10"
+                    ? "border-primary font-medium text-foreground lg:border-foreground/10 lg:bg-card lg:shadow-xs"
                     : "border-transparent text-muted-foreground hover:text-foreground lg:hover:bg-card/60",
                 )}
               >

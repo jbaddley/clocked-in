@@ -25,7 +25,14 @@ export type ReportSide = {
   byMonth?: ReportGroup[];
 };
 
-export type ReportPayload = { user: ReportSide; collective: ReportSide };
+export type UserReportSide = ReportSide & {
+  volunteers: number;
+  byPerson: ReportGroup[];
+  byVolunteer: ReportGroup[];
+  byMonth: ReportGroup[];
+};
+
+export type ReportPayload = { user: UserReportSide; collective: ReportSide };
 
 export type Organization = { id: string; name: string };
 

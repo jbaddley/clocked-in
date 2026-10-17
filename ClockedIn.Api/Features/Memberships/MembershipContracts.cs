@@ -126,7 +126,8 @@ public sealed record UpdateOrgMembershipRequest(
     Optional<string> Timezone,
     Optional<string?> Phone,
     Optional<string?> ZipCode,
-    Optional<string?> Notes)
+    Optional<string?> Notes,
+    Optional<string> Email)
 {
     public static async ValueTask<UpdateOrgMembershipRequest?> BindAsync(HttpContext context) => Parse(await Body.Read(context));
 
@@ -150,7 +151,8 @@ public sealed record UpdateOrgMembershipRequest(
             }),
             Optional.Read(body, "phone", (b, k) => UpdateUserRequest.Limited(b, k, 40, "phone is required.")),
             Optional.Read(body, "zipCode", (b, k) => UpdateUserRequest.Limited(b, k, 20, "zipCode must be 20 characters or fewer.")),
-            Optional.Read(body, "notes", (b, k) => UpdateUserRequest.Limited(b, k, 2000, "notes must be 2000 characters or fewer.")));
+            Optional.Read(body, "notes", (b, k) => UpdateUserRequest.Limited(b, k, 2000, "notes must be 2000 characters or fewer.")),
+            Optional.Read(body, "email", (b, k) => Fields.NormalizeEmail(Fields.RequiredString(b, k))));
         if (!request.Role.HasValue
             && !request.RateType.HasValue
             && !request.ProfessionalBillingRate.HasValue
@@ -163,7 +165,8 @@ public sealed record UpdateOrgMembershipRequest(
             && !request.Timezone.HasValue
             && !request.Phone.HasValue
             && !request.ZipCode.HasValue
-            && !request.Notes.HasValue)
+            && !request.Notes.HasValue
+            && !request.Email.HasValue)
         {
             throw ApiException.Validation("Provide at least one field to update.");
         }

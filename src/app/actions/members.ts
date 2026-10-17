@@ -30,6 +30,7 @@ export type MemberPatch = {
   phone?: string | null;
   zipCode?: string | null;
   notes?: string | null;
+  email?: string;
 };
 
 export type NewPerson = {

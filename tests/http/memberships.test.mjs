@@ -295,10 +295,19 @@ describe("memberships", suite, () => {
     });
     assertError(forbidden, 403, "forbidden", "Forbidden.");
 
+    const denied = await callApi(`/organizations/${ctx.org.id}/memberships/${added.id}`, {
+      method: "PATCH",
+      token: ctx.member.accessToken,
+      body: { email: "member-change@example.com" },
+    });
+    assertError(denied, 403, "forbidden", "Forbidden.");
+
+    const nextEmail = `patched.${existing.email}`;
     const profile = await callApi(`/organizations/${ctx.org.id}/memberships/${added.id}`, {
       method: "PATCH",
       token: ctx.second.accessToken,
       body: {
+        email: nextEmail.toUpperCase(),
         firstName: "Patched",
         lastName: "Name",
         displayName: "Patched Name",
@@ -306,10 +315,18 @@ describe("memberships", suite, () => {
       },
     });
     assert.equal(profile.status, 200);
+    assert.equal(profile.json.user.email, nextEmail);
     assert.equal(profile.json.user.firstName, "Patched");
     assert.equal(profile.json.user.lastName, "Name");
     assert.equal(profile.json.user.displayName, "Patched Name");
     assert.deepEqual(profile.json.departmentIds, [ctx.department.id, extraDepartment.id].sort());
+
+    const taken = await callApi(`/organizations/${ctx.org.id}/memberships/${added.id}`, {
+      method: "PATCH",
+      token: ctx.second.accessToken,
+      body: { email: person.email },
+    });
+    assertError(taken, 409, "conflict", "That email is already in use.");
 
     await remove(ctx.second.accessToken, `/organizations/${ctx.org.id}/memberships/${added.id}`);
     const stillExists = await callApi("/auth/login", {

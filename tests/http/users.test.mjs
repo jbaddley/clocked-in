@@ -67,6 +67,24 @@ describe("users", suite, () => {
     assert.equal(response.json.isSuperAdmin, false);
   });
 
+  test("patch me updates the email", async () => {
+    const next = `updated-${ctx.owner.email}`;
+    const response = await callApi("/users/me", {
+      method: "PATCH",
+      token: ctx.owner.accessToken,
+      body: { email: next.toUpperCase() },
+    });
+    assert.equal(response.status, 200);
+    assert.equal(response.json.email, next.toLowerCase());
+    const restored = await callApi("/users/me", {
+      method: "PATCH",
+      token: ctx.owner.accessToken,
+      body: { email: ctx.owner.email },
+    });
+    assert.equal(restored.status, 200);
+    assert.equal(restored.json.email, ctx.owner.email);
+  });
+
   test("patch me changes the password only with the current password", async () => {
     const missing = await callApi("/users/me", {
       method: "PATCH",

@@ -166,6 +166,7 @@ export type UpdateOrgMembershipRequest = {
   phone: Optional<string | null>;
   zipCode: Optional<string | null>;
   notes: Optional<string | null>;
+  email: Optional<string>;
 };
 
 export function parseUpdateOrgMembership(body: Body): UpdateOrgMembershipRequest {
@@ -190,6 +191,7 @@ export function parseUpdateOrgMembership(body: Body): UpdateOrgMembershipRequest
     phone: optional(body, "phone", (b, k) => limited(b, k, 40, "phone is required.")),
     zipCode: optional(body, "zipCode", (b, k) => limited(b, k, 20, "zipCode must be 20 characters or fewer.")),
     notes: optional(body, "notes", (b, k) => limited(b, k, 2000, "notes must be 2000 characters or fewer.")),
+    email: optional(body, "email", (b, k) => normalizeEmail(requireString(b, k))),
   };
   if (
     !request.role.set &&
@@ -204,7 +206,8 @@ export function parseUpdateOrgMembership(body: Body): UpdateOrgMembershipRequest
     !request.timezone.set &&
     !request.phone.set &&
     !request.zipCode.set &&
-    !request.notes.set
+    !request.notes.set &&
+    !request.email.set
   ) {
     validation("Provide at least one field to update.");
   }
@@ -366,6 +369,13 @@ export async function updateOrgMembership(
       : request.departmentIds.set
         ? (request.departmentIds.value[0] ?? null)
         : undefined;
+
+    if (request.email.set) {
+      await tx.user.update({
+        where: { id: membership.userId },
+        data: { email: request.email.value },
+      });
+    }
 
     if (
       request.firstName.set ||
