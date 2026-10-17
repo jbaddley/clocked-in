@@ -96,7 +96,7 @@ public static class EfConnection
         if (connectionString.StartsWith("sqlserver://", StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException(
-                "EF_DATABASE_URL is a SQL Server URL. This API host uses PostgreSQL. Production SQL Server is served by the deployed C# API (API_TARGET=csharp).");
+                "EF_DATABASE_URL must be a postgres:// or postgresql:// URL. This API uses PostgreSQL.");
         }
 
         if (!connectionString.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase)

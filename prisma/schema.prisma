@@ -4,9 +4,6 @@ generator client {
   previewFeatures = ["partialIndexes", "postgresqlExtensions"]
 }
 
-// Local and staging use this PostgreSQL schema with the Next.js API.
-// Production DATABASE_PROVIDER is sqlserver and API_TARGET is csharp. Prisma's SQL Server
-// connector cannot model this schema (Json, enums, citext, partial indexes, onDelete: Restrict).
 datasource db {
   provider   = "postgresql"
   extensions = [citext]

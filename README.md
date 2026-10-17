@@ -1,6 +1,6 @@
 # Clocked In
 
-Next.js app with Tailwind CSS, shadcn/ui, and Prisma. Local and staging use PostgreSQL and the Next.js API. Production uses SQL Server and the C# API.
+Next.js app with Tailwind CSS, shadcn/ui, and Prisma. Local, staging, and production use PostgreSQL.
 
 ## Stack
 
@@ -28,9 +28,9 @@ Open [http://localhost:3025](http://localhost:3025).
 | --- | --- | --- | --- |
 | Local | `.env` | PostgreSQL | Next.js |
 | Staging | `.env.staging` | PostgreSQL | Next.js |
-| Production | `.env.production` | SQL Server | C# |
+| Production | `.env.production` | PostgreSQL | Next.js |
 
-`APP_ENV` is `local`, `staging`, or `production`. `DATABASE_PROVIDER` is `postgresql` or `sqlserver`. `API_TARGET` is `next` or `csharp`. Production also sets `API_BASE_URL` to the C# API origin.
+`APP_ENV` is `local`, `staging`, or `production`. `DATABASE_PROVIDER` is `postgresql`. `API_TARGET` is `next` for the Next.js API and `csharp` when the contract tests call the .NET API.
 
 ```bash
 npm run dev
@@ -40,7 +40,7 @@ npm run build:production
 npm run env:print
 ```
 
-The Prisma schema stays `postgresql`. That client is the Next.js API on local and staging. Prisma's SQL Server connector cannot represent this schema (`Json`, enums, `citext`, partial indexes, `onDelete: Restrict`). A production process with `API_TARGET=csharp` does not open Prisma. Server actions still call the in-process Next.js API; point those calls at `API_BASE_URL` when the production UI should use the deployed C# API.
+The Prisma schema uses the PostgreSQL provider. Prisma and the .NET API both read a `postgres://` or `postgresql://` URL.
 
 ## Database
 
@@ -76,5 +76,5 @@ Import this repo in [Vercel](https://vercel.com/new). The build command is `npm 
 
 Vercel sets `NODE_ENV=production` for both Production and Preview, so Next.js would load `.env.production` for a staging deploy if that file were in the repo. Leave `.env`, `.env.staging`, and `.env.production` uncommitted. Set the variables in the Vercel project instead:
 
-- **Production** — the values from `.env.production`: `APP_ENV=production`, `DATABASE_PROVIDER=sqlserver`, `API_TARGET=csharp`, `API_BASE_URL`, and the `sqlserver://` `DATABASE_URL`.
-- **Preview** — the values from `.env.staging`: `APP_ENV=staging`, `DATABASE_PROVIDER=postgresql`, `API_TARGET=next`, and the staging `postgresql://` `DATABASE_URL`. Preview is staging. A custom environment named `staging` is treated the same way.
+- **Production** — the values from `.env.production`: `APP_ENV=production`, `DATABASE_PROVIDER=postgresql`, `API_TARGET=next`, and the production `postgres://` or `postgresql://` `DATABASE_URL`.
+- **Preview** — the values from `.env.staging`: `APP_ENV=staging`, `DATABASE_PROVIDER=postgresql`, `API_TARGET=next`, and the staging Postgres URL. Preview is staging. A custom environment named `staging` is treated the same way.

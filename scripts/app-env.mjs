@@ -66,50 +66,31 @@ export function loadAppEnv({ appEnv, forceFile = false } = {}) {
   }
 
   process.env.APP_ENV = resolved;
-  if (resolved !== "production") {
-    process.env.DATABASE_PROVIDER ||= "postgresql";
-    process.env.API_TARGET ||= "next";
-  }
+  process.env.API_TARGET ||= "next";
+  process.env.DATABASE_PROVIDER = normalizeProvider(process.env.DATABASE_PROVIDER);
 
   return resolved;
 }
 
 export function assertAppEnv() {
   const appEnv = requireAppEnv(process.env.APP_ENV?.trim() || detectAppEnv(), "APP_ENV");
-  const provider = process.env.DATABASE_PROVIDER?.trim();
-  const api = process.env.API_TARGET?.trim();
-
-  if (appEnv === "production") {
-    if (provider !== "sqlserver") {
-      throw new Error(
-        `Production DATABASE_PROVIDER must be "sqlserver"${seen(provider)}. Set it in .env.production and in the Vercel Production environment.`,
-      );
-    }
-    if (api !== "csharp") {
-      throw new Error(
-        `Production API_TARGET must be "csharp"${seen(api)}. The production app calls the C# API.`,
-      );
-    }
-    if (!process.env.API_BASE_URL?.trim()) {
-      throw new Error("Production API_BASE_URL must be the C# API origin, with no trailing path.");
-    }
-    if (!isSqlServerUrl(process.env.DATABASE_URL)) {
-      throw new Error("Production DATABASE_URL must be a sqlserver:// URL.");
-    }
-    return;
+  process.env.DATABASE_PROVIDER = normalizeProvider(process.env.DATABASE_PROVIDER);
+  const api = process.env.API_TARGET?.trim() || "next";
+  if (api !== "next" && api !== "csharp") {
+    throw new Error(`API_TARGET must be "next" or "csharp"${seen(api)}.`);
   }
 
-  if (provider !== "postgresql") {
-    throw new Error(`${label(appEnv)} DATABASE_PROVIDER must be "postgresql"${seen(provider)}.`);
-  }
-  if (api !== "next") {
-    throw new Error(`${label(appEnv)} API_TARGET must be "next"${seen(api)}.`);
-  }
   if (process.env.VERCEL && !isPostgresUrl(process.env.DATABASE_URL)) {
     throw new Error(
-      `${label(appEnv)} DATABASE_URL must be a postgresql:// URL. Preview deployments on Vercel use the staging settings.`,
+      `${label(appEnv)} DATABASE_URL must be a postgresql:// or postgres:// URL. Set it in the Vercel ${appEnv === "production" ? "Production" : "Preview"} environment.`,
     );
   }
+}
+
+export function normalizeProvider(value) {
+  const raw = (value ?? "").trim().toLowerCase();
+  if (raw === "" || raw === "postgres" || raw === "postgresql" || raw === "postgressql") return "postgresql";
+  throw new Error(`DATABASE_PROVIDER must be "postgresql"${seen(value)}.`);
 }
 
 function requireAppEnv(value, source) {
@@ -149,10 +130,6 @@ function parseEnv(text) {
 
 function isPostgresUrl(value) {
   return value?.startsWith("postgresql://") || value?.startsWith("postgres://") || false;
-}
-
-function isSqlServerUrl(value) {
-  return value?.startsWith("sqlserver://") || false;
 }
 
 function label(appEnv) {
