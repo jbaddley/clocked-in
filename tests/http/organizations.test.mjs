@@ -105,6 +105,14 @@ describe("organizations", suite, () => {
       taskCategory: "Task Category",
     };
     const createdTheme = await createJson(ctx.admin.accessToken, `/organizations/${ctx.org.id}/themes`, themeBody());
+    const categoricalPalette = ["#001836", "#D4AC59", "#4EBFAE", "#FF5E9F", "#738091", "#EAD6AC"];
+    const savedTheme = await callApi(`/organizations/${ctx.org.id}/themes/${createdTheme.id}`, {
+      method: "PATCH",
+      token: ctx.admin.accessToken,
+      body: themeBody({ name: createdTheme.name, categoricalPalette }),
+    });
+    assert.equal(savedTheme.status, 200);
+    assert.deepEqual(savedTheme.json.categoricalPalette, categoricalPalette);
     const updated = await callApi(`/organizations/${ctx.org.id}`, {
       method: "PATCH",
       token: ctx.admin.accessToken,

@@ -4,14 +4,17 @@ import { refresh } from "next/cache";
 import { cookies } from "next/headers";
 import {
   createOrganization,
+  getOrganization,
   parseName,
   parseUpdateOrganization,
   updateOrganization,
   type OrganizationPreferences,
 } from "@/lib/api/features/organizations";
 import { createTheme, deleteTheme, updateTheme, type ThemeWriteRequest } from "@/lib/api/features/themes";
-import { forbidden } from "@/lib/api/errors";
+import { forbidden, validation } from "@/lib/api/errors";
+import { brandField, isBrandKind, isVercelBlobUrl, type BrandKind } from "@/lib/brand";
 import { run, text } from "@/lib/server/action";
+import { deleteBrandAsset, putBrandAsset, resizeBrandImage, storedBrandUrl } from "@/lib/server/brand-assets";
 import { getOrganizations } from "@/lib/server/dal";
 import { requireAccess } from "@/lib/server/session";
 import { writeOrganization } from "@/lib/server/session-cookies";
@@ -93,4 +96,64 @@ export async function deleteThemeAction(organizationId: string, themeId: string)
     await deleteTheme(access, organizationId, themeId);
     refresh();
   }, "Theme deleted.");
+}
+
+function requireBrandKind(kind: string): BrandKind {
+  if (!isBrandKind(kind)) {
+    validation("kind must be mark or wordmark.");
+  }
+
+  return kind;
+}
+
+export async function uploadOrganizationBrandAction(
+  organizationId: string,
+  kind: BrandKind,
+  _: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  return run(async () => {
+    const access = await requireAccess();
+    const asset = requireBrandKind(kind);
+    const organization = await getOrganization(access, organizationId);
+    const file = formData.get("file");
+    if (!(file instanceof File)) {
+      validation("Choose an image to upload.");
+    }
+
+    const buffer = await resizeBrandImage(file, asset);
+    const blob = await putBrandAsset(organizationId, asset, buffer);
+    const previous = storedBrandUrl(organization, asset);
+    await updateOrganization(
+      access,
+      organizationId,
+      parseUpdateOrganization({ [brandField(asset)]: blob.url }),
+    );
+    if (previous && isVercelBlobUrl(previous) && previous !== blob.url) {
+      await deleteBrandAsset(previous);
+    }
+
+    refresh();
+  }, `${assetLabel(kind)} saved.`);
+}
+
+export async function removeOrganizationBrandAction(
+  organizationId: string,
+  kind: BrandKind,
+  _: ActionResult | null,
+  _formData?: FormData,
+): Promise<ActionResult> {
+  return run(async () => {
+    const access = await requireAccess();
+    const asset = requireBrandKind(kind);
+    const organization = await getOrganization(access, organizationId);
+    const previous = storedBrandUrl(organization, asset);
+    await updateOrganization(access, organizationId, parseUpdateOrganization({ [brandField(asset)]: null }));
+    await deleteBrandAsset(previous);
+    refresh();
+  }, `${assetLabel(kind)} removed.`);
+}
+
+function assetLabel(kind: BrandKind) {
+  return kind === "mark" ? "Favicon" : "Logo";
 }

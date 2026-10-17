@@ -151,8 +151,8 @@ public class ClockedInDbContext(DbContextOptions<ClockedInDbContext> options, Ti
                 AND "surface" ~ '^#[0-9A-Fa-f]{6}$'
                 AND "surfaceForeground" ~ '^#[0-9A-Fa-f]{6}$'
                 AND "foreground" ~ '^#[0-9A-Fa-f]{6}$'
-                AND "headingFont" IN ('SourceSans3', 'NunitoSans', 'Geist')
-                AND "bodyFont" IN ('SourceSans3', 'NunitoSans', 'Geist')
+                AND "headingFont" IN ('HelveticaNeue', 'AvenirNext', 'SourceSans3', 'NunitoSans', 'Geist')
+                AND "bodyFont" IN ('HelveticaNeue', 'AvenirNext', 'SourceSans3', 'NunitoSans', 'Geist')
                 AND left("categoricalPalette", 1) = '['
                 AND left("sequentialPalette", 1) = '['
                 AND left("divergingPalette", 1) = '['

@@ -85,8 +85,8 @@ function hex(body: Body, key: string) {
 
 function font(body: Body, key: string) {
   const value = requireString(body, key);
-  if (value !== "SourceSans3" && value !== "NunitoSans" && value !== "Geist") {
-    validation(`${key} must be SourceSans3, NunitoSans, or Geist.`);
+  if (value !== "HelveticaNeue" && value !== "AvenirNext" && value !== "SourceSans3" && value !== "NunitoSans" && value !== "Geist") {
+    validation(`${key} must be HelveticaNeue, AvenirNext, SourceSans3, NunitoSans, or Geist.`);
   }
 
   return value;

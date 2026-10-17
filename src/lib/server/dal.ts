@@ -13,7 +13,7 @@ import { listTags } from "@/lib/api/features/tags";
 import { listTaskCategories } from "@/lib/api/features/task-categories";
 import { listTimeEntries } from "@/lib/api/features/time-entries";
 import { organizationCookie } from "@/lib/server/session-cookies";
-import { requireAccess } from "@/lib/server/session";
+import { getAccess, requireAccess } from "@/lib/server/session";
 import type { DateRange, GroupDepartments, Lookups, Viewer } from "@/lib/types";
 
 export function searchParamsFor(values: Record<string, string | number | undefined | null>) {
@@ -67,6 +67,20 @@ export const getWorkspace = cache(async () => {
       ? "all"
       : await access.adminDepartmentIds(organization.id);
   return { viewer, organizations, organization, isAdmin, canSelectRate, role, groupDepartments };
+});
+
+export const getCurrentOrganization = cache(async () => {
+  const access = await getAccess();
+  if (!access) {
+    return null;
+  }
+
+  const [organizations, store] = await Promise.all([
+    listOrganizations(access, searchParamsFor({ limit: 100 })),
+    cookies(),
+  ]);
+  const stored = store.get(organizationCookie)?.value;
+  return organizations.items.find((item) => item.id === stored) ?? organizations.items[0] ?? null;
 });
 
 export const getLookups = cache(async (organizationId: string): Promise<Lookups> => {

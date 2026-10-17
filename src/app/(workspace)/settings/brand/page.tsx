@@ -1,5 +1,8 @@
-import { redirect } from "next/navigation";
+import type { Metadata } from "next";
+import { BrandForm } from "./brand-form";
+
+export const metadata: Metadata = { title: "Brand settings" };
 
 export default function BrandSettingsPage() {
-  redirect("/settings/theme");
+  return <BrandForm />;
 }

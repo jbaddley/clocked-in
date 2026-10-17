@@ -190,9 +190,9 @@ public sealed record ThemeWriteRequest(
     private static string Font(JsonObject body, string key)
     {
         var value = Fields.RequiredString(body, key);
-        if (value is not ("SourceSans3" or "NunitoSans" or "Geist"))
+        if (value is not ("HelveticaNeue" or "AvenirNext" or "SourceSans3" or "NunitoSans" or "Geist"))
         {
-            throw ApiException.Validation($"{key} must be SourceSans3, NunitoSans, or Geist.");
+            throw ApiException.Validation($"{key} must be HelveticaNeue, AvenirNext, SourceSans3, NunitoSans, or Geist.");
         }
 
         return value;

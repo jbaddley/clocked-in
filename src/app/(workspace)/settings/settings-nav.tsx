@@ -1,6 +1,6 @@
 "use client";
 
-import { BuildingIcon, ListTreeIcon, NetworkIcon, PaletteIcon, UsersIcon } from "lucide-react";
+import { BuildingIcon, ImageIcon, ListTreeIcon, NetworkIcon, PaletteIcon, UsersIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "cn";
@@ -15,6 +15,7 @@ export function SettingsNav() {
     { href: "/settings/lists", label: `${copy.projects} & lists`, icon: ListTreeIcon },
     { href: "/settings/members", label: "People", icon: UsersIcon },
     { href: "/settings/theme", label: "Themes", icon: PaletteIcon },
+    { href: "/settings/brand", label: "Brand", icon: ImageIcon },
   ];
   return (
     <nav className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">

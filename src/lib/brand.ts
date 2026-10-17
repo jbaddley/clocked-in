@@ -1,9 +1,19 @@
 import type { CSSProperties } from "react";
 import type { ThemeJson } from "@/lib/api/features/themes";
 
-export const brandFonts = ["SourceSans3", "NunitoSans", "Geist"] as const;
+export const brandFonts = ["HelveticaNeue", "AvenirNext", "SourceSans3", "NunitoSans", "Geist"] as const;
+
+export const brandFontLabels: Record<(typeof brandFonts)[number], string> = {
+  HelveticaNeue: "Helvetica Neue",
+  AvenirNext: "Avenir Next",
+  SourceSans3: "Source Sans 3",
+  NunitoSans: "Nunito Sans",
+  Geist: "Geist",
+};
 
 const fontVars: Record<string, string> = {
+  HelveticaNeue: '"Helvetica Neue", Helvetica, Arial, var(--font-source-sans), sans-serif',
+  AvenirNext: '"Avenir Next", Avenir, var(--font-nunito), sans-serif',
   SourceSans3: "var(--font-source-sans)",
   NunitoSans: "var(--font-nunito)",
   Geist: "var(--font-geist)",
@@ -72,14 +82,23 @@ export function brandStyle(theme: ThemeJson | null): CSSProperties {
     "--sidebar-accent": `color-mix(in oklch, ${theme.primaryForeground} 12%, transparent)`,
     "--sidebar-accent-foreground": theme.primaryForeground,
     "--sidebar-border": `color-mix(in oklch, ${theme.primaryForeground} 14%, transparent)`,
-    "--accent": theme.accent,
+    "--accent": `color-mix(in oklch, ${theme.accent} 14%, ${theme.surface})`,
+    "--accent-foreground": theme.foreground,
     "--highlight": theme.highlight,
     "--success": theme.success,
+    "--background": theme.surface,
     "--card": theme.surface,
     "--popover": theme.surface,
     "--foreground": theme.foreground,
     "--card-foreground": theme.surfaceForeground,
     "--popover-foreground": theme.surfaceForeground,
+    "--muted": `color-mix(in oklch, ${theme.foreground} 6%, ${theme.surface})`,
+    "--muted-foreground": `color-mix(in oklch, ${theme.foreground} 72%, ${theme.surface})`,
+    "--secondary": `color-mix(in oklch, ${theme.foreground} 8%, ${theme.surface})`,
+    "--secondary-foreground": theme.foreground,
+    "--border": `color-mix(in oklch, ${theme.foreground} 12%, ${theme.surface})`,
+    "--input": `color-mix(in oklch, ${theme.foreground} 12%, ${theme.surface})`,
+    "--brand-accent-image": `linear-gradient(90deg, ${theme.accent}, ${theme.highlight}, ${theme.success})`,
     "--font-sans": fontVars[theme.bodyFont] ?? "var(--font-geist)",
     "--font-heading": fontVars[theme.headingFont] ?? "var(--font-geist)",
     ...chartVars,
@@ -88,4 +107,36 @@ export function brandStyle(theme: ThemeJson | null): CSSProperties {
 
 export function chartColor(index: number) {
   return `var(--chart-${(index % 8) + 1})`;
+}
+
+export const brandKinds = ["mark", "wordmark"] as const;
+export type BrandKind = (typeof brandKinds)[number];
+
+export function isBrandKind(value: string): value is BrandKind {
+  return value === "mark" || value === "wordmark";
+}
+
+export function brandField(kind: BrandKind) {
+  return kind === "mark" ? "markUrl" : "wordmarkUrl";
+}
+
+export function isVercelBlobUrl(url: string) {
+  try {
+    const { hostname } = new URL(url);
+    return hostname === "blob.vercel-storage.com" || hostname.endsWith(".blob.vercel-storage.com");
+  } catch {
+    return url.startsWith("orgs/");
+  }
+}
+
+export function brandAssetSrc(kind: BrandKind, storedUrl: string | null) {
+  if (!storedUrl) {
+    return null;
+  }
+
+  if (/^https?:\/\//i.test(storedUrl) && !isVercelBlobUrl(storedUrl)) {
+    return storedUrl;
+  }
+
+  return `/brand/${kind}?v=${encodeURIComponent(storedUrl)}`;
 }

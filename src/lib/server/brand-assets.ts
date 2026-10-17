@@ -1,0 +1,102 @@
+import "server-only";
+import { BlobNotFoundError, del, get, put } from "@vercel/blob";
+import sharp from "sharp";
+import { fail, validation } from "@/lib/api/errors";
+import { brandField, isVercelBlobUrl, type BrandKind } from "@/lib/brand";
+
+const maxUploadBytes = 4 * 1024 * 1024;
+const allowedTypes = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
+const allowedFormats = new Set(["png", "jpeg", "webp", "gif"]);
+
+function blobToken() {
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  if (!token) {
+    fail(500, "server_error", "Blob storage is not configured.");
+  }
+
+  return token;
+}
+
+function pathnameFor(organizationId: string, kind: BrandKind) {
+  return `orgs/${organizationId}/${kind}.webp`;
+}
+
+export async function resizeBrandImage(file: File, kind: BrandKind) {
+  if (!(file instanceof File) || file.size === 0) {
+    validation("Choose an image to upload.");
+  }
+
+  if (file.size > maxUploadBytes) {
+    validation("Image must be 4 MB or smaller.");
+  }
+
+  if (file.type && !allowedTypes.has(file.type)) {
+    validation("Upload a PNG, JPEG, WebP, or GIF image.");
+  }
+
+  const input = Buffer.from(await file.arrayBuffer());
+  let image: ReturnType<typeof sharp>;
+  try {
+    image = sharp(input, { failOn: "none", pages: 1 }).rotate();
+  } catch {
+    validation("Upload a PNG, JPEG, WebP, or GIF image.");
+  }
+
+  const metadata = await image.metadata();
+  if (!metadata.format || !allowedFormats.has(metadata.format)) {
+    validation("Upload a PNG, JPEG, WebP, or GIF image.");
+  }
+
+  const resized =
+    kind === "mark"
+      ? image.resize(64, 64, { fit: "cover", position: "centre" })
+      : image.resize(800, 200, { fit: "inside", withoutEnlargement: true });
+
+  try {
+    return await resized.webp({ quality: 85, alphaQuality: 90 }).toBuffer();
+  } catch {
+    validation("Upload a PNG, JPEG, WebP, or GIF image.");
+  }
+}
+
+export async function putBrandAsset(organizationId: string, kind: BrandKind, buffer: Buffer) {
+  return put(pathnameFor(organizationId, kind), buffer, {
+    access: "private",
+    addRandomSuffix: false,
+    allowOverwrite: true,
+    contentType: "image/webp",
+    token: blobToken(),
+  });
+}
+
+export async function readBrandAsset(storedUrl: string) {
+  try {
+    return await get(storedUrl, { access: "private", token: blobToken(), useCache: false });
+  } catch (error) {
+    if (error instanceof BlobNotFoundError) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+export async function deleteBrandAsset(storedUrl: string | null) {
+  if (!storedUrl || !isVercelBlobUrl(storedUrl)) {
+    return;
+  }
+
+  try {
+    await del(storedUrl, { token: blobToken() });
+  } catch (error) {
+    if (error instanceof BlobNotFoundError) {
+      return;
+    }
+
+    throw error;
+  }
+}
+
+export function storedBrandUrl(organization: { markUrl: string | null; wordmarkUrl: string | null }, kind: BrandKind) {
+  return organization[brandField(kind)];
+}

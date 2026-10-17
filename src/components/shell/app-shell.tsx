@@ -3,7 +3,7 @@ import { OrgSwitcher } from "@/components/shell/org-switcher";
 import { TimerChip } from "@/components/shell/timer-chip";
 import { UserMenu } from "@/components/shell/user-menu";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { brandCss } from "@/lib/brand";
+import { brandAssetSrc, brandCss } from "@/lib/brand";
 import type { Organization } from "@/lib/types";
 
 export function AppShell({
@@ -18,9 +18,11 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const css = brandCss(organization?.theme ?? null);
+  const icon = organization ? brandAssetSrc("mark", organization.markUrl) : null;
   return (
     <SidebarProvider defaultOpen={sidebarOpen}>
       {css ? <style>{css}</style> : null}
+      {icon ? <link rel="icon" href={icon} type="image/webp" /> : null}
       <AppSidebar organization={organization} isAdmin={isAdmin} />
       <SidebarInset className="min-w-0 bg-muted/40">
         <header className="sticky top-0 z-20 shrink-0 bg-background/90 backdrop-blur">

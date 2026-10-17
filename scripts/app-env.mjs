@@ -120,7 +120,10 @@ function parseEnv(text) {
     if (separator <= 0) continue;
     const key = body.slice(0, separator).trim();
     let value = body.slice(separator + 1).trim();
-    if (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
+    if (
+      value.length >= 2 &&
+      ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'")))
+    ) {
       value = value.slice(1, -1);
     }
     entries.push([key, value]);

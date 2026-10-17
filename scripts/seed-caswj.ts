@@ -4,110 +4,26 @@ import { fileURLToPath } from "node:url";
 import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
 import { config } from "dotenv";
-import ExcelJS from "exceljs";
 import { PrismaClient } from "../src/generated/prisma/client";
+import {
+  baseCaswjTheme,
+  baseCaswjThemeName,
+  caswjLabels,
+  caswjSourceRefPrefix,
+  clockedInThemeId,
+  departmentNames,
+  inKindFromMinutes,
+  loadCaswjWorkbook,
+  localEmail,
+  money,
+  onDate,
+  orgName,
+  slug,
+} from "./caswj-workbook";
 
-config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../.env") });
-
-const clockedInThemeId = "44444444-4444-4444-8444-444444444441";
-const orgName = "CASWJ";
-const workbookPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../docs/base/Volunteer Hours.xlsx");
-const departmentNames = [
-  "Literary Arts Society",
-  "Sugar Factory Playhouse",
-  "Visual Arts Society",
-  "West Jordan Community Band",
-  "West Jordan Jazz Band",
-  "West Jordan Symphony",
-  "West Jordan Winds",
-  "West Jordan Youth Theatre",
-];
-const caswjLabels = {
-  organization: "Organization",
-  project: "Project / Event",
-  department: "Group",
-  taskCategory: "Task Category",
-};
-
-function cell(value: ExcelJS.CellValue): unknown {
-  if (value == null) {
-    return null;
-  }
-
-  if (typeof value === "object" && "result" in value) {
-    return cell(value.result as ExcelJS.CellValue);
-  }
-
-  if (typeof value === "object" && "text" in value && typeof value.text === "string") {
-    return value.text;
-  }
-
-  if (typeof value === "object" && "richText" in value && Array.isArray(value.richText)) {
-    return value.richText.map((part) => part.text).join("");
-  }
-
-  return value;
-}
-
-function text(value: unknown) {
-  if (value == null) {
-    return "";
-  }
-
-  return String(value).trim();
-}
-
-function slug(value: string) {
-  return value
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[^a-z0-9]+/g, ".")
-    .replace(/^\.+|\.+$/g, "")
-    .replace(/\.{2,}/g, ".");
-}
-
-function localEmail(username: string) {
-  return `${username}+caswj@clocked-in.local`;
-}
-
-function onDate(occurredOn: Date, clock: Date | null) {
-  if (!clock) {
-    return null;
-  }
-
-  return new Date(
-    Date.UTC(occurredOn.getUTCFullYear(), occurredOn.getUTCMonth(), occurredOn.getUTCDate(), clock.getUTCHours(), clock.getUTCMinutes(), 0, 0),
-  );
-}
-
-function asDate(value: unknown) {
-  return value instanceof Date ? value : null;
-}
-
-function cents(value: number) {
-  return Math.round(Number(`${value}e2`));
-}
-
-function money(value: number) {
-  return cents(value) / 100;
-}
-
-function inKindFromMinutes(durationMinutes: number, hourlyRate: number) {
-  return Math.round((durationMinutes * cents(hourlyRate)) / 60) / 100;
-}
-
-function asNumber(value: unknown) {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-
-  if (typeof value === "string" && value.trim().length > 0) {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-
-  return null;
-}
+const envFiles = { local: ".env", staging: ".env.staging", production: ".env.production" } as const;
+const appEnv = process.env.APP_ENV === "production" || process.env.APP_ENV === "staging" ? process.env.APP_ENV : "local";
+config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), `../${envFiles[appEnv]}`) });
 
 function prismaClient() {
   const connectionString = process.env.DATABASE_URL;
@@ -124,151 +40,7 @@ async function main() {
     throw new Error("SEED_SUPERADMIN_PASSWORD is required.");
   }
 
-  const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.readFile(workbookPath);
-  const lists = workbook.getWorksheet("Lists & Settings");
-  const volunteersSheet = workbook.getWorksheet("Volunteers");
-  const log = workbook.getWorksheet("Volunteer Log");
-  if (!lists || !volunteersSheet || !log) {
-    throw new Error("Volunteer Hours.xlsx is missing Lists & Settings, Volunteers, or Volunteer Log.");
-  }
-
-  const categories = new Set<string>();
-  const projectTitles = new Set<string>(["General / No Specific Project"]);
-  lists.eachRow((row, number) => {
-    if (number >= 2 && number <= 5) {
-      const category = text(cell(row.getCell(7).value));
-      if (category) {
-        categories.add(category);
-      }
-    }
-
-    if (number >= 21) {
-      const title = text(cell(row.getCell(1).value));
-      if (title && title !== "Project / Event") {
-        projectTitles.add(title);
-      }
-    }
-  });
-
-  const people = new Map<
-    string,
-    { firstName: string; lastName: string; displayName: string; memberNumber: string; active: boolean; email?: string }
-  >();
-  volunteersSheet.eachRow((row, number) => {
-    if (number === 1) {
-      return;
-    }
-
-    const firstName = text(cell(row.getCell(2).value));
-    const lastName = text(cell(row.getCell(3).value));
-    if (!firstName && !lastName) {
-      return;
-    }
-
-    const displayName = text(cell(row.getCell(4).value)) || `${firstName} ${lastName}`.trim();
-    const memberNumber = text(cell(row.getCell(1).value)).padStart(3, "0");
-    people.set(displayName.toLowerCase(), {
-      firstName,
-      lastName,
-      displayName,
-      memberNumber,
-      active: text(cell(row.getCell(8).value)).toLowerCase() !== "no",
-    });
-  });
-
-  type LogRow = {
-    sheetRow: number;
-    occurredOn: Date;
-    project: string;
-    volunteer: string;
-    group: string;
-    category: string;
-    startedAt: Date | null;
-    endedAt: Date | null;
-    hours: number;
-    rateType: string;
-    hourlyRate: number;
-    inKind: number;
-    tags: string[];
-    enteredBy: string;
-    createdAt: Date;
-    notes: string;
-    volunteerId: string;
-  };
-  const logRows: LogRow[] = [];
-  log.eachRow((row, number) => {
-    if (number === 1) {
-      return;
-    }
-
-    const occurredOn = asDate(cell(row.getCell(1).value));
-    if (!occurredOn) {
-      return;
-    }
-
-    const volunteer = text(cell(row.getCell(3).value));
-    const project = text(cell(row.getCell(2).value)) || "General / No Specific Project";
-    const category = text(cell(row.getCell(5).value));
-    const hours = asNumber(cell(row.getCell(10).value));
-    if (!category || hours == null) {
-      return;
-    }
-
-    projectTitles.add(project);
-    categories.add(category);
-    if (volunteer && !people.has(volunteer.toLowerCase())) {
-      people.set(volunteer.toLowerCase(), {
-        firstName: volunteer.split(/\s+/)[0] ?? volunteer,
-        lastName: volunteer.split(/\s+/).slice(1).join(" "),
-        displayName: volunteer,
-        memberNumber: "",
-        active: true,
-      });
-    }
-
-    logRows.push({
-      sheetRow: number,
-      occurredOn,
-      project,
-      volunteer,
-      group: text(cell(row.getCell(4).value)),
-      category,
-      startedAt: asDate(cell(row.getCell(7).value)),
-      endedAt: asDate(cell(row.getCell(8).value)),
-      hours,
-      rateType: text(cell(row.getCell(11).value)),
-      hourlyRate: asNumber(cell(row.getCell(12).value)) ?? 0,
-      inKind: asNumber(cell(row.getCell(13).value)) ?? 0,
-      tags: text(cell(row.getCell(14).value))
-        .split(",")
-        .map((tag) => tag.trim())
-        .filter(Boolean),
-      enteredBy: text(cell(row.getCell(15).value)),
-      createdAt: asDate(cell(row.getCell(16).value)) ?? occurredOn,
-      notes: text(cell(row.getCell(18).value)),
-      volunteerId: text(cell(row.getCell(19).value)),
-    });
-  });
-
-  if (![...people.values()].some((person) => person.displayName.toLowerCase() === "clockify import")) {
-    people.set("clockify import", {
-      firstName: "Clockify",
-      lastName: "Import",
-      displayName: "Clockify Import",
-      memberNumber: "",
-      active: false,
-    });
-  }
-
-  let nextMember = Math.max(0, ...[...people.values()].map((person) => Number(person.memberNumber) || 0));
-  for (const person of people.values()) {
-    if (!person.memberNumber) {
-      nextMember += 1;
-      person.memberNumber = String(nextMember).padStart(3, "0");
-    }
-  }
-
+  const { categories, projectTitles, people, logRows } = await loadCaswjWorkbook();
   const db = prismaClient();
   try {
     const [adminRole, volunteerRole] = await Promise.all([
@@ -290,11 +62,24 @@ async function main() {
           },
         },
       }));
+    const theme =
+      (await db.theme.findFirst({ where: { organizationId: organization.id, name: baseCaswjThemeName } })) ??
+      (await db.theme.create({
+        data: {
+          organizationId: organization.id,
+          ...baseCaswjTheme,
+        },
+      }));
+    await db.theme.update({
+      where: { id: theme.id },
+      data: baseCaswjTheme,
+    });
     await db.organization.update({
       where: { id: organization.id },
       data: {
         rateSourceYear: 2025,
         defaultRateType: "Volunteer",
+        themeId: theme.id,
         preferences: { allowTimeEntryEditing: true, entityLabels: caswjLabels },
       },
     });
@@ -457,7 +242,7 @@ async function main() {
     let created = 0;
     let skipped = 0;
     for (const row of logRows) {
-      const sourceRef = `caswj-log:${row.sheetRow}`;
+      const sourceRef = `${caswjSourceRefPrefix}${row.sheetRow}`;
       const existing = await db.userTimeEntry.findUnique({ where: { sourceRef } });
       if (existing) {
         skipped += 1;
@@ -524,14 +309,17 @@ async function main() {
     }
 
     const totals = await db.userTimeEntry.aggregate({
-      where: { organizationId: organization.id, sourceRef: { startsWith: "caswj-log:" } },
+      where: { organizationId: organization.id, sourceRef: { startsWith: caswjSourceRefPrefix } },
       _count: { _all: true },
       _sum: { durationMinutes: true, inKindValue: true },
     });
     console.log(
       JSON.stringify(
         {
+          appEnv,
           organizationId: organization.id,
+          themeId: theme.id,
+          themeName: theme.name,
           created,
           skipped,
           entries: totals._count._all,

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { MinusIcon, PlusIcon } from "lucide-react";
 import { applyThemeAction, deleteThemeAction, saveThemeAction } from "@/app/actions/organizations";
 import { Field } from "@/components/field";
 import { SelectField } from "@/components/select-field";
@@ -11,8 +12,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { useActionMutation } from "@/hooks/use-action-mutation";
 import { useOrganization } from "@/hooks/use-workspace";
-import { brandFonts, brandStyle, clockedInTheme } from "@/lib/brand";
-import { themesQuery } from "@/lib/queries";
+import { brandFontLabels, brandFonts, brandStyle, clockedInTheme } from "@/lib/brand";
+import { keys, themesQuery } from "@/lib/queries";
 import type { Theme } from "@/lib/types";
 
 const colorFields = [
@@ -28,8 +29,10 @@ const colorFields = [
 
 const fontOptions = brandFonts.map((font) => ({
   value: font,
-  label: font.replace(/Sans3$/, " Sans 3").replace(/Sans$/, " Sans"),
+  label: brandFontLabels[font],
 }));
+
+const hexColor = /^#[0-9A-Fa-f]{6}$/;
 
 function cloneTheme(theme: Theme): Theme {
   return {
@@ -43,29 +46,67 @@ function cloneTheme(theme: Theme): Theme {
 function PaletteEditor({
   label,
   colors,
+  min,
+  max,
   onChange,
 }: {
   label: string;
   colors: string[];
+  min: number;
+  max: number;
   onChange: (colors: string[]) => void;
 }) {
   return (
-    <Field label={label}>
-      <div className="flex flex-wrap gap-2">
+    <Field label={label} hint={`${colors.length} colors · ${min} to ${max} required`}>
+      <div className="grid gap-2">
         {colors.map((color, index) => (
-          <input
-            key={`${label}-${index}`}
-            type="color"
-            value={color}
-            onChange={(event) => {
-              const next = [...colors];
-              next[index] = event.target.value.toUpperCase();
-              onChange(next);
-            }}
-            className="size-9 cursor-pointer rounded-md border bg-card p-1"
-            aria-label={`${label} ${index + 1}`}
-          />
+          <div key={`${label}-${index}`} className="flex items-center gap-2">
+            <input
+              type="color"
+              value={hexColor.test(color) ? color : "#000000"}
+              onChange={(event) => {
+                const next = [...colors];
+                next[index] = event.target.value.toUpperCase();
+                onChange(next);
+              }}
+              className="size-9 shrink-0 cursor-pointer rounded-md border bg-card p-1"
+              aria-label={`${label} ${index + 1}`}
+            />
+            <Input
+              value={color}
+              onChange={(event) => {
+                const next = [...colors];
+                next[index] = event.target.value.toUpperCase();
+                onChange(next);
+              }}
+              className="h-9 font-mono"
+              aria-label={`${label} ${index + 1} hex`}
+            />
+            {colors.length > min ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="size-9"
+                onClick={() => onChange(colors.filter((_, item) => item !== index))}
+                aria-label={`Remove ${label} ${index + 1}`}
+              >
+                <MinusIcon />
+              </Button>
+            ) : null}
+          </div>
         ))}
+        {colors.length < max ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="h-9 w-fit"
+            onClick={() => onChange([...colors, colors.at(-1) ?? "#001836"])}
+          >
+            <PlusIcon />
+            Add color
+          </Button>
+        ) : null}
       </div>
     </Field>
   );
@@ -73,7 +114,7 @@ function PaletteEditor({
 
 export function ThemeForm() {
   const organization = useOrganization();
-  return <ThemeFields key={organization.id} />;
+  return <ThemeFields key={`${organization.id}-${organization.themeId}`} />;
 }
 
 function ThemeFields() {
@@ -81,23 +122,32 @@ function ThemeFields() {
   const themes = useQuery(themesQuery(organization.id));
   const [draft, setDraft] = useState<Theme>(() => cloneTheme(organization.theme));
   const apply = useActionMutation((themeId: string) => applyThemeAction(organization.id, themeId));
-  const save = useActionMutation((next: Theme) =>
-    saveThemeAction(organization.id, next.organizationId ? next.id : null, {
-      name: next.name,
-      primary: next.primary,
-      primaryForeground: next.primaryForeground,
-      highlight: next.highlight,
-      accent: next.accent,
-      success: next.success,
-      surface: next.surface,
-      surfaceForeground: next.surfaceForeground,
-      foreground: next.foreground,
-      headingFont: next.headingFont,
-      bodyFont: next.bodyFont,
-      categoricalPalette: next.categoricalPalette,
-      sequentialPalette: next.sequentialPalette,
-      divergingPalette: next.divergingPalette,
-    }),
+  const save = useActionMutation(
+    (next: Theme) =>
+      saveThemeAction(organization.id, next.organizationId ? next.id : null, {
+        name: next.name,
+        primary: next.primary,
+        primaryForeground: next.primaryForeground,
+        highlight: next.highlight,
+        accent: next.accent,
+        success: next.success,
+        surface: next.surface,
+        surfaceForeground: next.surfaceForeground,
+        foreground: next.foreground,
+        headingFont: next.headingFont,
+        bodyFont: next.bodyFont,
+        categoricalPalette: next.categoricalPalette,
+        sequentialPalette: next.sequentialPalette,
+        divergingPalette: next.divergingPalette,
+      }),
+    {
+      invalidate: [keys.themes(organization.id)],
+      onSuccess: (theme) => {
+        if (theme) {
+          setDraft(cloneTheme(theme));
+        }
+      },
+    },
   );
   const remove = useActionMutation((themeId: string) => deleteThemeAction(organization.id, themeId));
   const catalog = themes.data ?? [organization.theme];
@@ -108,7 +158,8 @@ function ThemeFields() {
         <CardHeader>
           <CardTitle>Themes</CardTitle>
           <CardDescription>
-            Choose a global theme to fill the colors, then save a named theme for this organization. Chart palettes stay with the theme.
+            Choose a global theme to fill the colors, then save a named theme for this organization. Chart palettes stay
+            with the theme.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -153,7 +204,7 @@ function ThemeFields() {
                     <input
                       id={field.key}
                       type="color"
-                      value={value}
+                      value={hexColor.test(value) ? value : "#000000"}
                       onChange={(event) => setDraft({ ...draft, [field.key]: event.target.value.toUpperCase() })}
                       className="size-9 shrink-0 cursor-pointer rounded-md border bg-card p-1"
                     />
@@ -186,16 +237,22 @@ function ThemeFields() {
               <PaletteEditor
                 label="Categorical chart palette"
                 colors={draft.categoricalPalette}
+                min={6}
+                max={8}
                 onChange={(categoricalPalette) => setDraft({ ...draft, categoricalPalette })}
               />
               <PaletteEditor
                 label="Sequential chart palette"
                 colors={draft.sequentialPalette}
+                min={5}
+                max={7}
                 onChange={(sequentialPalette) => setDraft({ ...draft, sequentialPalette })}
               />
               <PaletteEditor
                 label="Diverging chart palette"
                 colors={draft.divergingPalette}
+                min={7}
+                max={7}
                 onChange={(divergingPalette) => setDraft({ ...draft, divergingPalette })}
               />
             </div>
@@ -239,10 +296,14 @@ function ThemeFields() {
         <div className="brand-rule" />
         <CardContent className="bg-card py-4 text-card-foreground">
           <p className="text-sm text-muted-foreground">Volunteer hours</p>
-          <p className="text-2xl font-semibold text-highlight">12.5 h</p>
-          <div className="mt-3 flex gap-1">
-            {draft.categoricalPalette.slice(0, 6).map((color) => (
-              <span key={color} className="h-6 flex-1 rounded-sm" style={{ background: color }} />
+          <p className="text-2xl font-heading font-semibold text-highlight">12.5 h</p>
+          <div className="mt-3 grid gap-2">
+            {[draft.categoricalPalette, draft.sequentialPalette, draft.divergingPalette].map((palette, index) => (
+              <div key={["categorical", "sequential", "diverging"][index]} className="flex gap-1">
+                {palette.map((color, colorIndex) => (
+                  <span key={`${color}-${colorIndex}`} className="h-6 flex-1 rounded-sm" style={{ background: color }} />
+                ))}
+              </div>
             ))}
           </div>
         </CardContent>
