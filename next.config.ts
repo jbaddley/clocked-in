@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
   /* config options here */
   cacheComponents: true,
   partialPrefetching: true,
+  devIndicators: false,
   turbopack: {
     root: path.dirname(fileURLToPath(import.meta.url)),
     rules: {

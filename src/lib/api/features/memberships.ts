@@ -1,0 +1,568 @@
+import { Prisma } from "@/generated/prisma/client";
+import { Access } from "@/lib/api/access";
+import { guard, lockOrganization, transaction } from "@/lib/api/db";
+import { conflict, forbidden, notFound, validation } from "@/lib/api/errors";
+import {
+  assertTimezone,
+  Body,
+  ids,
+  limited,
+  list,
+  normalizeEmail,
+  normalizePassword,
+  normalizeRateType,
+  normalizeRole,
+  normalizeUsername,
+  optional,
+  Optional,
+  optionalDecimal,
+  optionalString,
+  optionalUuid,
+  or,
+  page,
+  personName,
+  RateType,
+  requireBool,
+  requireString,
+  RoleCode,
+  roundMoney,
+} from "@/lib/api/json";
+import { hashPassword } from "@/lib/api/security";
+import { prisma } from "@/lib/prisma";
+
+type RoleRow = { id: string; code: string; name: string };
+type MemberUser = {
+  id: string;
+  username: string;
+  email: string;
+  profile?: { firstName: string; lastName: string; displayName: string | null } | null;
+};
+
+export const membershipInclude = {
+  role: true,
+  user: { select: { id: true, username: true, email: true, profile: { select: { firstName: true, lastName: true, displayName: true } } } },
+} as const;
+
+export function roleJson(role: RoleRow) {
+  return { id: role.id, code: role.code, name: role.name };
+}
+
+function memberUserJson(user: MemberUser) {
+  return {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    firstName: user.profile?.firstName ?? null,
+    lastName: user.profile?.lastName ?? null,
+    displayName: user.profile?.displayName ?? null,
+  };
+}
+
+export function orgMembershipJson(
+  membership: {
+    id: string;
+    userId: string;
+    organizationId: string;
+    joinedAt: Date;
+    rateType: string;
+    professionalBillingRate: Prisma.Decimal | null;
+    isActive: boolean;
+    primaryDepartmentId: string | null;
+    role: RoleRow;
+    user: MemberUser;
+  },
+  departmentIds: string[] = [],
+) {
+  return {
+    id: membership.id,
+    userId: membership.userId,
+    organizationId: membership.organizationId,
+    departmentId: null,
+    role: roleJson(membership.role),
+    joinedAt: membership.joinedAt.toISOString(),
+    rateType: membership.rateType,
+    professionalBillingRate:
+      membership.professionalBillingRate === null ? null : Number(membership.professionalBillingRate),
+    isActive: membership.isActive,
+    primaryDepartmentId: membership.primaryDepartmentId,
+    departmentIds: [...departmentIds].sort(),
+    user: memberUserJson(membership.user),
+  };
+}
+
+export function departmentMembershipJson(
+  membership: { id: string; userId: string; departmentId: string; joinedAt: Date; role: RoleRow; user: MemberUser },
+  organizationId: string,
+) {
+  return {
+    id: membership.id,
+    userId: membership.userId,
+    organizationId,
+    departmentId: membership.departmentId,
+    role: roleJson(membership.role),
+    joinedAt: membership.joinedAt.toISOString(),
+    rateType: null,
+    professionalBillingRate: null,
+    isActive: null,
+    primaryDepartmentId: null,
+    departmentIds: [membership.departmentId],
+    user: memberUserJson(membership.user),
+  };
+}
+
+export async function roleId(code: RoleCode) {
+  const role = await prisma.role.findUniqueOrThrow({ where: { code }, select: { id: true } });
+  return role.id;
+}
+
+export type CreateOrgMembershipRequest = {
+  email: string;
+  username: string | null;
+  password: string | null;
+  firstName: string;
+  lastName: string;
+  displayName: string | null;
+  timezone: string;
+  phone: string | null;
+  zipCode: string | null;
+  notes: string | null;
+  role: RoleCode;
+  departmentIds: string[];
+};
+
+export function parseCreateOrgMembership(body: Body): CreateOrgMembershipRequest {
+  const timezoneValue = optionalString(body, "timezone")?.trim();
+  if (timezoneValue) {
+    assertTimezone(timezoneValue);
+  }
+
+  return {
+    email: normalizeEmail(requireString(body, "email")),
+    username: body.username === undefined ? null : normalizeUsername(requireString(body, "username")),
+    password: body.password === undefined ? null : normalizePassword(requireString(body, "password")),
+    firstName: personName(requireString(body, "firstName"), "firstName"),
+    lastName: personName(requireString(body, "lastName"), "lastName"),
+    displayName: body.displayName === undefined ? null : limited(body, "displayName", 100, "displayName is required."),
+    timezone: timezoneValue || "UTC",
+    phone: body.phone === undefined ? null : limited(body, "phone", 40, "phone is required."),
+    zipCode: body.zipCode === undefined ? null : limited(body, "zipCode", 20, "zipCode must be 20 characters or fewer."),
+    notes: body.notes === undefined ? null : limited(body, "notes", 2000, "notes must be 2000 characters or fewer."),
+    role: normalizeRole(requireString(body, "role")),
+    departmentIds: ids(body, "departmentIds", true),
+  };
+}
+
+export type UpdateOrgMembershipRequest = {
+  role: Optional<RoleCode>;
+  rateType: Optional<RateType>;
+  professionalBillingRate: Optional<number | null>;
+  isActive: Optional<boolean>;
+  primaryDepartmentId: Optional<string | null>;
+  departmentIds: Optional<string[]>;
+  firstName: Optional<string>;
+  lastName: Optional<string>;
+  displayName: Optional<string | null>;
+  timezone: Optional<string>;
+  phone: Optional<string | null>;
+  zipCode: Optional<string | null>;
+  notes: Optional<string | null>;
+};
+
+export function parseUpdateOrgMembership(body: Body): UpdateOrgMembershipRequest {
+  const request: UpdateOrgMembershipRequest = {
+    role: optional(body, "role", (b, k) => normalizeRole(requireString(b, k))),
+    rateType: optional(body, "rateType", (b, k) => normalizeRateType(requireString(b, k))),
+    professionalBillingRate: optional(body, "professionalBillingRate", (b, k) => {
+      const rate = optionalDecimal(b, k);
+      return rate === null ? null : roundMoney(rate);
+    }),
+    isActive: optional(body, "isActive", requireBool),
+    primaryDepartmentId: optional(body, "primaryDepartmentId", optionalUuid),
+    departmentIds: optional(body, "departmentIds", (b, k) => ids(b, k, false)),
+    firstName: optional(body, "firstName", (b, k) => personName(requireString(b, k), k)),
+    lastName: optional(body, "lastName", (b, k) => personName(requireString(b, k), k)),
+    displayName: optional(body, "displayName", (b, k) => limited(b, k, 100, "displayName is required.")),
+    timezone: optional(body, "timezone", (b, k) => {
+      const value = requireString(b, k).trim();
+      assertTimezone(value);
+      return value;
+    }),
+    phone: optional(body, "phone", (b, k) => limited(b, k, 40, "phone is required.")),
+    zipCode: optional(body, "zipCode", (b, k) => limited(b, k, 20, "zipCode must be 20 characters or fewer.")),
+    notes: optional(body, "notes", (b, k) => limited(b, k, 2000, "notes must be 2000 characters or fewer.")),
+  };
+  if (
+    !request.role.set &&
+    !request.rateType.set &&
+    !request.professionalBillingRate.set &&
+    !request.isActive.set &&
+    !request.primaryDepartmentId.set &&
+    !request.departmentIds.set &&
+    !request.firstName.set &&
+    !request.lastName.set &&
+    !request.displayName.set &&
+    !request.timezone.set &&
+    !request.phone.set &&
+    !request.zipCode.set &&
+    !request.notes.set
+  ) {
+    validation("Provide at least one field to update.");
+  }
+
+  return request;
+}
+
+export type UpdateDepartmentMembershipRequest = { role: RoleCode };
+
+export function parseUpdateDepartmentMembership(body: Body): UpdateDepartmentMembershipRequest {
+  return { role: normalizeRole(requireString(body, "role")) };
+}
+
+export async function listRoles(params: URLSearchParams) {
+  const paging = page(params);
+  const roles = await prisma.role.findMany({ orderBy: { code: "asc" }, skip: paging.offset, take: paging.limit });
+  return list(roles.map(roleJson), paging);
+}
+
+export async function listOrgMemberships(access: Access, organizationId: string, params: URLSearchParams) {
+  const paging = page(params);
+  await access.requireOrganization(organizationId, false);
+  const memberships = await prisma.organizationMembership.findMany({
+    where: { organizationId },
+    include: membershipInclude,
+    orderBy: { joinedAt: "asc" },
+    skip: paging.offset,
+    take: paging.limit,
+  });
+  const departmentIds = await departmentIdsByUser(
+    organizationId,
+    memberships.map((item) => item.userId),
+  );
+  return list(memberships.map((item) => orgMembershipJson(item, departmentIds.get(item.userId) ?? [])), paging);
+}
+
+async function assertAnotherAdmin(tx: Prisma.TransactionClient, organizationId: string, exceptMembershipId: string) {
+  const another = await tx.organizationMembership.count({
+    where: { organizationId, role: { code: "ADMIN" }, id: { not: exceptMembershipId } },
+  });
+  if (another === 0) {
+    conflict("The last organization admin cannot be removed.");
+  }
+}
+
+export async function createOrgMembership(access: Access, organizationId: string, request: CreateOrgMembershipRequest) {
+  await access.requireOrganization(organizationId, true);
+  return transaction(async (tx) => {
+    await lockOrganization(tx, organizationId);
+    let user = await tx.user.findUnique({
+      where: { email: request.email },
+      include: { profile: true },
+    });
+    if (!user) {
+      if (!request.password || !request.username) {
+        validation("username and password are required for a new person.");
+      }
+
+      user = await tx.user.create({
+        data: {
+          username: request.username,
+          email: request.email,
+          passwordHash: await hashPassword(request.password),
+          profile: {
+            create: {
+              firstName: request.firstName,
+              lastName: request.lastName,
+              displayName: request.displayName,
+              timezone: request.timezone,
+              phone: request.phone,
+              zipCode: request.zipCode,
+              notes: request.notes,
+            },
+          },
+        },
+        include: { profile: true },
+      });
+    } else if (await tx.organizationMembership.findUnique({ where: { userId_organizationId: { userId: user.id, organizationId } } })) {
+      conflict("This person is already in the organization.");
+    } else if (user.profile) {
+      await tx.userProfile.update({
+        where: { userId: user.id },
+        data: {
+          firstName: request.firstName,
+          lastName: request.lastName,
+          displayName: request.displayName ?? user.profile.displayName,
+          timezone: request.timezone,
+          phone: request.phone ?? user.profile.phone,
+          zipCode: request.zipCode ?? user.profile.zipCode,
+          notes: request.notes ?? user.profile.notes,
+        },
+      });
+    }
+
+    const organization = await tx.organization.findUniqueOrThrow({
+      where: { id: organizationId },
+      select: { defaultRateType: true },
+    });
+    await syncDepartments(tx, organizationId, user.id, request.departmentIds);
+    const saved = await tx.organizationMembership.create({
+      data: {
+        userId: user.id,
+        organizationId,
+        roleId: await roleId(request.role),
+        rateType: organization.defaultRateType,
+        isActive: true,
+        primaryDepartmentId: request.departmentIds[0] ?? null,
+      },
+      include: membershipInclude,
+    });
+    return orgMembershipJson(saved, request.departmentIds);
+  });
+}
+
+export async function updateOrgMembership(
+  access: Access,
+  organizationId: string,
+  membershipId: string,
+  request: UpdateOrgMembershipRequest,
+) {
+  await access.requireOrganization(organizationId, true);
+  const nextRoleId = request.role.set ? await roleId(request.role.value) : undefined;
+  return transaction(async (tx) => {
+    await lockOrganization(tx, organizationId);
+    const membership = await tx.organizationMembership.findFirst({
+      where: { id: membershipId, organizationId },
+      include: { role: true },
+    });
+    if (!membership) {
+      notFound();
+    }
+
+    if (request.role.set && membership.role.code === "ADMIN" && request.role.value !== "ADMIN") {
+      await assertAnotherAdmin(tx, organizationId, membership.id);
+    }
+
+    const rateType = or(request.rateType, membership.rateType);
+    let professionalBillingRate = or(
+      request.professionalBillingRate,
+      membership.professionalBillingRate === null ? null : Number(membership.professionalBillingRate),
+    );
+    if (request.departmentIds.set) {
+      await syncDepartments(tx, organizationId, membership.userId, request.departmentIds.value);
+    }
+
+    if (request.primaryDepartmentId.set && request.primaryDepartmentId.value !== null) {
+      await assertDepartment(tx, organizationId, request.primaryDepartmentId.value, "primaryDepartmentId does not belong to this organization.");
+      await ensureDepartmentMembership(tx, membership.userId, request.primaryDepartmentId.value);
+    }
+
+    if (rateType === "Volunteer") {
+      professionalBillingRate = null;
+    } else if (professionalBillingRate === null || professionalBillingRate <= 0) {
+      validation("professionalBillingRate is required when rateType is Professional.");
+    }
+
+    const primaryDepartmentId = request.primaryDepartmentId.set
+      ? request.primaryDepartmentId.value
+      : request.departmentIds.set
+        ? (request.departmentIds.value[0] ?? null)
+        : undefined;
+
+    if (
+      request.firstName.set ||
+      request.lastName.set ||
+      request.displayName.set ||
+      request.timezone.set ||
+      request.phone.set ||
+      request.zipCode.set ||
+      request.notes.set
+    ) {
+      await tx.userProfile.update({
+        where: { userId: membership.userId },
+        data: {
+          firstName: request.firstName.set ? request.firstName.value : undefined,
+          lastName: request.lastName.set ? request.lastName.value : undefined,
+          displayName: request.displayName.set ? request.displayName.value : undefined,
+          timezone: request.timezone.set ? request.timezone.value : undefined,
+          phone: request.phone.set ? request.phone.value : undefined,
+          zipCode: request.zipCode.set ? request.zipCode.value : undefined,
+          notes: request.notes.set ? request.notes.value : undefined,
+        },
+      });
+    }
+
+    const saved = await tx.organizationMembership.update({
+      where: { id: membership.id },
+      data: {
+        roleId: nextRoleId,
+        rateType,
+        professionalBillingRate,
+        isActive: request.isActive.set ? request.isActive.value : undefined,
+        primaryDepartmentId,
+      },
+      include: membershipInclude,
+    });
+    const departmentIds = await departmentIdsByUser(organizationId, [saved.userId], tx);
+    return orgMembershipJson(saved, departmentIds.get(saved.userId) ?? []);
+  });
+}
+
+export async function deleteOrgMembership(access: Access, organizationId: string, membershipId: string) {
+  const caller = access.caller;
+  const membership = await prisma.organizationMembership.findFirst({ where: { id: membershipId, organizationId } });
+  if (!membership) {
+    notFound();
+  }
+
+  if (!caller.isSuperAdmin && caller.id !== membership.userId && !(await access.isOrgAdmin(organizationId))) {
+    forbidden();
+  }
+
+  await transaction(async (tx) => {
+    await lockOrganization(tx, organizationId);
+    const isAdmin = await tx.organizationMembership.count({ where: { id: membership.id, role: { code: "ADMIN" } } });
+    if (isAdmin > 0) {
+      await assertAnotherAdmin(tx, organizationId, membership.id);
+    }
+
+    await tx.departmentMembership.deleteMany({
+      where: { userId: membership.userId, department: { organizationId } },
+    });
+    await tx.organizationMembership.delete({ where: { id: membership.id } });
+  });
+}
+
+export async function listDepartmentMemberships(access: Access, departmentId: string, params: URLSearchParams) {
+  const paging = page(params);
+  const department = await access.requireDepartment(departmentId);
+  const memberships = await prisma.departmentMembership.findMany({
+    where: { departmentId },
+    include: membershipInclude,
+    orderBy: { joinedAt: "asc" },
+    skip: paging.offset,
+    take: paging.limit,
+  });
+  return list(
+    memberships.map((membership) => departmentMembershipJson(membership, department.organizationId)),
+    paging,
+  );
+}
+
+export async function updateDepartmentMembership(
+  access: Access,
+  departmentId: string,
+  membershipId: string,
+  request: UpdateDepartmentMembershipRequest,
+) {
+  const department = await access.requireDepartmentManager(departmentId);
+  const membership = await prisma.departmentMembership.findFirst({ where: { id: membershipId, departmentId } });
+  if (!membership) {
+    notFound();
+  }
+
+  const saved = await guard(
+    prisma.departmentMembership.update({
+      where: { id: membership.id },
+      data: { roleId: await roleId(request.role) },
+      include: membershipInclude,
+    }),
+  );
+  return departmentMembershipJson(saved, department.organizationId);
+}
+
+export async function deleteDepartmentMembership(access: Access, departmentId: string, membershipId: string) {
+  const caller = access.caller;
+  const membership = await prisma.departmentMembership.findFirst({
+    where: { id: membershipId, departmentId },
+    include: { department: true },
+  });
+  if (!membership) {
+    notFound();
+  }
+
+  const allowed =
+    caller.isSuperAdmin ||
+    caller.id === membership.userId ||
+    (await access.isOrgAdmin(membership.department.organizationId)) ||
+    (await access.isDepartmentAdmin(departmentId));
+  if (!allowed) {
+    forbidden();
+  }
+
+  await guard(prisma.departmentMembership.delete({ where: { id: membership.id } }));
+}
+
+async function departmentIdsByUser(organizationId: string, userIds: string[], db: Prisma.TransactionClient | typeof prisma = prisma) {
+  if (userIds.length === 0) {
+    return new Map<string, string[]>();
+  }
+
+  const rows = await db.departmentMembership.findMany({
+    where: { userId: { in: userIds }, department: { organizationId } },
+    select: { userId: true, departmentId: true },
+  });
+  const grouped = new Map<string, string[]>();
+  for (const row of rows) {
+    const current = grouped.get(row.userId) ?? [];
+    current.push(row.departmentId);
+    grouped.set(row.userId, current);
+  }
+
+  return grouped;
+}
+
+async function assertDepartment(
+  db: Prisma.TransactionClient,
+  organizationId: string,
+  departmentId: string,
+  message: string,
+) {
+  const department = await db.department.findUnique({ where: { id: departmentId } });
+  if (!department) {
+    notFound();
+  }
+
+  if (department.organizationId !== organizationId) {
+    validation(message);
+  }
+}
+
+async function ensureDepartmentMembership(db: Prisma.TransactionClient, userId: string, departmentId: string) {
+  const existing = await db.departmentMembership.findUnique({
+    where: { userId_departmentId: { userId, departmentId } },
+  });
+  if (existing) {
+    return;
+  }
+
+  const memberRole = await db.role.findUniqueOrThrow({ where: { code: "MEMBER" }, select: { id: true } });
+  await db.departmentMembership.create({
+    data: { userId, departmentId, roleId: memberRole.id },
+  });
+}
+
+async function syncDepartments(
+  db: Prisma.TransactionClient,
+  organizationId: string,
+  userId: string,
+  departmentIds: string[],
+) {
+  const unique = [...new Set(departmentIds)];
+  for (const departmentId of unique) {
+    await assertDepartment(db, organizationId, departmentId, "departmentIds must belong to this organization.");
+  }
+
+  await db.departmentMembership.deleteMany({
+    where: { userId, department: { organizationId }, departmentId: { notIn: unique } },
+  });
+  const memberRole = await db.role.findUniqueOrThrow({ where: { code: "MEMBER" }, select: { id: true } });
+  const existing = await db.departmentMembership.findMany({
+    where: { userId, department: { organizationId } },
+    select: { departmentId: true },
+  });
+  const keep = new Set(existing.map((item) => item.departmentId));
+  for (const departmentId of unique.filter((id) => !keep.has(id))) {
+    await db.departmentMembership.create({
+      data: { userId, departmentId, roleId: memberRole.id },
+    });
+  }
+}

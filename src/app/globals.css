@@ -9,7 +9,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-heading);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -24,6 +24,8 @@
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
+  --color-highlight: var(--highlight);
+  --color-success: var(--success);
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
@@ -81,6 +83,10 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --highlight: oklch(0.205 0 0);
+  --success: oklch(0.55 0.12 160);
+  --font-sans: var(--font-geist);
+  --font-heading: var(--font-geist);
 }
 
 .dark {
@@ -127,4 +133,38 @@
   html {
     @apply font-sans;
   }
+  h1, h2, h3 {
+    font-family: var(--font-heading), var(--font-sans), sans-serif;
+  }
+}
+
+.brand-rule {
+  height: 3px;
+  background-image: var(--brand-accent-image, linear-gradient(90deg, var(--highlight), var(--accent)));
+  background-size: cover;
+  background-position: center;
+}
+
+.brand-hero {
+  background-color: var(--surface, var(--background));
+  background-image: var(--brand-accent-image);
+  background-size: cover;
+  background-position: center;
+}
+
+/* Highlight is an accent, not body text, so only the warning icon takes it. */
+[data-rich-colors="true"][data-sonner-toast][data-type="success"] [data-icon] {
+  color: var(--success);
+}
+
+[data-rich-colors="true"][data-sonner-toast][data-type="info"] [data-icon] {
+  color: var(--primary);
+}
+
+[data-rich-colors="true"][data-sonner-toast][data-type="warning"] [data-icon] {
+  color: var(--highlight);
+}
+
+[data-rich-colors="true"][data-sonner-toast][data-type="error"] [data-icon] {
+  color: var(--accent);
 }

@@ -1,0 +1,179 @@
+using System.Text.Json.Nodes;
+using ClockedIn.Api.Entities;
+using ClockedIn.Api.Features.Users;
+using ClockedIn.Api.Http;
+
+namespace ClockedIn.Api.Features.Memberships;
+
+public sealed record RoleDto(Guid Id, string Code, string Name)
+{
+    public static RoleDto From(Role role) => new(role.Id, role.Code.ToString(), role.Name);
+}
+
+public sealed record MemberUserDto(
+    Guid Id,
+    string Username,
+    string Email,
+    string? FirstName,
+    string? LastName,
+    string? DisplayName)
+{
+    public static MemberUserDto From(User user) => new(
+        user.Id,
+        user.Username,
+        user.Email,
+        user.Profile?.FirstName,
+        user.Profile?.LastName,
+        user.Profile?.DisplayName);
+}
+
+public sealed record MembershipDto(
+    Guid Id,
+    Guid UserId,
+    Guid OrganizationId,
+    Guid? DepartmentId,
+    RoleDto Role,
+    DateTime JoinedAt,
+    string? RateType,
+    decimal? ProfessionalBillingRate,
+    bool? IsActive,
+    Guid? PrimaryDepartmentId,
+    Guid[] DepartmentIds,
+    MemberUserDto User)
+{
+    public static MembershipDto From(OrganizationMembership membership, IEnumerable<Guid> departmentIds) => new(
+        membership.Id,
+        membership.UserId,
+        membership.OrganizationId,
+        null,
+        RoleDto.From(membership.Role),
+        membership.JoinedAt,
+        membership.RateType.ToString(),
+        membership.ProfessionalBillingRate,
+        membership.IsActive,
+        membership.PrimaryDepartmentId,
+        departmentIds.Order().ToArray(),
+        MemberUserDto.From(membership.User));
+
+    public static MembershipDto From(DepartmentMembership membership, Guid organizationId) => new(
+        membership.Id,
+        membership.UserId,
+        organizationId,
+        membership.DepartmentId,
+        RoleDto.From(membership.Role),
+        membership.JoinedAt,
+        null,
+        null,
+        null,
+        null,
+        [membership.DepartmentId],
+        MemberUserDto.From(membership.User));
+}
+
+public sealed record CreateOrgMembershipRequest(
+    string Email,
+    string? Username,
+    string? Password,
+    string FirstName,
+    string LastName,
+    string? DisplayName,
+    string Timezone,
+    string? Phone,
+    string? ZipCode,
+    string? Notes,
+    RoleCode Role,
+    List<Guid> DepartmentIds)
+{
+    public static async ValueTask<CreateOrgMembershipRequest?> BindAsync(HttpContext context) => Parse(await Body.Read(context));
+
+    public static CreateOrgMembershipRequest Parse(JsonObject body)
+    {
+        var email = Fields.NormalizeEmail(Fields.RequiredString(body, "email"));
+        var username = Fields.Has(body, "username") ? Fields.NormalizeUsername(Fields.RequiredString(body, "username")) : null;
+        var password = Fields.Has(body, "password") ? Fields.NormalizePassword(Fields.RequiredString(body, "password")) : null;
+        var firstName = Fields.PersonName(Fields.RequiredString(body, "firstName"), "firstName");
+        var lastName = Fields.PersonName(Fields.RequiredString(body, "lastName"), "lastName");
+        var displayName = Fields.Has(body, "displayName")
+            ? UpdateUserRequest.Limited(body, "displayName", 100, "displayName is required.")
+            : null;
+        var zone = "UTC";
+        var timezone = Fields.OptionalString(body, "timezone");
+        if (!string.IsNullOrWhiteSpace(timezone))
+        {
+            zone = timezone.Trim();
+            Fields.AssertTimezone(zone);
+        }
+
+        var phone = Fields.Has(body, "phone") ? UpdateUserRequest.Limited(body, "phone", 40, "phone is required.") : null;
+        var zipCode = Fields.Has(body, "zipCode") ? UpdateUserRequest.Limited(body, "zipCode", 20, "zipCode must be 20 characters or fewer.") : null;
+        var notes = Fields.Has(body, "notes") ? UpdateUserRequest.Limited(body, "notes", 2000, "notes must be 2000 characters or fewer.") : null;
+        var role = Fields.NormalizeRole(Fields.RequiredString(body, "role"));
+        var departmentIds = Fields.Ids(body, "departmentIds", optional: true);
+        return new CreateOrgMembershipRequest(email, username, password, firstName, lastName, displayName, zone, phone, zipCode, notes, role, departmentIds);
+    }
+}
+
+public sealed record UpdateOrgMembershipRequest(
+    Optional<RoleCode> Role,
+    Optional<RateType> RateType,
+    Optional<decimal?> ProfessionalBillingRate,
+    Optional<bool> IsActive,
+    Optional<Guid?> PrimaryDepartmentId,
+    Optional<List<Guid>> DepartmentIds,
+    Optional<string> FirstName,
+    Optional<string> LastName,
+    Optional<string?> DisplayName,
+    Optional<string> Timezone,
+    Optional<string?> Phone,
+    Optional<string?> ZipCode,
+    Optional<string?> Notes)
+{
+    public static async ValueTask<UpdateOrgMembershipRequest?> BindAsync(HttpContext context) => Parse(await Body.Read(context));
+
+    public static UpdateOrgMembershipRequest Parse(JsonObject body)
+    {
+        var request = new UpdateOrgMembershipRequest(
+            Optional.Read(body, "role", (b, k) => Fields.NormalizeRole(Fields.RequiredString(b, k))),
+            Optional.Read(body, "rateType", (b, k) => Fields.NormalizeRateType(Fields.RequiredString(b, k))),
+            Optional.Read(body, "professionalBillingRate", (b, k) => Fields.OptionalDecimal(b, k) is decimal rate ? Fields.RoundMoney(rate) : (decimal?)null),
+            Optional.Read(body, "isActive", Fields.RequiredBool),
+            Optional.Read(body, "primaryDepartmentId", Fields.OptionalGuid),
+            Optional.Read(body, "departmentIds", (b, k) => Fields.Ids(b, k, optional: false)),
+            Optional.Read(body, "firstName", (b, k) => Fields.PersonName(Fields.RequiredString(b, k), k)),
+            Optional.Read(body, "lastName", (b, k) => Fields.PersonName(Fields.RequiredString(b, k), k)),
+            Optional.Read(body, "displayName", (b, k) => UpdateUserRequest.Limited(b, k, 100, "displayName is required.")),
+            Optional.Read(body, "timezone", (b, k) =>
+            {
+                var value = Fields.RequiredString(b, k).Trim();
+                Fields.AssertTimezone(value);
+                return value;
+            }),
+            Optional.Read(body, "phone", (b, k) => UpdateUserRequest.Limited(b, k, 40, "phone is required.")),
+            Optional.Read(body, "zipCode", (b, k) => UpdateUserRequest.Limited(b, k, 20, "zipCode must be 20 characters or fewer.")),
+            Optional.Read(body, "notes", (b, k) => UpdateUserRequest.Limited(b, k, 2000, "notes must be 2000 characters or fewer.")));
+        if (!request.Role.HasValue
+            && !request.RateType.HasValue
+            && !request.ProfessionalBillingRate.HasValue
+            && !request.IsActive.HasValue
+            && !request.PrimaryDepartmentId.HasValue
+            && !request.DepartmentIds.HasValue
+            && !request.FirstName.HasValue
+            && !request.LastName.HasValue
+            && !request.DisplayName.HasValue
+            && !request.Timezone.HasValue
+            && !request.Phone.HasValue
+            && !request.ZipCode.HasValue
+            && !request.Notes.HasValue)
+        {
+            throw ApiException.Validation("Provide at least one field to update.");
+        }
+
+        return request;
+    }
+}
+
+public sealed record UpdateDepartmentMembershipRequest(RoleCode Role)
+{
+    public static async ValueTask<UpdateDepartmentMembershipRequest?> BindAsync(HttpContext context) =>
+        new(Fields.NormalizeRole(Fields.RequiredString(await Body.Read(context), "role")));
+}

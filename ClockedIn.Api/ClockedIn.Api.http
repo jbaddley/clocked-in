@@ -1,0 +1,6 @@
+@ClockedIn.Api_HostAddress = http://localhost:5103
+
+GET {{ClockedIn.Api_HostAddress}}/health
+Accept: application/json
+
+###

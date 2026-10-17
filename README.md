@@ -1,6 +1,6 @@
 # Clocked In
 
-Next.js app with Tailwind CSS, shadcn/ui, and Prisma (PostgreSQL), ready to deploy on Vercel.
+Next.js app with Tailwind CSS, shadcn/ui, and Prisma. Local and staging use PostgreSQL and the Next.js API. Production uses SQL Server and the C# API.
 
 ## Stack
 
@@ -14,26 +14,67 @@ Next.js app with Tailwind CSS, shadcn/ui, and Prisma (PostgreSQL), ready to depl
 ```bash
 npm install
 cp .env.example .env
-```
-
-Set `DATABASE_URL` in `.env` to your Postgres connection string, then start the app:
-
-```bash
+docker compose up -d
+dotnet ef database update --project ClockedIn.Api
+npx prisma generate
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3025](http://localhost:3025).
+
+## Environments
+
+| | File | Database | API |
+| --- | --- | --- | --- |
+| Local | `.env` | PostgreSQL | Next.js |
+| Staging | `.env.staging` | PostgreSQL | Next.js |
+| Production | `.env.production` | SQL Server | C# |
+
+`APP_ENV` is `local`, `staging`, or `production`. `DATABASE_PROVIDER` is `postgresql` or `sqlserver`. `API_TARGET` is `next` or `csharp`. Production also sets `API_BASE_URL` to the C# API origin.
+
+```bash
+npm run dev
+npm run dev:staging
+npm run build:staging
+npm run build:production
+npm run env:print
+```
+
+The Prisma schema stays `postgresql`. That client is the Next.js API on local and staging. Prisma's SQL Server connector cannot represent this schema (`Json`, enums, `citext`, partial indexes, `onDelete: Restrict`). A production process with `API_TARGET=csharp` does not open Prisma. Server actions still call the in-process Next.js API; point those calls at `API_BASE_URL` when the production UI should use the deployed C# API.
 
 ## Database
 
-The Prisma schema is `prisma/schema.prisma`. Connection settings are in `prisma7.config.ts`.
+One local Postgres database runs in Docker on port 5435. Both apps use it:
+
+- `DATABASE_URL` is what Prisma and the Next.js API read.
+- `EF_DATABASE_URL` is what the .NET API reads. Locally it is the same connection. The .NET host reads `.env`, or `.env.staging` / `.env.production` when `APP_ENV` is set.
+
+Entity Framework owns DDL. Apply schema changes with `dotnet ef migrations add` and `dotnet ef database update --project ClockedIn.Api`. After an EF migration, refresh Prisma types with `npm run db:pull`. Do not run Prisma migrations.
+
+The Prisma schema is `prisma/schema.prisma`. Connection settings are in `prisma7.config.ts`. `prisma generate` runs after install and before `next build`.
+
+The .NET API is in `ClockedIn.Api`. It reads `EF_DATABASE_URL` from the repo `.env`.
 
 ```bash
-npx prisma migrate dev
+dotnet ef database update --project ClockedIn.Api
+dotnet run --project ClockedIn.Api --launch-profile http
 ```
 
-`prisma generate` runs after install and before `next build`.
+Both servers implement the HTTP contract in [docs/api/http.md](docs/api/http.md). The Next.js routes are on port 3025. The .NET API listens on port 5103. They share `JWT_SIGNING_KEY`, `JWT_ISSUER`, `JWT_AUDIENCE`, and the Resend settings in `.env`.
+
+A SuperAdmin is a user flag, not a membership role. Set the first one in the shared database:
+
+```sql
+UPDATE "User" SET "isSuperAdmin" = true WHERE "email" = 'you@example.com';
+```
+
+HTTP contract tests (`npm run test:http:next` and `npm run test:http:csharp`) share this database. Run one target at a time.
 
 ## Deploy
 
-Import this repo in [Vercel](https://vercel.com/new) and set `DATABASE_URL` in the project environment. Use the default Next.js build.
+Import this repo in [Vercel](https://vercel.com/new). The build command is `npm run build`.
+
+Vercel sets `NODE_ENV=production` for both Production and Preview, so Next.js would load `.env.production` for a staging deploy if that file were in the repo. Leave `.env`, `.env.staging`, and `.env.production` uncommitted. Set the variables in the Vercel project instead:
+
+- **Production** — the values from `.env.production`: `APP_ENV=production`, `DATABASE_PROVIDER=sqlserver`, `API_TARGET=csharp`, `API_BASE_URL`, and the `sqlserver://` `DATABASE_URL`.
+- **Preview** — the values from `.env.staging`: `APP_ENV=staging`, `DATABASE_PROVIDER=postgresql`, `API_TARGET=next`, and the staging `postgresql://` `DATABASE_URL`. Preview is staging. A custom environment named `staging` is treated the same way.

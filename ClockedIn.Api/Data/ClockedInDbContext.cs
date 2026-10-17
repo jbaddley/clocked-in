@@ -1,0 +1,556 @@
+using System.Text.Json;
+using ClockedIn.Api.Entities;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Design;
+using Npgsql.NameTranslation;
+
+namespace ClockedIn.Api.Data;
+
+public class ClockedInDbContext(DbContextOptions<ClockedInDbContext> options, TimeProvider time) : DbContext(options)
+{
+    public DbSet<User> Users => Set<User>();
+    public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
+    public DbSet<Role> Roles => Set<Role>();
+    public DbSet<Organization> Organizations => Set<Organization>();
+    public DbSet<Theme> Themes => Set<Theme>();
+    public DbSet<HourlyRate> HourlyRates => Set<HourlyRate>();
+    public DbSet<OrganizationMembership> OrganizationMemberships => Set<OrganizationMembership>();
+    public DbSet<Department> Departments => Set<Department>();
+    public DbSet<DepartmentMembership> DepartmentMemberships => Set<DepartmentMembership>();
+    public DbSet<Tag> Tags => Set<Tag>();
+    public DbSet<TaskCategory> TaskCategories => Set<TaskCategory>();
+    public DbSet<Project> Projects => Set<Project>();
+    public DbSet<UserTimeEntry> UserTimeEntries => Set<UserTimeEntry>();
+    public DbSet<CollectiveTimeEntry> CollectiveTimeEntries => Set<CollectiveTimeEntry>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<Invitation> Invitations => Set<Invitation>();
+    public DbSet<PasswordResetCode> PasswordResetCodes => Set<PasswordResetCode>();
+
+    public override int SaveChanges()
+    {
+        TouchUsers();
+        return base.SaveChanges();
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        TouchUsers();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.HasPostgresExtension("citext");
+        modelBuilder.HasPostgresEnum<TimeEntryMode>(
+            name: "TimeEntryMode",
+            nameTranslator: new NpgsqlNullNameTranslator());
+
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.Property(user => user.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(user => user.IsSuperAdmin).HasDefaultValue(false);
+            entity.HasIndex(user => user.Username).IsUnique();
+            entity.HasIndex(user => user.Email).IsUnique();
+            entity.ToTable(table => table.HasCheckConstraint(
+                "User_lowercase_identity_check",
+                "\"username\" = lower(\"username\") AND \"email\" = lower(\"email\")"));
+        });
+
+        modelBuilder.Entity<UserProfile>(entity =>
+        {
+            entity.Property(profile => profile.Timezone).HasDefaultValue("UTC");
+            entity.HasIndex(profile => profile.UserId).IsUnique();
+            entity.HasOne(profile => profile.User)
+                .WithOne(user => user.Profile)
+                .HasForeignKey<UserProfile>(profile => profile.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Role>(entity =>
+        {
+            entity.Property(role => role.Code).HasConversion<string>();
+            entity.HasIndex(role => role.Code).IsUnique();
+            entity.HasData(
+                new Role { Id = Role.MemberId, Code = RoleCode.MEMBER, Name = "Member" },
+                new Role { Id = Role.VolunteerId, Code = RoleCode.VOLUNTEER, Name = "Volunteer" },
+                new Role { Id = Role.AdminId, Code = RoleCode.ADMIN, Name = "Admin" });
+        });
+
+        modelBuilder.Entity<Organization>(entity =>
+        {
+            entity.Property(organization => organization.RateSourceYear).HasDefaultValue(2025);
+            entity.Property(organization => organization.DefaultRateType)
+                .HasConversion<string>()
+                .HasDefaultValue(RateType.Volunteer);
+            entity.Property(organization => organization.ThemeId).HasDefaultValue(Theme.ClockedInId);
+            entity.HasOne(organization => organization.Theme)
+                .WithMany(theme => theme.AssignedOrganizations)
+                .HasForeignKey(organization => organization.ThemeId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasMany(organization => organization.Themes)
+                .WithOne(theme => theme.Organization)
+                .HasForeignKey(theme => theme.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.OwnsOne(organization => organization.Preferences, owned =>
+            {
+                owned.ToJson("preferences");
+                owned.OwnsOne(preferences => preferences.EntityLabels);
+            });
+            entity.ToTable(table => table.HasCheckConstraint(
+                "Organization_rate_check",
+                "\"defaultRateType\" IN ('Volunteer', 'Professional')"));
+        });
+
+        modelBuilder.Entity<HourlyRate>(entity =>
+        {
+            entity.Property(rate => rate.Name).HasColumnType("citext");
+            entity.Property(rate => rate.Type).HasConversion<string>();
+            entity.Property(rate => rate.PerHourRate).HasPrecision(10, 2);
+            entity.Property(rate => rate.IsDefault).HasDefaultValue(false);
+            entity.Property(rate => rate.IsArchived).HasDefaultValue(false);
+            entity.HasIndex(rate => new { rate.OrganizationId, rate.Name }).IsUnique();
+            entity.HasIndex(rate => rate.OrganizationId)
+                .IsUnique()
+                .HasFilter("\"isDefault\" = TRUE AND \"type\" = 'Volunteer'")
+                .HasDatabaseName("HourlyRate_default_volunteer_key");
+            entity.HasOne(rate => rate.Organization)
+                .WithMany(organization => organization.HourlyRates)
+                .HasForeignKey(rate => rate.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.ToTable(table => table.HasCheckConstraint(
+                "HourlyRate_rate_check",
+                """
+                "type" IN ('Volunteer', 'Professional')
+                AND "perHourRate" > 0
+                AND (
+                  ("isDefault" = FALSE)
+                  OR ("type" = 'Volunteer')
+                )
+                """));
+        });
+
+        modelBuilder.Entity<Theme>(entity =>
+        {
+            entity.HasIndex(theme => theme.Name)
+                .IsUnique()
+                .HasFilter("\"organizationId\" IS NULL")
+                .HasDatabaseName("Theme_global_name_key");
+            entity.HasIndex(theme => new { theme.OrganizationId, theme.Name })
+                .IsUnique()
+                .HasFilter("\"organizationId\" IS NOT NULL")
+                .HasDatabaseName("Theme_organization_name_key");
+            entity.HasData(GlobalThemes.All());
+            entity.ToTable(table => table.HasCheckConstraint(
+                "Theme_token_check",
+                """
+                "primary" ~ '^#[0-9A-Fa-f]{6}$'
+                AND "primaryForeground" ~ '^#[0-9A-Fa-f]{6}$'
+                AND "highlight" ~ '^#[0-9A-Fa-f]{6}$'
+                AND "accent" ~ '^#[0-9A-Fa-f]{6}$'
+                AND "success" ~ '^#[0-9A-Fa-f]{6}$'
+                AND "surface" ~ '^#[0-9A-Fa-f]{6}$'
+                AND "surfaceForeground" ~ '^#[0-9A-Fa-f]{6}$'
+                AND "foreground" ~ '^#[0-9A-Fa-f]{6}$'
+                AND "headingFont" IN ('SourceSans3', 'NunitoSans', 'Geist')
+                AND "bodyFont" IN ('SourceSans3', 'NunitoSans', 'Geist')
+                AND left("categoricalPalette", 1) = '['
+                AND left("sequentialPalette", 1) = '['
+                AND left("divergingPalette", 1) = '['
+                """));
+        });
+
+        modelBuilder.Entity<OrganizationMembership>(entity =>
+        {
+            entity.Property(membership => membership.JoinedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(membership => membership.RateType)
+                .HasConversion<string>()
+                .HasDefaultValue(RateType.Volunteer);
+            entity.Property(membership => membership.IsActive).HasDefaultValue(true);
+            entity.Property(membership => membership.ProfessionalBillingRate).HasPrecision(10, 2);
+            entity.HasIndex(membership => new { membership.UserId, membership.OrganizationId }).IsUnique();
+            entity.HasOne(membership => membership.User)
+                .WithMany(user => user.OrganizationMemberships)
+                .HasForeignKey(membership => membership.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(membership => membership.Organization)
+                .WithMany(organization => organization.Memberships)
+                .HasForeignKey(membership => membership.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(membership => membership.Role)
+                .WithMany(role => role.OrganizationMemberships)
+                .HasForeignKey(membership => membership.RoleId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(membership => membership.PrimaryDepartment)
+                .WithMany(department => department.PrimaryMemberships)
+                .HasForeignKey(membership => membership.PrimaryDepartmentId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.ToTable(table => table.HasCheckConstraint(
+                "OrganizationMembership_rate_check",
+                """
+                "rateType" IN ('Volunteer', 'Professional')
+                AND (
+                  ("rateType" = 'Volunteer' AND "professionalBillingRate" IS NULL)
+                  OR (
+                    "rateType" = 'Professional'
+                    AND "professionalBillingRate" IS NOT NULL
+                    AND "professionalBillingRate" > 0
+                  )
+                )
+                """));
+        });
+
+        modelBuilder.Entity<Department>(entity =>
+        {
+            entity.Property(department => department.Name).HasColumnType("citext");
+            entity.HasIndex(department => new { department.OrganizationId, department.Name }).IsUnique();
+            entity.HasOne(department => department.Organization)
+                .WithMany(organization => organization.Departments)
+                .HasForeignKey(department => department.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<DepartmentMembership>(entity =>
+        {
+            entity.Property(membership => membership.JoinedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.HasIndex(membership => new { membership.UserId, membership.DepartmentId }).IsUnique();
+            entity.HasOne(membership => membership.User)
+                .WithMany(user => user.DepartmentMemberships)
+                .HasForeignKey(membership => membership.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(membership => membership.Department)
+                .WithMany(department => department.Memberships)
+                .HasForeignKey(membership => membership.DepartmentId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(membership => membership.Role)
+                .WithMany(role => role.DepartmentMemberships)
+                .HasForeignKey(membership => membership.RoleId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Tag>(entity =>
+        {
+            entity.Property(tag => tag.Name).HasColumnType("citext");
+            entity.HasIndex(tag => new { tag.OrganizationId, tag.Name }).IsUnique();
+            entity.HasOne(tag => tag.Organization)
+                .WithMany(organization => organization.Tags)
+                .HasForeignKey(tag => tag.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TaskCategory>(entity =>
+        {
+            entity.Property(category => category.Name).HasColumnType("citext");
+            entity.HasIndex(category => new { category.OrganizationId, category.Name }).IsUnique();
+            entity.HasOne(category => category.Organization)
+                .WithMany(organization => organization.TaskCategories)
+                .HasForeignKey(category => category.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Project>(entity =>
+        {
+            entity.Property(project => project.Title).HasColumnType("citext");
+            entity.Property(project => project.AccessType).HasConversion<string>();
+            entity.Property(project => project.IsActive).HasDefaultValue(true);
+            entity.Property(project => project.StartDate).HasColumnType("date");
+            entity.Property(project => project.EndDate).HasColumnType("date");
+            entity.HasIndex(project => new { project.OrganizationId, project.Title }).IsUnique();
+            entity.HasOne(project => project.Organization)
+                .WithMany(organization => organization.Projects)
+                .HasForeignKey(project => project.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(project => project.Department)
+                .WithMany(department => department.Projects)
+                .HasForeignKey(project => project.DepartmentId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(project => project.Owner)
+                .WithMany(user => user.OwnedProjects)
+                .HasForeignKey(project => project.OwnerUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasMany(project => project.Editors)
+                .WithMany(user => user.EditableProjects)
+                .UsingEntity(
+                    "ProjectEditor",
+                    user => user.HasOne(typeof(User)).WithMany().HasForeignKey("UserId").OnDelete(DeleteBehavior.Cascade),
+                    projectSide => projectSide.HasOne(typeof(Project)).WithMany().HasForeignKey("ProjectId").OnDelete(DeleteBehavior.Cascade),
+                    join => join.HasKey("ProjectId", "UserId"));
+            entity.ToTable(table => table.HasCheckConstraint(
+                "Project_access_check",
+                """
+                "accessType" IN ('Public', 'Private', 'Department')
+                AND (
+                  ("accessType" = 'Department' AND "departmentId" IS NOT NULL)
+                  OR ("accessType" IN ('Public', 'Private') AND "departmentId" IS NULL)
+                )
+                AND (
+                  "startDate" IS NULL
+                  OR "endDate" IS NULL
+                  OR "endDate" >= "startDate"
+                )
+                """));
+        });
+
+        modelBuilder.Entity<UserTimeEntry>(entity =>
+        {
+            entity.Property(entry => entry.OccurredOn).HasColumnType("date");
+            entity.Property(entry => entry.HourlyRate).HasPrecision(10, 2);
+            entity.Property(entry => entry.InKindValue).HasPrecision(12, 2);
+            entity.Property(entry => entry.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.HasIndex(entry => entry.SourceRef).IsUnique();
+            entity.HasIndex(entry => new { entry.OrganizationId, entry.OccurredOn });
+            entity.HasIndex(entry => new { entry.UserId, entry.OccurredOn });
+            entity.HasOne(entry => entry.User)
+                .WithMany(user => user.TimeEntries)
+                .HasForeignKey(entry => entry.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(entry => entry.EnteredBy)
+                .WithMany(user => user.TimeEntriesEntered)
+                .HasForeignKey(entry => entry.EnteredByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(entry => entry.Organization)
+                .WithMany(organization => organization.TimeEntries)
+                .HasForeignKey(entry => entry.OrganizationId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(entry => entry.Department)
+                .WithMany(department => department.TimeEntries)
+                .HasForeignKey(entry => entry.DepartmentId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(entry => entry.Project)
+                .WithMany(project => project.UserTimeEntries)
+                .HasForeignKey(entry => entry.ProjectId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(entry => entry.TaskCategory)
+                .WithMany(category => category.UserTimeEntries)
+                .HasForeignKey(entry => entry.TaskCategoryId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(entry => entry.Rate)
+                .WithMany(rate => rate.UserTimeEntries)
+                .HasForeignKey(entry => entry.HourlyRateId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasMany(entry => entry.Tags)
+                .WithMany(tag => tag.UserTimeEntries)
+                .UsingEntity(
+                    "UserTimeEntryTag",
+                    tag => tag.HasOne(typeof(Tag)).WithMany().HasForeignKey("TagId").OnDelete(DeleteBehavior.Cascade),
+                    entrySide => entrySide.HasOne(typeof(UserTimeEntry)).WithMany().HasForeignKey("UserTimeEntryId").OnDelete(DeleteBehavior.Cascade),
+                    join => join.HasKey("UserTimeEntryId", "TagId"));
+            entity.ToTable(table => table.HasCheckConstraint(
+                "UserTimeEntry_mode_check",
+                """
+                (
+                  ("mode" IN ('Punch', 'Duration') AND "hourlyRate" > 0)
+                  OR ("mode" = 'Total' AND "hourlyRate" >= 0)
+                )
+                AND (
+                  (
+                    "mode" = 'Punch'
+                    AND "startedAt" IS NOT NULL
+                    AND (
+                      (
+                        "endedAt" IS NULL
+                        AND "durationMinutes" IS NULL
+                        AND "inKindValue" IS NULL
+                      )
+                      OR (
+                        "endedAt" IS NOT NULL
+                        AND "endedAt" > "startedAt"
+                        AND "durationMinutes" BETWEEN 1 AND 1440
+                        AND "durationMinutes" = FLOOR(EXTRACT(EPOCH FROM ("endedAt" - "startedAt")) / 60)::integer
+                        AND "inKindValue" IS NOT NULL
+                        AND "inKindValue" = ROUND(("durationMinutes"::numeric * "hourlyRate") / 60, 2)
+                      )
+                    )
+                  )
+                  OR (
+                    "mode" = 'Duration'
+                    AND "durationMinutes" BETWEEN 1 AND 1440
+                    AND "inKindValue" IS NOT NULL
+                    AND "inKindValue" = ROUND(("durationMinutes"::numeric * "hourlyRate") / 60, 2)
+                    AND (
+                      ("startedAt" IS NULL AND "endedAt" IS NULL)
+                      OR (
+                        "startedAt" IS NOT NULL
+                        AND "endedAt" IS NOT NULL
+                        AND "endedAt" > "startedAt"
+                        AND "durationMinutes" = FLOOR(EXTRACT(EPOCH FROM ("endedAt" - "startedAt")) / 60)::integer
+                      )
+                    )
+                  )
+                  OR (
+                    "mode" = 'Total'
+                    AND "durationMinutes" BETWEEN 1 AND 59940
+                    AND "hourlyRate" >= 0
+                    AND "inKindValue" IS NOT NULL
+                    AND "inKindValue" = ROUND(("durationMinutes"::numeric * "hourlyRate") / 60, 2)
+                  )
+                )
+                """));
+        });
+
+        modelBuilder.Entity<CollectiveTimeEntry>(entity =>
+        {
+            entity.Property(entry => entry.HourlyRate).HasPrecision(10, 2);
+            entity.Property(entry => entry.InKindValue).HasPrecision(12, 2);
+            entity.Property(entry => entry.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.HasIndex(entry => new { entry.OrganizationId, entry.StartedAt });
+            entity.HasOne(entry => entry.RecordedBy)
+                .WithMany(user => user.CollectiveTimeEntries)
+                .HasForeignKey(entry => entry.RecordedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(entry => entry.Organization)
+                .WithMany(organization => organization.CollectiveTimeEntries)
+                .HasForeignKey(entry => entry.OrganizationId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(entry => entry.Department)
+                .WithMany(department => department.CollectiveTimeEntries)
+                .HasForeignKey(entry => entry.DepartmentId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(entry => entry.Project)
+                .WithMany(project => project.CollectiveTimeEntries)
+                .HasForeignKey(entry => entry.ProjectId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(entry => entry.TaskCategory)
+                .WithMany(category => category.CollectiveTimeEntries)
+                .HasForeignKey(entry => entry.TaskCategoryId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(entry => entry.Rate)
+                .WithMany(rate => rate.CollectiveTimeEntries)
+                .HasForeignKey(entry => entry.HourlyRateId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasMany(entry => entry.Tags)
+                .WithMany(tag => tag.CollectiveTimeEntries)
+                .UsingEntity(
+                    "CollectiveTimeEntryTag",
+                    tag => tag.HasOne(typeof(Tag)).WithMany().HasForeignKey("TagId").OnDelete(DeleteBehavior.Cascade),
+                    entrySide => entrySide.HasOne(typeof(CollectiveTimeEntry)).WithMany().HasForeignKey("CollectiveTimeEntryId").OnDelete(DeleteBehavior.Cascade),
+                    join => join.HasKey("CollectiveTimeEntryId", "TagId"));
+            entity.ToTable(table => table.HasCheckConstraint(
+                "CollectiveTimeEntry_span_check",
+                """
+                "endedAt" > "startedAt"
+                AND "participantCount" >= 1
+                AND "hourlyRate" > 0
+                AND "inKindValue" = ROUND(
+                  (EXTRACT(EPOCH FROM ("endedAt" - "startedAt")) / 3600.0)
+                  * "participantCount"
+                  * "hourlyRate"
+                , 2)
+                """));
+        });
+
+        modelBuilder.Entity<RefreshToken>(entity =>
+        {
+            entity.HasIndex(token => token.TokenHash).IsUnique();
+            entity.HasOne(token => token.User)
+                .WithMany(user => user.RefreshTokens)
+                .HasForeignKey(token => token.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Invitation>(entity =>
+        {
+            entity.Property(invitation => invitation.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.HasIndex(invitation => invitation.CodeHash).IsUnique();
+            entity.HasIndex(invitation => invitation.Email);
+            entity.HasIndex(invitation => new { invitation.Email, invitation.OrganizationId })
+                .IsUnique()
+                .HasFilter("\"departmentId\" IS NULL AND \"acceptedAt\" IS NULL AND \"revokedAt\" IS NULL")
+                .HasDatabaseName("Invitation_pending_org_key");
+            entity.HasIndex(invitation => new { invitation.Email, invitation.DepartmentId })
+                .IsUnique()
+                .HasFilter("\"departmentId\" IS NOT NULL AND \"acceptedAt\" IS NULL AND \"revokedAt\" IS NULL")
+                .HasDatabaseName("Invitation_pending_department_key");
+            entity.HasOne(invitation => invitation.Organization)
+                .WithMany(organization => organization.Invitations)
+                .HasForeignKey(invitation => invitation.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(invitation => invitation.Department)
+                .WithMany(department => department.Invitations)
+                .HasForeignKey(invitation => invitation.DepartmentId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(invitation => invitation.Role)
+                .WithMany(role => role.Invitations)
+                .HasForeignKey(invitation => invitation.RoleId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(invitation => invitation.InvitedBy)
+                .WithMany(user => user.InvitationsSent)
+                .HasForeignKey(invitation => invitation.InvitedByUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.ToTable(table => table.HasCheckConstraint(
+                "Invitation_lowercase_email_check",
+                "\"email\" = lower(\"email\")"));
+        });
+
+        modelBuilder.Entity<PasswordResetCode>(entity =>
+        {
+            entity.Property(code => code.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.HasIndex(code => code.CodeHash).IsUnique();
+            entity.HasIndex(code => code.UserId);
+            entity.HasOne(code => code.User)
+                .WithMany(user => user.PasswordResetCodes)
+                .HasForeignKey(code => code.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        UseDomainColumnNames(modelBuilder);
+    }
+
+    private static void UseDomainColumnNames(ModelBuilder modelBuilder)
+    {
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            if (entityType.IsMappedToJson())
+            {
+                foreach (var property in entityType.GetProperties().Where(property => !property.IsPrimaryKey()))
+                {
+                    property.SetJsonPropertyName(JsonNamingPolicy.CamelCase.ConvertName(property.Name));
+                }
+
+                continue;
+            }
+
+            if (entityType.ClrType is { IsGenericType: false })
+            {
+                entityType.SetTableName(entityType.ClrType.Name);
+            }
+
+            foreach (var property in entityType.GetProperties())
+            {
+                property.SetColumnName(JsonNamingPolicy.CamelCase.ConvertName(property.Name));
+            }
+        }
+    }
+
+    private void TouchUsers()
+    {
+        var now = time.GetUtcNow().UtcDateTime;
+        foreach (var entry in ChangeTracker.Entries<User>())
+        {
+            if (entry.State == EntityState.Added)
+            {
+                if (entry.Entity.CreatedAt == default)
+                {
+                    entry.Entity.CreatedAt = now;
+                }
+
+                entry.Entity.UpdatedAt = now;
+            }
+            else if (entry.State == EntityState.Modified)
+            {
+                entry.Entity.UpdatedAt = now;
+            }
+        }
+    }
+}
+
+public class ClockedInDbContextFactory : IDesignTimeDbContextFactory<ClockedInDbContext>
+{
+    public ClockedInDbContext CreateDbContext(string[] args)
+    {
+        EfConnection.LoadEnvFile();
+        var options = new DbContextOptionsBuilder<ClockedInDbContext>()
+            .UseNpgsql(EfConnection.GetConnectionString(), EfConnection.MapEnums)
+            .Options;
+        return new ClockedInDbContext(options, TimeProvider.System);
+    }
+}

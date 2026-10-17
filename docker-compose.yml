@@ -1,0 +1,22 @@
+name: clocked-in
+
+services:
+  db:
+    image: postgres:17
+    container_name: clocked-in-db
+    environment:
+      POSTGRES_USER: clocked_in
+      POSTGRES_PASSWORD: clocked_in
+      POSTGRES_DB: clocked_in
+    ports:
+      - "5435:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clocked_in -d clocked_in"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  pg-data:
