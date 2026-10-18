@@ -39,6 +39,7 @@ export const clockedInTheme: ThemeJson = {
 };
 
 const hexColor = /^#[0-9A-Fa-f]{6}$/;
+export const chartColorCount = 10;
 
 export function brandCss(theme: ThemeJson | null) {
   const declarations = Object.entries(brandStyle(theme))
@@ -70,7 +71,7 @@ export function brandStyle(theme: ThemeJson | null): CSSProperties {
   const palette = theme.sequentialPalette.filter((color) => hexColor.test(color)).toReversed();
   const stops = palette.length > 0 ? palette : [theme.primary];
   const chartVars = Object.fromEntries(
-    Array.from({ length: 8 }, (_, index) => [`--chart-${index + 1}`, stops[Math.min(index, stops.length - 1)]]),
+    Array.from({ length: chartColorCount }, (_, index) => [`--chart-${index + 1}`, stops[Math.min(index, stops.length - 1)]]),
   );
 
   return {
@@ -108,7 +109,7 @@ export function brandStyle(theme: ThemeJson | null): CSSProperties {
 }
 
 export function chartColor(index: number) {
-  return `var(--chart-${Math.min(Math.max(index, 0), 7) + 1})`;
+  return `var(--chart-${Math.min(Math.max(index, 0), chartColorCount - 1) + 1})`;
 }
 
 export const brandKinds = ["mark", "wordmark", "wordmarkOnLight"] as const;

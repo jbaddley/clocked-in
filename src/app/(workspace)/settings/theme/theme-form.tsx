@@ -14,6 +14,7 @@ import { useActionMutation } from "@/hooks/use-action-mutation";
 import { useOrganization } from "@/hooks/use-workspace";
 import { brandFontLabels, brandFonts, brandStyle, clockedInTheme } from "@/lib/brand";
 import { keys, themesQuery } from "@/lib/queries";
+import { sequentialPaletteFrom } from "@/lib/sequential-palette";
 import type { Theme } from "@/lib/types";
 
 const colorFields = [
@@ -43,22 +44,87 @@ function cloneTheme(theme: Theme): Theme {
   };
 }
 
+function SequentialPaletteGenerator({
+  theme,
+  onGenerate,
+}: {
+  theme: Theme;
+  onGenerate: (colors: string[]) => void;
+}) {
+  const [source, setSource] = useState("primary");
+  const [custom, setCustom] = useState(theme.highlight);
+  const seed = source === "custom" ? custom : theme[source as (typeof colorFields)[number]["key"]];
+  const ready = hexColor.test(seed);
+
+  return (
+    <div className="grid gap-2 rounded-lg border bg-muted/30 p-3">
+      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+        <Field label="Starting color" htmlFor="sequential-seed">
+          <div className="flex items-center gap-2">
+            {source === "custom" ? (
+              <input
+                type="color"
+                value={hexColor.test(custom) ? custom : "#000000"}
+                onChange={(event) => setCustom(event.target.value.toUpperCase())}
+                className="size-9 shrink-0 cursor-pointer rounded-md border bg-card p-1"
+                aria-label="Custom starting color"
+              />
+            ) : (
+              <span className="size-9 shrink-0 rounded-md border" style={{ background: seed }} aria-hidden />
+            )}
+            <SelectField
+              id="sequential-seed"
+              value={source}
+              onValueChange={setSource}
+              options={[
+                ...colorFields.map((field) => ({ value: field.key, label: field.label })),
+                { value: "custom", label: "Custom" },
+              ]}
+              className="h-9"
+            />
+          </div>
+        </Field>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-9"
+          disabled={!ready}
+          onClick={() => onGenerate(sequentialPaletteFrom(seed))}
+        >
+          Generate
+        </Button>
+      </div>
+      {source === "custom" ? (
+        <Input
+          value={custom}
+          onChange={(event) => setCustom(event.target.value.toUpperCase())}
+          className="h-9 font-mono"
+          aria-label="Custom starting color hex"
+        />
+      ) : null}
+    </div>
+  );
+}
+
 function PaletteEditor({
   label,
   colors,
   min,
   max,
   onChange,
+  header,
 }: {
   label: string;
   colors: string[];
   min: number;
   max: number;
   onChange: (colors: string[]) => void;
+  header?: React.ReactNode;
 }) {
   return (
     <Field label={label} hint={`${colors.length} colors · ${min} to ${max} required`}>
       <div className="grid gap-2">
+        {header}
         {colors.map((color, index) => (
           <div key={`${label}-${index}`} className="flex items-center gap-2">
             <input
@@ -245,8 +311,14 @@ function ThemeFields() {
                 label="Sequential chart palette"
                 colors={draft.sequentialPalette}
                 min={5}
-                max={7}
+                max={10}
                 onChange={(sequentialPalette) => setDraft({ ...draft, sequentialPalette })}
+                header={
+                  <SequentialPaletteGenerator
+                    theme={draft}
+                    onGenerate={(sequentialPalette) => setDraft({ ...draft, sequentialPalette })}
+                  />
+                }
               />
               <PaletteEditor
                 label="Diverging chart palette"

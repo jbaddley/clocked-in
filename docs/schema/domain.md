@@ -258,7 +258,7 @@ In-kind valuation catalogs live on `HourlyRate`. Creating an organization seeds 
 
 ### Theme
 
-Global presets have `organizationId` empty and are read-only. Organizations can save named copies. Palettes are JSON arrays of `#RRGGBB` colors: categorical 6–8, sequential 5–7, diverging 7. Seed seven global themes: Clocked In, Harbor, Atelier, Evergreen, Orchid, Okabe–Ito, and Tol Bright.
+Global presets have `organizationId` empty and are read-only. Organizations can save named copies. Palettes are JSON arrays of `#RRGGBB` colors: categorical 6–8, sequential 5–10, diverging 7. Seed seven global themes: Clocked In, Harbor, Atelier, Evergreen, Orchid, Okabe–Ito, and Tol Bright.
 
 | Field | Required | Notes |
 | --- | --- | --- |
@@ -276,7 +276,7 @@ Global presets have `organizationId` empty and are read-only. Organizations can 
 | headingFont | yes | `SourceSans3`, `NunitoSans`, or `Geist` |
 | bodyFont | yes | `SourceSans3`, `NunitoSans`, or `Geist` |
 | categoricalPalette | yes | JSON array of 6–8 `#RRGGBB` colors |
-| sequentialPalette | yes | JSON array of 5–7 `#RRGGBB` colors |
+| sequentialPalette | yes | JSON array of 5–10 `#RRGGBB` colors |
 | divergingPalette | yes | JSON array of 7 `#RRGGBB` colors |
 
 ### HourlyRate

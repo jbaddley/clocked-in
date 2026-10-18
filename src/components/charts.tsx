@@ -7,7 +7,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import { chartColor } from "@/lib/brand";
+import { chartColor, chartColorCount } from "@/lib/brand";
 import { formatCurrency, formatHours, formatNumber } from "@/lib/format";
 import type { ReportGroup } from "@/lib/types";
 
@@ -16,7 +16,7 @@ function configFor(rows: ReportGroup[]): ChartConfig {
 }
 
 export function HoursDonut({ rows, total }: { rows: ReportGroup[]; total: number }) {
-  const data = rows.slice(0, 8).map((row, index) => ({ ...row, fill: chartColor(index) }));
+  const data = rows.slice(0, chartColorCount).map((row, index) => ({ ...row, fill: chartColor(index) }));
   return (
     <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
       <ChartContainer config={configFor(rows)} className="aspect-square w-full max-w-[220px] shrink-0">

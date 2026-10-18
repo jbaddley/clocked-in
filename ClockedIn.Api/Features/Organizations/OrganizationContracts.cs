@@ -155,7 +155,7 @@ public sealed record ThemeWriteRequest(
         Font(body, "headingFont"),
         Font(body, "bodyFont"),
         Palette(body, "categoricalPalette", 6, 8),
-        Palette(body, "sequentialPalette", 5, 7),
+        Palette(body, "sequentialPalette", 5, 10),
         Palette(body, "divergingPalette", 7, 7));
 
     public void ApplyTo(Theme theme)

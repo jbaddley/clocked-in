@@ -1,7 +1,8 @@
+import { chartColorCount } from "@/lib/brand";
 import { formatHours, share } from "@/lib/format";
 import type { ReportGroup } from "@/lib/types";
 
-const colors = Array.from({ length: 8 }, (_, index) => `var(--chart-${index + 1})`);
+const colors = Array.from({ length: chartColorCount }, (_, index) => `var(--chart-${index + 1})`);
 
 export function ShareBar({ rows, total }: { rows: ReportGroup[]; total: number }) {
   const top = rows.slice(0, 4);

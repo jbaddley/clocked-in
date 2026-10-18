@@ -25,7 +25,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { useWorkspace } from "@/hooks/use-workspace";
-import type { ActionResult } from "@/lib/types";
+import { brandAssetSrc } from "@/lib/brand";
+import type { ActionResult, Organization } from "@/lib/types";
 
 export function OrgSwitcher() {
   const { organizations, organization } = useWorkspace();
@@ -40,7 +41,7 @@ export function OrgSwitcher() {
             <Button variant="outline" className="h-9 max-w-56 justify-between gap-2 sm:max-w-72" disabled={pending} />
           }
         >
-          <BuildingIcon className="text-muted-foreground" />
+          <OrgLogo organization={organization} />
           <span className="truncate">{organization?.name ?? "No organization"}</span>
           <ChevronsUpDownIcon className="text-muted-foreground" />
         </DropdownMenuTrigger>
@@ -58,6 +59,7 @@ export function OrgSwitcher() {
                   });
                 }}
               >
+                <OrgLogo organization={item} fallback={false} />
                 <span className="truncate">{item.name}</span>
                 {item.id === organization?.id ? <CheckIcon className="ml-auto" /> : null}
               </DropdownMenuItem>
@@ -93,6 +95,24 @@ export function NewOrganizationForm({ onDone }: { onDone?: () => void }) {
       {result && !result.ok ? <FormMessage result={result} /> : null}
       <SubmitButton className="h-9 self-start">Create organization</SubmitButton>
     </form>
+  );
+}
+
+function OrgLogo({
+  organization,
+  fallback = true,
+}: {
+  organization: Pick<Organization, "markUrl"> | null;
+  fallback?: boolean;
+}) {
+  const src = brandAssetSrc("mark", organization?.markUrl ?? null);
+  if (!src) {
+    return fallback ? <BuildingIcon className="text-muted-foreground" /> : null;
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={src} alt="" width={20} height={20} className="size-5 shrink-0 object-contain" />
   );
 }
 

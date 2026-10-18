@@ -142,7 +142,7 @@ export function parseThemeWrite(body: Body): ThemeWriteRequest {
     headingFont: font(body, "headingFont"),
     bodyFont: font(body, "bodyFont"),
     categoricalPalette: palette(body, "categoricalPalette", 6, 8),
-    sequentialPalette: palette(body, "sequentialPalette", 5, 7),
+    sequentialPalette: palette(body, "sequentialPalette", 5, 10),
     divergingPalette: palette(body, "divergingPalette", 7, 7),
   };
 }
