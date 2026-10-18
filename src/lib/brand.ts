@@ -66,9 +66,11 @@ export function brandStyle(theme: ThemeJson | null): CSSProperties {
     return {};
   }
 
-  const palette = theme.categoricalPalette.filter((color) => hexColor.test(color));
+  // Sequential stops are stored light to dark. Charts lead with the darkest stop so the largest category stays readable.
+  const palette = theme.sequentialPalette.filter((color) => hexColor.test(color)).toReversed();
+  const stops = palette.length > 0 ? palette : [theme.primary];
   const chartVars = Object.fromEntries(
-    Array.from({ length: 8 }, (_, index) => [`--chart-${index + 1}`, palette[index] ?? palette[index % Math.max(palette.length, 1)] ?? theme.primary]),
+    Array.from({ length: 8 }, (_, index) => [`--chart-${index + 1}`, stops[Math.min(index, stops.length - 1)]]),
   );
 
   return {
@@ -106,7 +108,7 @@ export function brandStyle(theme: ThemeJson | null): CSSProperties {
 }
 
 export function chartColor(index: number) {
-  return `var(--chart-${(index % 8) + 1})`;
+  return `var(--chart-${Math.min(Math.max(index, 0), 7) + 1})`;
 }
 
 export const brandKinds = ["mark", "wordmark", "wordmarkOnLight"] as const;
