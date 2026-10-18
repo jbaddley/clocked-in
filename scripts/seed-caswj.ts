@@ -5,6 +5,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
 import { config } from "dotenv";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { prismaPoolConfig } from "../src/lib/prisma-connection";
 import {
   baseCaswjTheme,
   baseCaswjThemeName,
@@ -31,7 +32,7 @@ function prismaClient() {
     throw new Error("DATABASE_URL is required.");
   }
 
-  return new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
+  return new PrismaClient({ adapter: new PrismaPg(prismaPoolConfig(connectionString, { pooled: false })) });
 }
 
 async function main() {
