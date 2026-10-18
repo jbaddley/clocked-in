@@ -19,15 +19,13 @@ export function LoginForm() {
         <Input id="username" name="username" autoComplete="username" required className="h-10" />
       </Field>
       <Field
-        label={
-          <span className="flex w-full items-center justify-between">
-            Password
-            <Link href="/forgot-password" className="text-xs font-normal tracking-normal text-primary normal-case hover:underline">
-              Forgot password?
-            </Link>
-          </span>
-        }
+        label="Password"
         htmlFor="password"
+        action={
+          <Link href="/forgot-password" className="text-xs font-normal text-primary hover:underline">
+            Forgot password?
+          </Link>
+        }
       >
         <Input id="password" name="password" type="password" autoComplete="current-password" required className="h-10" />
       </Field>
