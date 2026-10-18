@@ -18,6 +18,7 @@ export type ThemeJson = {
   surface: string;
   surfaceForeground: string;
   foreground: string;
+  chartColor: string;
   headingFont: string;
   bodyFont: string;
   categoricalPalette: string[];
@@ -48,6 +49,7 @@ export function themeJson(theme: {
   surface: string;
   surfaceForeground: string;
   foreground: string;
+  chartColor: string;
   headingFont: string;
   bodyFont: string;
   categoricalPalette: string;
@@ -66,6 +68,7 @@ export function themeJson(theme: {
     surface: theme.surface,
     surfaceForeground: theme.surfaceForeground,
     foreground: theme.foreground,
+    chartColor: theme.chartColor,
     headingFont: theme.headingFont,
     bodyFont: theme.bodyFont,
     categoricalPalette: parsePaletteJson(theme.categoricalPalette),
@@ -121,6 +124,7 @@ export type ThemeWriteRequest = {
   surface: string;
   surfaceForeground: string;
   foreground: string;
+  chartColor: string;
   headingFont: string;
   bodyFont: string;
   categoricalPalette: string[];
@@ -139,6 +143,7 @@ export function parseThemeWrite(body: Body): ThemeWriteRequest {
     surface: hex(body, "surface"),
     surfaceForeground: hex(body, "surfaceForeground"),
     foreground: hex(body, "foreground"),
+    chartColor: hex(body, "chartColor"),
     headingFont: font(body, "headingFont"),
     bodyFont: font(body, "bodyFont"),
     categoricalPalette: palette(body, "categoricalPalette", 6, 8),
@@ -162,6 +167,7 @@ function themeData(request: ThemeWriteRequest) {
     surface: request.surface,
     surfaceForeground: request.surfaceForeground,
     foreground: request.foreground,
+    chartColor: request.chartColor,
     headingFont: request.headingFont,
     bodyFont: request.bodyFont,
     categoricalPalette: paletteText(request.categoricalPalette),

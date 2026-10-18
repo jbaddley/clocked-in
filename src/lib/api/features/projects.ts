@@ -11,6 +11,8 @@ import {
   ids,
   list,
   normalizeAccessType,
+  normalizeProjectType,
+  type ProjectType,
   optional,
   Optional,
   optionalDate,
@@ -37,6 +39,7 @@ function projectJson(project: ProjectRow) {
     title: project.title,
     description: project.description,
     accessType: project.accessType,
+    projectType: project.projectType,
     startDate: project.startDate ? asDateOnly(project.startDate) : null,
     endDate: project.endDate ? asDateOnly(project.endDate) : null,
     isActive: project.isActive,
@@ -46,6 +49,7 @@ function projectJson(project: ProjectRow) {
 
 export type CreateProjectRequest = {
   accessType: AccessType;
+  projectType: ProjectType;
   departmentId: string | null;
   startDate: Date | null;
   endDate: Date | null;
@@ -58,6 +62,7 @@ export type CreateProjectRequest = {
 export function parseCreateProject(body: Body): CreateProjectRequest {
   return {
     accessType: normalizeAccessType(requireString(body, "accessType")),
+    projectType: has(body, "projectType") ? normalizeProjectType(requireString(body, "projectType")) : "Project",
     departmentId: optionalUuid(body, "departmentId"),
     startDate: optionalDate(body, "startDate"),
     endDate: optionalDate(body, "endDate"),
@@ -70,6 +75,7 @@ export function parseCreateProject(body: Body): CreateProjectRequest {
 
 export type UpdateProjectRequest = {
   accessType: Optional<AccessType>;
+  projectType: Optional<ProjectType>;
   departmentId: Optional<string | null>;
   startDate: Optional<Date | null>;
   endDate: Optional<Date | null>;
@@ -82,6 +88,7 @@ export type UpdateProjectRequest = {
 export function parseUpdateProject(body: Body): UpdateProjectRequest {
   const request: UpdateProjectRequest = {
     accessType: optional(body, "accessType", (b, k) => normalizeAccessType(requireString(b, k))),
+    projectType: optional(body, "projectType", (b, k) => normalizeProjectType(requireString(b, k))),
     departmentId: optional(body, "departmentId", optionalUuid),
     startDate: optional(body, "startDate", optionalDate),
     endDate: optional(body, "endDate", optionalDate),
@@ -259,6 +266,7 @@ export async function createProject(access: Access, organizationId: string, requ
         title: request.title,
         description: request.description,
         accessType: request.accessType,
+        projectType: request.projectType,
         startDate: request.startDate,
         endDate: request.endDate,
         isActive: request.isActive,
@@ -295,6 +303,7 @@ export async function updateProject(access: Access, projectId: string, request: 
       data: {
         title: request.title.set ? request.title.value : undefined,
         description: request.description.set ? request.description.value : undefined,
+        projectType: request.projectType.set ? request.projectType.value : undefined,
         accessType: placementChanged ? accessType : undefined,
         departmentId: placementChanged ? (accessType === "Department" ? departmentId : null) : undefined,
         startDate,

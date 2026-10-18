@@ -1,7 +1,8 @@
 "use client";
 
-import { MoreVerticalIcon } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { MoreVerticalIcon, PencilIcon } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import {
   createPersonAction,
   inviteMemberAction,
@@ -72,6 +73,115 @@ function departmentNames(member: Membership, departments: { id: string; name: st
     .filter((name): name is string => Boolean(name));
 }
 
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function InlineEmail({
+  email,
+  name,
+  pending,
+  onSave,
+}: {
+  email: string;
+  name: string;
+  pending?: boolean;
+  onSave: (email: string) => Promise<unknown>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(email);
+  const skipSave = useRef(false);
+  const editingRef = useRef(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  editingRef.current = editing;
+
+  useEffect(() => {
+    if (!editingRef.current) setValue(email);
+  }, [email]);
+
+  useEffect(() => {
+    if (!editing) return;
+    inputRef.current?.focus();
+  }, [editing]);
+
+  function stopEditing(next = email) {
+    skipSave.current = false;
+    setValue(next);
+    setEditing(false);
+  }
+
+  function commit(input: HTMLInputElement) {
+    if (skipSave.current) {
+      stopEditing();
+      return;
+    }
+
+    const next = input.value.trim();
+    if (next.toLowerCase() === email.trim().toLowerCase()) {
+      stopEditing();
+      return;
+    }
+
+    if (next.length > 254 || !emailPattern.test(next)) {
+      toast.error("email must be an email address.");
+      window.setTimeout(() => input.focus(), 0);
+      return;
+    }
+
+    setValue(next);
+    setEditing(false);
+    void onSave(next).catch(() => setValue(email));
+  }
+
+  if (editing) {
+    return (
+      <Input
+        ref={inputRef}
+        autoFocus
+        type="email"
+        inputMode="email"
+        autoComplete="off"
+        spellCheck={false}
+        aria-label={`Email for ${name}`}
+        value={value}
+        disabled={pending}
+        onChange={(event) => setValue(event.target.value)}
+        onBlur={(event) => commit(event.currentTarget)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            event.currentTarget.blur();
+          }
+          if (event.key === "Escape") {
+            event.preventDefault();
+            skipSave.current = true;
+            event.currentTarget.blur();
+          }
+        }}
+        className="h-8"
+      />
+    );
+  }
+
+  return (
+    <div className="flex w-full min-w-0 items-center gap-2">
+      <span className="min-w-0 truncate text-sm text-muted-foreground">{value}</span>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-xs"
+        className="ml-auto shrink-0 text-muted-foreground"
+        aria-label={`Edit email for ${name}`}
+        disabled={pending}
+        onClick={() => {
+          setValue(email);
+          setEditing(true);
+        }}
+      >
+        <PencilIcon />
+      </Button>
+    </div>
+  );
+}
+
 function DepartmentSummary({ names }: { names: string[] }) {
   if (names.length === 0) return <span className="text-muted-foreground">—</span>;
   if (names.length === 1) return <span className="truncate text-muted-foreground">{names[0]}</span>;
@@ -117,6 +227,21 @@ export function MembersView() {
       updateMemberAction(organization.id, membershipId, patch),
     { invalidate },
   );
+  const [emailSavingId, setEmailSavingId] = useState<string | null>(null);
+  const saveEmail = useActionMutation(
+    ({ membershipId, email }: { membershipId: string; email: string }) =>
+      updateMemberAction(organization.id, membershipId, { email }),
+    { invalidate, silent: true, onSuccess: () => toast.success("Email saved.") },
+  );
+
+  async function saveMemberEmail(membershipId: string, email: string) {
+    setEmailSavingId(membershipId);
+    try {
+      await saveEmail.mutateAsync({ membershipId, email });
+    } finally {
+      setEmailSavingId((current) => (current === membershipId ? null : current));
+    }
+  }
   const remove = useActionMutation(
     (membershipId: string) => removeMemberAction(organization.id, membershipId),
     { invalidate, onSuccess: () => setRemoveMember(null) },
@@ -194,7 +319,14 @@ export function MembersView() {
                         <span className="ml-1.5 text-xs font-normal text-muted-foreground">you</span>
                       ) : null}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{member.user.email}</TableCell>
+                    <TableCell>
+                      <InlineEmail
+                        email={member.user.email}
+                        name={personName(member)}
+                        pending={emailSavingId === member.id}
+                        onSave={(email) => saveMemberEmail(member.id, email)}
+                      />
+                    </TableCell>
                     <TableCell>{member.role.name}</TableCell>
                     <TableCell className="whitespace-nowrap">
                       <DepartmentSummary names={departmentNames(member, lookups.departments)} />
@@ -267,7 +399,12 @@ export function MembersView() {
                           onAddTime={() => setTimeFor([member.userId])}
                         />
                       </div>
-                      <p className="truncate text-sm text-muted-foreground">{member.user.email}</p>
+                      <InlineEmail
+                        email={member.user.email}
+                        name={personName(member)}
+                        pending={emailSavingId === member.id}
+                        onSave={(email) => saveMemberEmail(member.id, email)}
+                      />
                       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                         <span>{member.role.name}</span>
                         <Badge variant={member.isActive === false ? "outline" : "secondary"}>

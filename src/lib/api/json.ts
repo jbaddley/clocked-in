@@ -312,6 +312,7 @@ export function normalizePassword(value: string) {
 export type RoleCode = "MEMBER" | "VOLUNTEER" | "ADMIN";
 export type RateType = "Volunteer" | "Professional";
 export type AccessType = "Public" | "Private" | "Department";
+export type ProjectType = "Project" | "Event";
 
 export function normalizeRole(value: string): RoleCode {
   const role = value.trim().toUpperCase();
@@ -329,6 +330,15 @@ export function normalizeRateType(value: string): RateType {
   }
 
   return rateType;
+}
+
+export function normalizeProjectType(value: string): ProjectType {
+  const projectType = value.trim();
+  if (projectType !== "Project" && projectType !== "Event") {
+    validation("projectType must be Project or Event.");
+  }
+
+  return projectType;
 }
 
 export function normalizeAccessType(value: string): AccessType {

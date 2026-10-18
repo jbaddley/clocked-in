@@ -20,6 +20,7 @@ export const baseCaswjTheme = {
   surface: "#FFFFFF",
   surfaceForeground: "#001836",
   foreground: "#001836",
+  chartColor: "#001836",
   headingFont: "HelveticaNeue",
   bodyFont: "AvenirNext",
   categoricalPalette: themePalette(["#001836", "#D4AC59", "#4EBFAE", "#FF5E9F", "#738091", "#EAD6AC"]),
@@ -27,7 +28,8 @@ export const baseCaswjTheme = {
   divergingPalette: themePalette(["#FF5E9F", "#FF9EC4", "#FFD6E6", "#FFFFFF", "#B8E8DE", "#4EBFAE", "#001836"]),
 };
 
-export const workbookPath = path.resolve(process.cwd(), "docs/base/Volunteer Hours.xlsx");
+export const workbookPath = path.resolve(process.cwd(), "docs/base/2026 Volunteer Hours.xlsx");
+export const fallbackProjectTitle = "No Specific Project";
 export const caswjSourceRefPrefix = "caswj-log:";
 export const departmentNames = [
   "Literary Arts Society",
@@ -54,6 +56,14 @@ export type CaswjPerson = {
   active: boolean;
 };
 
+export type CaswjProject = {
+  title: string;
+  projectType: "Project" | "Event";
+  startDate: Date | null;
+  endDate: Date | null;
+  active: boolean;
+};
+
 export type CaswjLogRow = {
   sheetRow: number;
   occurredOn: Date;
@@ -76,7 +86,7 @@ export type CaswjLogRow = {
 
 export type CaswjWorkbook = {
   categories: Set<string>;
-  projectTitles: Set<string>;
+  projects: CaswjProject[];
   people: Map<string, CaswjPerson>;
   logRows: CaswjLogRow[];
 };

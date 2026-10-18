@@ -109,10 +109,12 @@ describe("organizations", suite, () => {
     const savedTheme = await callApi(`/organizations/${ctx.org.id}/themes/${createdTheme.id}`, {
       method: "PATCH",
       token: ctx.admin.accessToken,
-      body: themeBody({ name: createdTheme.name, categoricalPalette }),
+      body: themeBody({ name: createdTheme.name, categoricalPalette, chartColor: "#D4AC59" }),
     });
     assert.equal(savedTheme.status, 200);
     assert.deepEqual(savedTheme.json.categoricalPalette, categoricalPalette);
+    assert.equal(savedTheme.json.chartColor, "#D4AC59");
+    assert.equal(createdTheme.chartColor, "#112233");
     const updated = await callApi(`/organizations/${ctx.org.id}`, {
       method: "PATCH",
       token: ctx.admin.accessToken,

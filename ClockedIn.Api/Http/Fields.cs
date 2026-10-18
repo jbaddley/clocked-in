@@ -162,6 +162,14 @@ public static class Fields
             _ => throw ApiException.Validation("rateType must be Volunteer or Professional."),
         };
 
+    public static ProjectType NormalizeProjectType(string value) =>
+        value.Trim() switch
+        {
+            "Project" => ProjectType.Project,
+            "Event" => ProjectType.Event,
+            _ => throw ApiException.Validation("projectType must be Project or Event."),
+        };
+
     public static AccessType NormalizeAccessType(string value) =>
         value.Trim() switch
         {

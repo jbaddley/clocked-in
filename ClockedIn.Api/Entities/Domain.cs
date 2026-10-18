@@ -21,6 +21,12 @@ public enum AccessType
     Organization,
 }
 
+public enum ProjectType
+{
+    Project,
+    Event,
+}
+
 public enum RoleCode
 {
     MEMBER,
@@ -183,6 +189,7 @@ public class Theme
     public string Surface { get; set; } = null!;
     public string SurfaceForeground { get; set; } = null!;
     public string Foreground { get; set; } = null!;
+    public string ChartColor { get; set; } = null!;
     public string HeadingFont { get; set; } = null!;
     public string BodyFont { get; set; } = null!;
     public string CategoricalPalette { get; set; } = "[]";
@@ -252,6 +259,7 @@ public class Project
     public string Title { get; set; } = null!;
     public string? Description { get; set; }
     public AccessType AccessType { get; set; }
+    public ProjectType ProjectType { get; set; } = ProjectType.Project;
     public DateOnly? StartDate { get; set; }
     public DateOnly? EndDate { get; set; }
     public bool IsActive { get; set; } = true;

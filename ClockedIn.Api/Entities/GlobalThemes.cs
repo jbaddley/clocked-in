@@ -91,6 +91,7 @@ public static class GlobalThemes
             Surface = surface,
             SurfaceForeground = surfaceForeground,
             Foreground = foreground,
+            ChartColor = primary,
             HeadingFont = headingFont,
             BodyFont = bodyFont,
             CategoricalPalette = Palette(categorical),

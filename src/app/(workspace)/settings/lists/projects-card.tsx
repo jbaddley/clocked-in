@@ -60,6 +60,8 @@ export function ProjectsCard() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm">{project.title}</p>
                   <p className="truncate text-xs text-muted-foreground">
+                    {project.projectType}
+                    {" · "}
                     {project.departmentId ? (names.department.get(project.departmentId) ?? copy.department) : `Whole ${copy.organization.toLowerCase()}`}
                     {" · "}
                     {dateRange(project)}

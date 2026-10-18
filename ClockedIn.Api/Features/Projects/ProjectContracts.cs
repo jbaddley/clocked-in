@@ -12,6 +12,7 @@ public sealed record ProjectDto(
     string Title,
     string? Description,
     string AccessType,
+    string ProjectType,
     DateOnly? StartDate,
     DateOnly? EndDate,
     bool IsActive,
@@ -25,6 +26,7 @@ public sealed record ProjectDto(
         project.Title,
         project.Description,
         project.AccessType.ToString(),
+        project.ProjectType.ToString(),
         project.StartDate,
         project.EndDate,
         project.IsActive,
@@ -33,6 +35,7 @@ public sealed record ProjectDto(
 
 public sealed record CreateProjectRequest(
     AccessType AccessType,
+    ProjectType ProjectType,
     Guid? DepartmentId,
     DateOnly? StartDate,
     DateOnly? EndDate,
@@ -45,6 +48,7 @@ public sealed record CreateProjectRequest(
 
     public static CreateProjectRequest Parse(JsonObject body) => new(
         Fields.NormalizeAccessType(Fields.RequiredString(body, "accessType")),
+        Fields.Has(body, "projectType") ? Fields.NormalizeProjectType(Fields.RequiredString(body, "projectType")) : ProjectType.Project,
         Fields.OptionalGuid(body, "departmentId"),
         Fields.OptionalDate(body, "startDate"),
         Fields.OptionalDate(body, "endDate"),
@@ -56,6 +60,7 @@ public sealed record CreateProjectRequest(
 
 public sealed record UpdateProjectRequest(
     Optional<AccessType> AccessType,
+    Optional<ProjectType> ProjectType,
     Optional<Guid?> DepartmentId,
     Optional<DateOnly?> StartDate,
     Optional<DateOnly?> EndDate,
@@ -70,6 +75,7 @@ public sealed record UpdateProjectRequest(
     {
         var request = new UpdateProjectRequest(
             Optional.Read(body, "accessType", (b, k) => Fields.NormalizeAccessType(Fields.RequiredString(b, k))),
+            Optional.Read(body, "projectType", (b, k) => Fields.NormalizeProjectType(Fields.RequiredString(b, k))),
             Optional.Read(body, "departmentId", Fields.OptionalGuid),
             Optional.Read(body, "startDate", Fields.OptionalDate),
             Optional.Read(body, "endDate", Fields.OptionalDate),
@@ -78,6 +84,7 @@ public sealed record UpdateProjectRequest(
             Optional.Read(body, "isActive", Fields.RequiredBool),
             Optional.Read(body, "editorIds", (b, k) => Fields.Ids(b, k, optional: false)));
         if (!request.AccessType.HasValue
+            && !request.ProjectType.HasValue
             && !request.DepartmentId.HasValue
             && !request.StartDate.HasValue
             && !request.EndDate.HasValue

@@ -86,6 +86,7 @@ public sealed record ThemeDto(
     string Surface,
     string SurfaceForeground,
     string Foreground,
+    string ChartColor,
     string HeadingFont,
     string BodyFont,
     IReadOnlyList<string> CategoricalPalette,
@@ -104,6 +105,7 @@ public sealed record ThemeDto(
         theme.Surface,
         theme.SurfaceForeground,
         theme.Foreground,
+        theme.ChartColor,
         theme.HeadingFont,
         theme.BodyFont,
         ParsePalette(theme.CategoricalPalette),
@@ -134,6 +136,7 @@ public sealed record ThemeWriteRequest(
     string Surface,
     string SurfaceForeground,
     string Foreground,
+    string ChartColor,
     string HeadingFont,
     string BodyFont,
     IReadOnlyList<string> CategoricalPalette,
@@ -152,6 +155,7 @@ public sealed record ThemeWriteRequest(
         Hex(body, "surface"),
         Hex(body, "surfaceForeground"),
         Hex(body, "foreground"),
+        Hex(body, "chartColor"),
         Font(body, "headingFont"),
         Font(body, "bodyFont"),
         Palette(body, "categoricalPalette", 6, 8),
@@ -169,6 +173,7 @@ public sealed record ThemeWriteRequest(
         theme.Surface = Surface;
         theme.SurfaceForeground = SurfaceForeground;
         theme.Foreground = Foreground;
+        theme.ChartColor = ChartColor;
         theme.HeadingFont = HeadingFont;
         theme.BodyFont = BodyFont;
         theme.CategoricalPalette = GlobalThemes.Palette(CategoricalPalette);

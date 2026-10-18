@@ -20,14 +20,26 @@ import { useOrganization } from "@/hooks/use-workspace";
 import { keys } from "@/lib/queries";
 import type { Project } from "@/lib/types";
 
+const projectTypes = [
+  { value: "Project", label: "Project" },
+  { value: "Event", label: "Event" },
+] as const;
+
 type Draft = {
   title: string;
+  projectType: "Project" | "Event";
   departmentId: string;
   startDate: string;
   endDate: string;
 };
 
-const blank: Draft = { title: "", departmentId: organizationWide, startDate: "", endDate: "" };
+const blank: Draft = {
+  title: "",
+  projectType: "Project",
+  departmentId: organizationWide,
+  startDate: "",
+  endDate: "",
+};
 
 function dateError(draft: Draft) {
   if (draft.startDate && draft.endDate && draft.endDate < draft.startDate) {
@@ -40,6 +52,7 @@ function dateError(draft: Draft) {
 function toInput(draft: Draft): ProjectInput {
   return {
     title: draft.title.trim(),
+    projectType: draft.projectType,
     departmentId: draft.departmentId === organizationWide ? null : draft.departmentId,
     startDate: draft.startDate || null,
     endDate: draft.endDate || null,
@@ -49,6 +62,7 @@ function toInput(draft: Draft): ProjectInput {
 function fromProject(project: Project): Draft {
   return {
     title: project.title,
+    projectType: project.projectType === "Event" ? "Event" : "Project",
     departmentId: project.departmentId ?? organizationWide,
     startDate: project.startDate ?? "",
     endDate: project.endDate ?? "",
@@ -101,7 +115,7 @@ export function ProjectForm({
         remember(data);
         onCreated?.(data);
       }
-      setDraft((current) => ({ ...blank, departmentId: current.departmentId }));
+      setDraft((current) => ({ ...blank, projectType: current.projectType, departmentId: current.departmentId }));
       setError(null);
     },
   });
@@ -147,6 +161,16 @@ export function ProjectForm({
               className="h-9"
             />
           </Field>
+          <EntitySelect
+            id={`${idPrefix}-type`}
+            label="Type"
+            value={draft.projectType}
+            onValueChange={(projectType) =>
+              setDraft({ ...draft, projectType: projectType === "Event" ? "Event" : "Project" })
+            }
+            options={[...projectTypes]}
+            className="sm:col-span-2"
+          />
           <EntitySelect
             id={`${idPrefix}-department`}
             label={copy.department}

@@ -312,6 +312,7 @@ export function assertProject(project, expected) {
     "title",
     "description",
     "accessType",
+    "projectType",
     "startDate",
     "endDate",
     "isActive",
@@ -320,6 +321,7 @@ export function assertProject(project, expected) {
   assertUuid(project.id);
   assert.equal(project.organizationId, expected.organizationId);
   assert.equal(project.departmentId, expected.departmentId ?? null);
+  assert.equal(project.projectType, expected.projectType ?? "Project");
   assert.equal(project.ownerUserId, expected.ownerUserId);
   assert.equal(project.title, expected.title);
   assert.equal(project.accessType, expected.accessType);
@@ -502,6 +504,7 @@ export function themeBody(overrides = {}) {
     surface: "#F7F7F4",
     surfaceForeground: "#1C1C1A",
     foreground: "#222222",
+    chartColor: "#112233",
     headingFont: "SourceSans3",
     bodyFont: "NunitoSans",
     categoricalPalette: ["#112233", "#AABBCC", "#2A6F97", "#4EBFAE", "#C17B4A", "#6B7C93"],

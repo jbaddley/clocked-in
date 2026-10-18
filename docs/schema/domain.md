@@ -61,6 +61,7 @@ classDiagram
     string surface
     string surfaceForeground
     string foreground
+    string chartColor
     string headingFont
     string bodyFont
     string categoricalPalette
@@ -103,6 +104,7 @@ classDiagram
     string title
     string description
     string accessType
+    string projectType
     date startDate
     date endDate
     bool isActive
@@ -273,6 +275,7 @@ Global presets have `organizationId` empty and are read-only. Organizations can 
 | surface | yes | `#RRGGBB`. Canvas and cards |
 | surfaceForeground | yes | `#RRGGBB`. Text on surface |
 | foreground | yes | `#RRGGBB`. Body text |
+| chartColor | yes | `#RRGGBB`. Base color for every chart |
 | headingFont | yes | `SourceSans3`, `NunitoSans`, or `Geist` |
 | bodyFont | yes | `SourceSans3`, `NunitoSans`, or `Geist` |
 | categoricalPalette | yes | JSON array of 6–8 `#RRGGBB` colors |
@@ -364,6 +367,7 @@ A project belongs to an organization. When `accessType` is `Department`, it also
 | title | yes | Unique per organization, case-insensitive |
 | description | no | |
 | accessType | yes | `Public`, `Private`, or `Department` |
+| projectType | yes | `Project` or `Event`. Default `Project` |
 | startDate | no | Calendar date |
 | endDate | no | Calendar date. When both dates are set, on or after startDate |
 | isActive | yes | Default true |

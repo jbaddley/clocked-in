@@ -51,6 +51,7 @@ public sealed class ProjectsService(ClockedInDbContext db, Access access)
             Title = request.Title,
             Description = request.Description,
             AccessType = request.AccessType,
+            ProjectType = request.ProjectType,
             StartDate = request.StartDate,
             EndDate = request.EndDate,
             IsActive = request.IsActive,
@@ -78,6 +79,7 @@ public sealed class ProjectsService(ClockedInDbContext db, Access access)
         var startDate = request.StartDate.Or(project.StartDate);
         var endDate = request.EndDate.Or(project.EndDate);
         AssertDates(accessType, departmentId, startDate, endDate);
+        project.ProjectType = request.ProjectType.Or(project.ProjectType);
         project.Title = request.Title.Or(project.Title);
         project.Description = request.Description.Or(project.Description);
         if (request.AccessType.HasValue || request.DepartmentId.HasValue)

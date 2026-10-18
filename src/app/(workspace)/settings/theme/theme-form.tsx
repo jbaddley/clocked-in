@@ -200,6 +200,7 @@ function ThemeFields() {
         surface: next.surface,
         surfaceForeground: next.surfaceForeground,
         foreground: next.foreground,
+        chartColor: next.chartColor,
         headingFont: next.headingFont,
         bodyFont: next.bodyFont,
         categoricalPalette: next.categoricalPalette,
@@ -300,6 +301,22 @@ function ThemeFields() {
               />
             </Field>
             <div className="sm:col-span-2 grid gap-4">
+              <Field label="Base chart color" htmlFor="chartColor" hint="Every chart uses this color">
+                <div className="flex items-center gap-2">
+                  <input
+                    id="chartColor"
+                    type="color"
+                    value={hexColor.test(draft.chartColor) ? draft.chartColor : "#000000"}
+                    onChange={(event) => setDraft({ ...draft, chartColor: event.target.value.toUpperCase() })}
+                    className="size-9 shrink-0 cursor-pointer rounded-md border bg-card p-1"
+                  />
+                  <Input
+                    value={draft.chartColor}
+                    onChange={(event) => setDraft({ ...draft, chartColor: event.target.value.toUpperCase() })}
+                    className="h-9 font-mono"
+                  />
+                </div>
+              </Field>
               <PaletteEditor
                 label="Categorical chart palette"
                 colors={draft.categoricalPalette}
@@ -370,6 +387,9 @@ function ThemeFields() {
           <p className="text-sm text-muted-foreground">Volunteer hours</p>
           <p className="text-2xl font-heading font-semibold text-highlight">12.5 h</p>
           <div className="mt-3 grid gap-2">
+            <div className="flex gap-1">
+              <span className="h-6 flex-1 rounded-sm" style={{ background: draft.chartColor }} />
+            </div>
             {[draft.categoricalPalette, draft.sequentialPalette, draft.divergingPalette].map((palette, index) => (
               <div key={["categorical", "sequential", "diverging"][index]} className="flex gap-1">
                 {palette.map((color, colorIndex) => (

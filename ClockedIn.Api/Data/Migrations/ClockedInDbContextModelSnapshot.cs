@@ -504,6 +504,13 @@ namespace ClockedIn.Api.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("ownerUserId");
 
+                    b.Property<string>("ProjectType")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("Project")
+                        .HasColumnName("projectType");
+
                     b.Property<DateOnly?>("StartDate")
                         .HasColumnType("date")
                         .HasColumnName("startDate");
@@ -524,7 +531,7 @@ namespace ClockedIn.Api.Data.Migrations
 
                     b.ToTable("Project", t =>
                         {
-                            t.HasCheckConstraint("Project_access_check", "\"accessType\" IN ('Public', 'Private', 'Department')\r\nAND (\r\n  (\"accessType\" = 'Department' AND \"departmentId\" IS NOT NULL)\r\n  OR (\"accessType\" IN ('Public', 'Private') AND \"departmentId\" IS NULL)\r\n)\r\nAND (\r\n  \"startDate\" IS NULL\r\n  OR \"endDate\" IS NULL\r\n  OR \"endDate\" >= \"startDate\"\r\n)");
+                            t.HasCheckConstraint("Project_access_check", "\"projectType\" IN ('Project', 'Event')\r\nAND \"accessType\" IN ('Public', 'Private', 'Department')\r\nAND (\r\n  (\"accessType\" = 'Department' AND \"departmentId\" IS NOT NULL)\r\n  OR (\"accessType\" IN ('Public', 'Private') AND \"departmentId\" IS NULL)\r\n)\r\nAND (\r\n  \"startDate\" IS NULL\r\n  OR \"endDate\" IS NULL\r\n  OR \"endDate\" >= \"startDate\"\r\n)");
                         });
                 });
 
@@ -677,6 +684,11 @@ namespace ClockedIn.Api.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("categoricalPalette");
 
+                    b.Property<string>("ChartColor")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("chartColor");
+
                     b.Property<string>("DivergingPalette")
                         .IsRequired()
                         .HasColumnType("text")
@@ -750,7 +762,7 @@ namespace ClockedIn.Api.Data.Migrations
 
                     b.ToTable("Theme", t =>
                         {
-                            t.HasCheckConstraint("Theme_token_check", "\"primary\" ~ '^#[0-9A-Fa-f]{6}$'\r\nAND \"primaryForeground\" ~ '^#[0-9A-Fa-f]{6}$'\r\nAND \"highlight\" ~ '^#[0-9A-Fa-f]{6}$'\r\nAND \"accent\" ~ '^#[0-9A-Fa-f]{6}$'\r\nAND \"success\" ~ '^#[0-9A-Fa-f]{6}$'\r\nAND \"surface\" ~ '^#[0-9A-Fa-f]{6}$'\r\nAND \"surfaceForeground\" ~ '^#[0-9A-Fa-f]{6}$'\r\nAND \"foreground\" ~ '^#[0-9A-Fa-f]{6}$'\r\nAND \"headingFont\" IN ('HelveticaNeue', 'AvenirNext', 'SourceSans3', 'NunitoSans', 'Geist')\r\nAND \"bodyFont\" IN ('HelveticaNeue', 'AvenirNext', 'SourceSans3', 'NunitoSans', 'Geist')\r\nAND left(\"categoricalPalette\", 1) = '['\r\nAND left(\"sequentialPalette\", 1) = '['\r\nAND left(\"divergingPalette\", 1) = '['");
+                            t.HasCheckConstraint("Theme_token_check", "\"primary\" ~ '^#[0-9A-Fa-f]{6}$'\r\nAND \"primaryForeground\" ~ '^#[0-9A-Fa-f]{6}$'\r\nAND \"highlight\" ~ '^#[0-9A-Fa-f]{6}$'\r\nAND \"accent\" ~ '^#[0-9A-Fa-f]{6}$'\r\nAND \"success\" ~ '^#[0-9A-Fa-f]{6}$'\r\nAND \"surface\" ~ '^#[0-9A-Fa-f]{6}$'\r\nAND \"surfaceForeground\" ~ '^#[0-9A-Fa-f]{6}$'\r\nAND \"foreground\" ~ '^#[0-9A-Fa-f]{6}$'\r\nAND \"chartColor\" ~ '^#[0-9A-Fa-f]{6}$'\r\nAND \"headingFont\" IN ('HelveticaNeue', 'AvenirNext', 'SourceSans3', 'NunitoSans', 'Geist')\r\nAND \"bodyFont\" IN ('HelveticaNeue', 'AvenirNext', 'SourceSans3', 'NunitoSans', 'Geist')\r\nAND left(\"categoricalPalette\", 1) = '['\r\nAND left(\"sequentialPalette\", 1) = '['\r\nAND left(\"divergingPalette\", 1) = '['");
                         });
 
                     b.HasData(
@@ -760,6 +772,7 @@ namespace ClockedIn.Api.Data.Migrations
                             Accent = "#FF5E9F",
                             BodyFont = "NunitoSans",
                             CategoricalPalette = "[\"#001836\",\"#D4AC59\",\"#2A6F97\",\"#4EBFAE\",\"#C17B4A\",\"#6B7C93\"]",
+                            ChartColor = "#001836",
                             DivergingPalette = "[\"#8B3A2A\",\"#C17B4A\",\"#E8C9A8\",\"#F7F4EE\",\"#A8C4D4\",\"#2A6F97\",\"#001836\"]",
                             Foreground = "#001836",
                             HeadingFont = "SourceSans3",
@@ -778,6 +791,7 @@ namespace ClockedIn.Api.Data.Migrations
                             Accent = "#E9C46A",
                             BodyFont = "NunitoSans",
                             CategoricalPalette = "[\"#1B3A4B\",\"#2A9D8F\",\"#E9C46A\",\"#3D5A80\",\"#8A9BA8\",\"#C17B4A\"]",
+                            ChartColor = "#1B3A4B",
                             DivergingPalette = "[\"#C17B4A\",\"#E0B089\",\"#F3E0C8\",\"#F7FBFC\",\"#A8D4E0\",\"#3D5A80\",\"#1B3A4B\"]",
                             Foreground = "#1B3A4B",
                             HeadingFont = "Geist",
@@ -796,6 +810,7 @@ namespace ClockedIn.Api.Data.Migrations
                             Accent = "#7A8F6A",
                             BodyFont = "NunitoSans",
                             CategoricalPalette = "[\"#3D2B1F\",\"#C4784A\",\"#7A8F6A\",\"#8B6B4A\",\"#D4A574\",\"#5C6B7A\"]",
+                            ChartColor = "#3D2B1F",
                             DivergingPalette = "[\"#7A3B2E\",\"#C4784A\",\"#E8C4A0\",\"#FFF8F0\",\"#C5D1B8\",\"#7A8F6A\",\"#3D4A32\"]",
                             Foreground = "#3D2B1F",
                             HeadingFont = "SourceSans3",
@@ -814,6 +829,7 @@ namespace ClockedIn.Api.Data.Migrations
                             Accent = "#D4A017",
                             BodyFont = "SourceSans3",
                             CategoricalPalette = "[\"#1A2F23\",\"#5B8A6A\",\"#D4A017\",\"#3D5C6A\",\"#8A9B7A\",\"#C4784A\"]",
+                            ChartColor = "#1A2F23",
                             DivergingPalette = "[\"#8B3A2A\",\"#C4784A\",\"#E8C9A8\",\"#F6F8F4\",\"#A8C4B0\",\"#3D7A54\",\"#1A2F23\"]",
                             Foreground = "#1A2F23",
                             HeadingFont = "Geist",
@@ -832,6 +848,7 @@ namespace ClockedIn.Api.Data.Migrations
                             Accent = "#E8A838",
                             BodyFont = "Geist",
                             CategoricalPalette = "[\"#2C2156\",\"#8B6FBF\",\"#E8A838\",\"#5A9E8F\",\"#C46B8A\",\"#4A6B8A\"]",
+                            ChartColor = "#2C2156",
                             DivergingPalette = "[\"#C46B8A\",\"#E0A8B8\",\"#F3D8E0\",\"#FBFAFE\",\"#C4B0E0\",\"#8B6FBF\",\"#2C2156\"]",
                             Foreground = "#2C2156",
                             HeadingFont = "NunitoSans",
@@ -850,6 +867,7 @@ namespace ClockedIn.Api.Data.Migrations
                             Accent = "#E69F00",
                             BodyFont = "NunitoSans",
                             CategoricalPalette = "[\"#E69F00\",\"#56B4E9\",\"#009E73\",\"#F0E442\",\"#0072B2\",\"#D55E00\",\"#CC79A7\",\"#000000\"]",
+                            ChartColor = "#000000",
                             DivergingPalette = "[\"#D55E00\",\"#E69F00\",\"#F0E442\",\"#FFFFFF\",\"#56B4E9\",\"#0072B2\",\"#000000\"]",
                             Foreground = "#000000",
                             HeadingFont = "SourceSans3",
@@ -868,6 +886,7 @@ namespace ClockedIn.Api.Data.Migrations
                             Accent = "#DDCC77",
                             BodyFont = "NunitoSans",
                             CategoricalPalette = "[\"#4477AA\",\"#EE6677\",\"#228833\",\"#CCBB44\",\"#66CCEE\",\"#AA3377\",\"#BBBBBB\"]",
+                            ChartColor = "#332288",
                             DivergingPalette = "[\"#EE6677\",\"#F4A8B0\",\"#FAD8DC\",\"#FFFFFF\",\"#A8D4E8\",\"#4477AA\",\"#332288\"]",
                             Foreground = "#332288",
                             HeadingFont = "Geist",

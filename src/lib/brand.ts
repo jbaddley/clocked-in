@@ -31,6 +31,7 @@ export const clockedInTheme: ThemeJson = {
   surface: "#FFFFFF",
   surfaceForeground: "#001836",
   foreground: "#001836",
+  chartColor: "#001836",
   headingFont: "SourceSans3",
   bodyFont: "NunitoSans",
   categoricalPalette: ["#001836", "#D4AC59", "#2A6F97", "#4EBFAE", "#C17B4A", "#6B7C93"],
@@ -62,16 +63,14 @@ export function brandStyle(theme: ThemeJson | null): CSSProperties {
     theme.surface,
     theme.surfaceForeground,
     theme.foreground,
+    theme.chartColor,
   ];
   if (!colors.every((color) => hexColor.test(color))) {
     return {};
   }
 
-  // Sequential stops are stored light to dark. Charts lead with the darkest stop so the largest category stays readable.
-  const palette = theme.sequentialPalette.filter((color) => hexColor.test(color)).toReversed();
-  const stops = palette.length > 0 ? palette : [theme.primary];
   const chartVars = Object.fromEntries(
-    Array.from({ length: chartColorCount }, (_, index) => [`--chart-${index + 1}`, stops[Math.min(index, stops.length - 1)]]),
+    Array.from({ length: chartColorCount }, (_, index) => [`--chart-${index + 1}`, theme.chartColor]),
   );
 
   return {

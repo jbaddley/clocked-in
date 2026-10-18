@@ -151,6 +151,7 @@ public class ClockedInDbContext(DbContextOptions<ClockedInDbContext> options, Ti
                 AND "surface" ~ '^#[0-9A-Fa-f]{6}$'
                 AND "surfaceForeground" ~ '^#[0-9A-Fa-f]{6}$'
                 AND "foreground" ~ '^#[0-9A-Fa-f]{6}$'
+                AND "chartColor" ~ '^#[0-9A-Fa-f]{6}$'
                 AND "headingFont" IN ('HelveticaNeue', 'AvenirNext', 'SourceSans3', 'NunitoSans', 'Geist')
                 AND "bodyFont" IN ('HelveticaNeue', 'AvenirNext', 'SourceSans3', 'NunitoSans', 'Geist')
                 AND left("categoricalPalette", 1) = '['
@@ -251,6 +252,9 @@ public class ClockedInDbContext(DbContextOptions<ClockedInDbContext> options, Ti
         {
             entity.Property(project => project.Title).HasColumnType("citext");
             entity.Property(project => project.AccessType).HasConversion<string>();
+            entity.Property(project => project.ProjectType)
+                .HasConversion<string>()
+                .HasDefaultValue(ProjectType.Project);
             entity.Property(project => project.IsActive).HasDefaultValue(true);
             entity.Property(project => project.StartDate).HasColumnType("date");
             entity.Property(project => project.EndDate).HasColumnType("date");
@@ -277,7 +281,8 @@ public class ClockedInDbContext(DbContextOptions<ClockedInDbContext> options, Ti
             entity.ToTable(table => table.HasCheckConstraint(
                 "Project_access_check",
                 """
-                "accessType" IN ('Public', 'Private', 'Department')
+                "projectType" IN ('Project', 'Event')
+                AND "accessType" IN ('Public', 'Private', 'Department')
                 AND (
                   ("accessType" = 'Department' AND "departmentId" IS NOT NULL)
                   OR ("accessType" IN ('Public', 'Private') AND "departmentId" IS NULL)

@@ -6,6 +6,7 @@ import { requireAccess } from "@/lib/server/session";
 
 export type ProjectInput = {
   title: string;
+  projectType: "Project" | "Event";
   departmentId: string | null;
   startDate: string | null;
   endDate: string | null;
@@ -26,6 +27,7 @@ export async function createProjectAction(organizationId: string, input: Project
       parseCreateProject(
         body({
           title: input.title,
+          projectType: input.projectType,
           ...placement(input.departmentId),
           startDate: input.startDate,
           endDate: input.endDate,
@@ -44,6 +46,7 @@ export async function updateProjectAction(projectId: string, input: ProjectInput
       parseUpdateProject(
         body({
           title: input.title,
+          projectType: input.projectType,
           ...placement(input.departmentId),
           startDate: input.startDate,
           endDate: input.endDate,
