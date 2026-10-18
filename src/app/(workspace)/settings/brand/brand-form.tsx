@@ -20,21 +20,21 @@ const copy: Record<
     title: "Favicon",
     description: "Square mark for the browser tab and the sidebar icon. Uploads are cropped to 64×64.",
     preview: "size-16 rounded-md object-contain",
-    frame: "bg-muted",
+    frame: "size-20 shrink-0 bg-muted",
     empty: "No favicon",
   },
   wordmark: {
     title: "Light on dark",
     description: "Wordmark for the sidebar and other dark surfaces. Uploads are fit inside 800×200.",
-    preview: "h-10 max-w-56 object-contain",
-    frame: "bg-sidebar",
+    preview: "h-full w-full object-contain",
+    frame: "h-20 min-w-32 flex-1 bg-sidebar",
     empty: "No light-on-dark logo",
   },
   wordmarkOnLight: {
     title: "Dark on light",
     description: "Wordmark for light pages. Uploads are fit inside 800×200.",
-    preview: "h-10 max-w-56 object-contain",
-    frame: "bg-background",
+    preview: "h-full w-full object-contain",
+    frame: "h-20 min-w-32 flex-1 bg-background",
     empty: "No dark-on-light logo",
   },
 };
@@ -96,10 +96,10 @@ function BrandAssetFields({ kind }: { kind: BrandKind }) {
           <p className="mb-3 text-sm text-muted-foreground">{labels.description}</p>
         </div>
       ) : null}
-      <div className="flex items-center gap-4">
+      <div className="flex min-w-0 items-center gap-4">
         <div
           className={cn(
-            "flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-lg ring-1 ring-foreground/10",
+            "flex items-center justify-center overflow-hidden rounded-lg ring-1 ring-foreground/10",
             labels.frame,
           )}
         >
@@ -110,7 +110,7 @@ function BrandAssetFields({ kind }: { kind: BrandKind }) {
             <span className="px-2 text-center text-xs text-muted-foreground">{labels.empty}</span>
           )}
         </div>
-        <p className="text-sm text-muted-foreground">PNG, JPEG, WebP, or GIF. 4 MB or smaller.</p>
+        <p className="min-w-0 shrink text-sm text-muted-foreground">PNG, JPEG, WebP, or GIF. 4 MB or smaller.</p>
       </div>
       <form action={uploadAction} className="grid gap-3">
         <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
