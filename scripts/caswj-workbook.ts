@@ -201,6 +201,85 @@ export function asNumber(value: unknown) {
   return null;
 }
 
+const monthNames = "January|February|March|April|May|June|July|August|September|October|November|December";
+
+function projectTypeOf(value: string, title: string): CaswjProject["projectType"] {
+  if (value === "Event" || value === "Project") {
+    return value;
+  }
+
+  throw new Error(`Project "${title}" has unknown type "${value}".`);
+}
+
+function calendarDate(value: unknown) {
+  const date = asDate(value);
+  if (!date) {
+    return null;
+  }
+
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+/** Earlier workbook titles for the same project, such as "General - …", "SIQ - …", and names before a dash was added before the month. */
+export function projectAliases(project: CaswjProject, titles: Set<string>) {
+  const withMonth = new RegExp(` - (${monthNames})\\b`);
+  const candidates = [
+    project.title,
+    `General - ${project.title}`,
+    `General / ${project.title}`,
+    `SIQ - ${project.title}`,
+    project.title.replace(withMonth, " $1"),
+    project.title.replace(withMonth, ""),
+  ];
+  const aliases = new Set<string>();
+  for (const candidate of candidates) {
+    const key = candidate.trim().toLowerCase();
+    if (!key || (key !== project.title.toLowerCase() && titles.has(key))) {
+      continue;
+    }
+
+    aliases.add(key);
+  }
+
+  return aliases;
+}
+
+export function indexProjectAliases(projects: CaswjProject[]) {
+  const titles = new Set(projects.map((project) => project.title.toLowerCase()));
+  const index = new Map<string, string>();
+  for (const project of projects) {
+    for (const alias of projectAliases(project, titles)) {
+      const existing = index.get(alias);
+      if (existing && existing !== project.title) {
+        throw new Error(`Project alias "${alias}" matches both "${existing}" and "${project.title}".`);
+      }
+
+      index.set(alias, project.title);
+    }
+  }
+
+  return index;
+}
+
+export function canonicalProjectTitle(raw: string, index: Map<string, string>) {
+  const key = raw.trim().toLowerCase();
+  if (!key) {
+    const fallback = index.get(fallbackProjectTitle.toLowerCase());
+    if (!fallback) {
+      throw new Error(`Workbook is missing ${fallbackProjectTitle}.`);
+    }
+
+    return fallback;
+  }
+
+  const title = index.get(key);
+  if (!title) {
+    throw new Error(`Unknown project "${raw}".`);
+  }
+
+  return title;
+}
+
 function assignMemberNumbers(people: Map<string, CaswjPerson>) {
   let nextMember = Math.max(0, ...[...people.values()].map((person) => Number(person.memberNumber) || 0));
   for (const person of people.values()) {
@@ -218,26 +297,51 @@ export async function loadCaswjWorkbook(filePath = workbookPath): Promise<CaswjW
   const volunteersSheet = workbook.getWorksheet("Volunteers");
   const log = workbook.getWorksheet("Volunteer Log");
   if (!lists || !volunteersSheet || !log) {
-    throw new Error("Volunteer Hours.xlsx is missing Lists & Settings, Volunteers, or Volunteer Log.");
+    throw new Error("2026 Volunteer Hours.xlsx is missing Lists & Settings, Volunteers, or Volunteer Log.");
+  }
+
+  const projectHeader = text(cell(lists.getRow(20).getCell(1).value));
+  const typeHeader = text(cell(lists.getRow(20).getCell(2).value));
+  if (projectHeader !== "Project / Event" || typeHeader !== "Type") {
+    throw new Error("Lists & Settings is missing the Project / Event, Type, Start Date, and End Date columns.");
   }
 
   const categories = new Set<string>();
-  const projectTitles = new Set<string>(["General / No Specific Project"]);
   lists.eachRow((row, number) => {
-    if (number >= 2 && number <= 5) {
-      const category = text(cell(row.getCell(7).value));
-      if (category) {
-        categories.add(category);
-      }
+    if (number === 1) {
+      return;
     }
 
-    if (number >= 21) {
-      const title = text(cell(row.getCell(1).value));
-      if (title && title !== "Project / Event") {
-        projectTitles.add(title);
-      }
+    const category = text(cell(row.getCell(10).value));
+    if (category) {
+      categories.add(category);
     }
   });
+
+  const projects: CaswjProject[] = [];
+  for (let number = 21; number <= lists.rowCount; number += 1) {
+    const row = lists.getRow(number);
+    const title = text(cell(row.getCell(1).value));
+    if (!title) {
+      break;
+    }
+
+    const startDate = calendarDate(cell(row.getCell(3).value));
+    const endDate = calendarDate(cell(row.getCell(4).value));
+    if (startDate && endDate && endDate < startDate) {
+      throw new Error(`Project "${title}" ends before it starts.`);
+    }
+
+    projects.push({
+      title,
+      projectType: projectTypeOf(text(cell(row.getCell(2).value)), title),
+      startDate,
+      endDate,
+      active: text(cell(row.getCell(6).value)).toLowerCase() !== "no",
+    });
+  }
+
+  const projectIndex = indexProjectAliases(projects);
 
   const people = new Map<string, CaswjPerson>();
   volunteersSheet.eachRow((row, number) => {
@@ -274,14 +378,13 @@ export async function loadCaswjWorkbook(filePath = workbookPath): Promise<CaswjW
     }
 
     const volunteer = text(cell(row.getCell(3).value));
-    const project = text(cell(row.getCell(2).value)) || "General / No Specific Project";
+    const project = canonicalProjectTitle(text(cell(row.getCell(2).value)), projectIndex);
     const category = text(cell(row.getCell(5).value));
     const hours = asNumber(cell(row.getCell(10).value));
     if (!category || hours == null) {
       return;
     }
 
-    projectTitles.add(project);
     categories.add(category);
     if (volunteer && !people.has(volunteer.toLowerCase())) {
       people.set(volunteer.toLowerCase(), {
@@ -328,7 +431,7 @@ export async function loadCaswjWorkbook(filePath = workbookPath): Promise<CaswjW
   }
 
   assignMemberNumbers(people);
-  return { categories, projectTitles, people, logRows };
+  return { categories, projects, people, logRows };
 }
 
 function ordinal(a: string, b: string) {

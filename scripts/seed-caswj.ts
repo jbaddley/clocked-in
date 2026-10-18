@@ -13,6 +13,7 @@ import {
   caswjSourceRefPrefix,
   clockedInThemeId,
   departmentNames,
+  indexProjectAliases,
   inKindFromMinutes,
   loadCaswjWorkbook,
   localEmail,
@@ -41,7 +42,8 @@ async function main() {
     throw new Error("SEED_SUPERADMIN_PASSWORD is required.");
   }
 
-  const { categories, projectTitles, people, logRows } = await loadCaswjWorkbook();
+  const { categories, projects, people, logRows } = await loadCaswjWorkbook();
+  const projectAliases = indexProjectAliases(projects);
   const db = prismaClient();
   try {
     const [adminRole, volunteerRole] = await Promise.all([
@@ -134,21 +136,52 @@ async function main() {
       tags.set(name.toLowerCase(), existing.id);
     }
 
-    for (const title of projectTitles) {
-      const existing = await db.project.findFirst({
-        where: { organizationId: organization.id, title: { equals: title, mode: "insensitive" } },
-      });
-      if (!existing) {
+    const existingProjects = await db.project.findMany({ where: { organizationId: organization.id } });
+    const projectsByTitle = new Map<string, typeof existingProjects>();
+    for (const row of existingProjects) {
+      const title = projectAliases.get(row.title.toLowerCase());
+      if (!title) {
+        continue;
+      }
+
+      const matches = projectsByTitle.get(title) ?? [];
+      matches.push(row);
+      projectsByTitle.set(title, matches);
+    }
+
+    for (const project of projects) {
+      const matches = projectsByTitle.get(project.title) ?? [];
+      const fields = {
+        title: project.title,
+        projectType: project.projectType,
+        startDate: project.startDate,
+        endDate: project.endDate,
+        isActive: project.active,
+      };
+      const keep = matches.find((row) => row.title.toLowerCase() === project.title.toLowerCase()) ?? matches[0];
+      if (!keep) {
         await db.project.create({
           data: {
             organizationId: organization.id,
             ownerUserId: admin.id,
-            title,
             accessType: "Public",
-            isActive: true,
+            ...fields,
           },
         });
+        continue;
       }
+
+      for (const extra of matches) {
+        if (extra.id === keep.id) {
+          continue;
+        }
+
+        await db.userTimeEntry.updateMany({ where: { projectId: extra.id }, data: { projectId: keep.id } });
+        await db.collectiveTimeEntry.updateMany({ where: { projectId: extra.id }, data: { projectId: keep.id } });
+        await db.project.delete({ where: { id: extra.id } });
+      }
+
+      await db.project.update({ where: { id: keep.id }, data: fields });
     }
 
     const projectIds = new Map(
@@ -244,8 +277,17 @@ async function main() {
     let skipped = 0;
     for (const row of logRows) {
       const sourceRef = `${caswjSourceRefPrefix}${row.sheetRow}`;
+      const projectId = projectIds.get(row.project.toLowerCase());
+      const taskCategoryId = categoryIds.get(row.category.toLowerCase());
+      if (!projectId || !taskCategoryId) {
+        throw new Error(`Missing project or category on row ${row.sheetRow}.`);
+      }
+
       const existing = await db.userTimeEntry.findUnique({ where: { sourceRef } });
       if (existing) {
+        if (existing.projectId !== projectId) {
+          await db.userTimeEntry.update({ where: { id: existing.id }, data: { projectId } });
+        }
         skipped += 1;
         continue;
       }
@@ -257,11 +299,6 @@ async function main() {
 
       const groupKey = row.group.toLowerCase();
       const departmentId = !groupKey || groupKey === "caswj" ? null : departments.get(groupKey);
-      const projectId = projectIds.get(row.project.toLowerCase());
-      const taskCategoryId = categoryIds.get(row.category.toLowerCase());
-      if (!projectId || !taskCategoryId) {
-        throw new Error(`Missing project or category on row ${row.sheetRow}.`);
-      }
 
       const enteredByUserId = row.enteredBy.toLowerCase() === "clockify import" ? usersByName.get("clockify import") ?? admin.id : admin.id;
       const minutes = Math.round(row.hours * 60);
