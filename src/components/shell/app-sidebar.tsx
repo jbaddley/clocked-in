@@ -1,4 +1,4 @@
-import { BarChart3Icon, ClockIcon, LayoutDashboardIcon, ListChecksIcon, SettingsIcon, TimerIcon, UsersIcon } from "lucide-react";
+import { BarChart3Icon, ClockIcon, LayoutDashboardIcon, ListChecksIcon, SettingsIcon, TimerIcon } from "lucide-react";
 import Link from "next/link";
 import { NavLink } from "@/components/shell/nav-link";
 import { SidebarToggle } from "@/components/shell/sidebar-toggle";
@@ -21,7 +21,6 @@ const sections = [
     links: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboardIcon },
       { href: "/log", label: "Log time", icon: TimerIcon },
-      { href: "/groups", label: "Group time", icon: UsersIcon },
       { href: "/entries", label: "Entries", icon: ListChecksIcon },
     ],
   },

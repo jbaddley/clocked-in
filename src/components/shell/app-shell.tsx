@@ -5,7 +5,8 @@ import { OrgSwitcher } from "@/components/shell/org-switcher";
 import { TimerChip } from "@/components/shell/timer-chip";
 import { UserMenu } from "@/components/shell/user-menu";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { brandAssetSrc, brandCss } from "@/lib/brand";
+import { brandCss } from "@/lib/brand";
+import { orgMarkIcon } from "@/lib/favicon";
 import type { Organization } from "@/lib/types";
 
 export function AppShell({
@@ -20,16 +21,16 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const css = brandCss(organization?.theme ?? null);
-  const icon = organization ? brandAssetSrc("mark", organization.markUrl) : null;
+  const icon = organization ? (orgMarkIcon(organization.markUrl)?.url ?? null) : null;
   return (
     <SidebarProvider
       defaultOpen={sidebarOpen}
-      className="has-[[data-settings-layout]]:h-svh has-[[data-settings-layout]]:overflow-hidden"
+      className="has-[[data-section-layout]]:h-svh has-[[data-section-layout]]:overflow-hidden"
     >
       {css ? <style>{css}</style> : null}
       <OrgFavicon href={icon} />
       <AppSidebar organization={organization} isAdmin={isAdmin} />
-      <SidebarInset className="min-w-0 bg-muted/40 has-[[data-settings-layout]]:min-h-0 has-[[data-settings-layout]]:overflow-hidden">
+      <SidebarInset className="min-w-0 bg-muted/40 has-[[data-section-layout]]:min-h-0 has-[[data-section-layout]]:overflow-hidden">
         <header className="sticky top-0 z-20 shrink-0 bg-background/90 backdrop-blur">
           <div className="flex h-16 items-center gap-2 px-3 md:px-4 lg:px-6">
             <div className="flex shrink-0 items-center gap-2">
@@ -44,7 +45,7 @@ export function AppShell({
           </div>
           <div className="brand-rule" />
         </header>
-        <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 has-[[data-settings-layout]]:min-h-0 has-[[data-settings-layout]]:overflow-hidden">
+        <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 has-[[data-section-layout]]:min-h-0 has-[[data-section-layout]]:overflow-hidden">
           {children}
         </div>
       </SidebarInset>

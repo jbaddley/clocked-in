@@ -19,7 +19,8 @@ export function orgMarkIcon(storedUrl: string | null): Icon | null {
   }
 
   if (url.startsWith("/brand/")) {
-    return { url, type: "image/webp", sizes: "64x64" };
+    // Tab icons need PNG. Safari ignores WebP favicons, which leaves a blank globe.
+    return { url: `${url}&format=png`, type: "image/png", sizes: "64x64" };
   }
 
   return { url };

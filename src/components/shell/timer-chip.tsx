@@ -14,7 +14,7 @@ export function TimerChip() {
 
   if (!punch) {
     return (
-      <Link href="/log" className={buttonVariants({ variant: "ghost", className: "h-9 gap-2" })}>
+      <Link href="/log/own" className={buttonVariants({ variant: "ghost", className: "h-9 gap-2" })}>
         <PlusIcon className="text-primary" />
         <span className="hidden sm:inline">Add Time</span>
       </Link>
@@ -27,7 +27,7 @@ export function TimerChip() {
         <span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-75" />
         <span className="relative inline-flex size-2 rounded-full bg-success" />
       </span>
-      <Link href="/log" className="px-1.5 font-mono text-sm tabular-nums" suppressHydrationWarning>
+      <Link href="/log/own" className="px-1.5 font-mono text-sm tabular-nums" suppressHydrationWarning>
         {formatClock(elapsed)}
       </Link>
       <Button

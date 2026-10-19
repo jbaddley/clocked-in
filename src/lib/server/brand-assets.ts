@@ -69,6 +69,11 @@ export async function putBrandAsset(organizationId: string, kind: BrandKind, buf
   });
 }
 
+export async function encodePng(stream: ReadableStream<Uint8Array>) {
+  const bytes = Buffer.from(await new Response(stream).arrayBuffer());
+  return sharp(bytes).png().toBuffer();
+}
+
 export async function readBrandAsset(storedUrl: string) {
   try {
     return await get(storedUrl, { access: "private", token: blobToken(), useCache: false });

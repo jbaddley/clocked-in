@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 
-export function SettingsSection({ children }: { children: React.ReactNode }) {
+export function SectionPanel({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const scroller = useRef<HTMLDivElement>(null);
 

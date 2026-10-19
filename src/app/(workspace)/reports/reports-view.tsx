@@ -13,7 +13,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLabels } from "@/hooks/use-labels";
 import { useReport } from "@/hooks/use-report";
-import { useOrganization } from "@/hooks/use-workspace";
+import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
+import { canLogGroupTime } from "@/lib/roles";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/format";
 import { csvUrl, summaryCsvUrl } from "@/lib/queries";
 import type { DateRange, ReportGroup } from "@/lib/types";
@@ -40,6 +41,7 @@ function ChartCard({ title, rows, children }: { title: string; rows: ReportGroup
 
 export function ReportsView({ range }: { range: DateRange }) {
   const organization = useOrganization();
+  const { groupDepartments } = useWorkspace();
   const copy = useLabels();
   const { data: report, isFetching } = useReport(range);
 
@@ -122,10 +124,15 @@ export function ReportsView({ range }: { range: DateRange }) {
           </TabsContent>
           <TabsContent value="groups" className="flex flex-col gap-6">
             <p className="text-sm text-muted-foreground">
-              Group sessions are logged once for a whole group and stay separate from the people totals.{" "}
-              <Link href="/groups" className="font-medium text-foreground underline underline-offset-4">
-                Log group time
-              </Link>
+              Group sessions are logged once for a whole group and stay separate from the people totals.
+              {canLogGroupTime(groupDepartments) ? (
+                <>
+                  {" "}
+                  <Link href="/log/group" className="font-medium text-foreground underline underline-offset-4">
+                    Log group time
+                  </Link>
+                </>
+              ) : null}
             </p>
             <div className="grid gap-4 sm:grid-cols-3">
               <StatCard icon={ClockIcon} label="Hours" value={formatNumber(report.collective.hours)} />

@@ -14,9 +14,10 @@ import { useLabels } from "@/hooks/use-labels";
 import { useReport } from "@/hooks/use-report";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { formatCurrency, formatHours, formatNumber } from "@/lib/format";
+import { canLogGroupTime } from "@/lib/roles";
 
 export function DashboardView({ weekStart }: { weekStart: string }) {
-  const { viewer } = useWorkspace();
+  const { viewer, groupDepartments } = useWorkspace();
   const copy = useLabels();
   const { data: report } = useReport({});
   const { data: week } = useReport({ from: weekStart });
@@ -34,7 +35,10 @@ export function DashboardView({ weekStart }: { weekStart: string }) {
           label="Volunteer hours"
           value={formatNumber(people.hours)}
           hint={
-            <Link href="/groups" className="underline-offset-2 hover:underline">
+            <Link
+              href={canLogGroupTime(groupDepartments) ? "/log/group" : "/reports"}
+              className="underline-offset-2 hover:underline"
+            >
               {formatNumber(report.collective.hours)} more in group sessions
             </Link>
           }
@@ -119,7 +123,7 @@ export function DashboardView({ weekStart }: { weekStart: string }) {
               title="No entries yet"
               description="Start a timer or log hours you already worked."
               action={
-                <Link href="/log" className={buttonVariants()}>
+                <Link href="/log/own" className={buttonVariants()}>
                   Log time
                 </Link>
               }

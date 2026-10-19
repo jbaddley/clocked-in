@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import {
   createEntriesAction,
   createEntryAction,
@@ -12,13 +12,14 @@ import { HourlyRateSelect, defaultVolunteerRateId } from "@/components/hourly-ra
 import { useLookups } from "@/hooks/use-lookups";
 import { EntityFormDialog } from "@/components/entity-forms/entity-form-dialog";
 import { Field } from "@/components/field";
-import { PersonSelect } from "@/components/person-select";
+import { PersonSelect, selectableMembers } from "@/components/person-select";
 import { PlacementFields } from "@/components/placement-fields";
 import { SubmitButton } from "@/components/submit-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useActionMutation } from "@/hooks/use-action-mutation";
+import { useMembers } from "@/hooks/use-members";
 import { organizationWide, usePlacement, type PlacementPreference } from "@/hooks/use-placement";
 import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
 import { today } from "@/lib/format";
@@ -48,6 +49,7 @@ export function TimeEntryForm({
   submitLabel,
   userId: lockedUserId,
   userIds,
+  people,
 }: {
   entry?: TimeEntry;
   preferred?: PlacementPreference;
@@ -56,11 +58,20 @@ export function TimeEntryForm({
   submitLabel?: string;
   userId?: string;
   userIds?: string[];
+  people?: { excludeSelf?: boolean; activeOnly?: boolean };
 }) {
   const organization = useOrganization();
   const { viewer, isAdmin, canSelectRate } = useWorkspace();
   const { lookups } = useLookups();
   const idPrefix = useId();
+  const excludeSelf = people?.excludeSelf ?? false;
+  const activeOnly = people?.activeOnly ?? false;
+  const batch = Boolean(userIds && userIds.length > 0);
+  const { members } = useMembers({ enabled: isAdmin && !entry && !lockedUserId && !batch });
+  const eligible = useMemo(
+    () => selectableMembers(members, viewer.id, { excludeSelf, activeOnly }),
+    [activeOnly, excludeSelf, members, viewer.id],
+  );
   const punch = entry?.mode === "Punch";
   const total = entry?.mode === "Total";
   const canEditTimes = !entry || organization.preferences.allowTimeEntryEditing;
@@ -74,7 +85,13 @@ export function TimeEntryForm({
         }
       : preferred,
   );
-  const [personId, setPersonId] = useState(lockedUserId ?? entry?.userId ?? viewer.id);
+  const [personId, setPersonId] = useState(lockedUserId ?? entry?.userId ?? (excludeSelf || activeOnly ? "" : viewer.id));
+  const selectedPersonId =
+    excludeSelf || activeOnly
+      ? eligible.some((member) => member.userId === personId)
+        ? personId
+        : (eligible[0]?.userId ?? "")
+      : personId;
   const [hourlyRateId, setHourlyRateId] = useState(
     entry?.hourlyRateId ?? defaultVolunteerRateId(lookups.hourlyRates),
   );
@@ -86,7 +103,6 @@ export function TimeEntryForm({
   const [notes, setNotes] = useState(entry?.description ?? "");
   const [error, setError] = useState("");
 
-  const batch = Boolean(userIds && userIds.length > 0);
   const create = useActionMutation(
     async ({ userId, next }: { userId: string; next: NewEntry }) => {
       if (batch) return createEntriesAction(userIds!, next);
@@ -238,7 +254,7 @@ export function TimeEntryForm({
       className="flex flex-col gap-4"
       onSubmit={(event) => {
         event.preventDefault();
-        if (!entry && !placement.ready) return;
+        if (!entry && (!placement.ready || (showPerson && !selectedPersonId))) return;
         const base = placement.placement(notes);
         if (entry) {
           const times = timePatch();
@@ -261,7 +277,7 @@ export function TimeEntryForm({
         const times = span();
         if (!times) return;
         create.mutate({
-          userId: personId,
+          userId: selectedPersonId,
           next: { ...base, mode: "Duration", hourlyRateId: canSelectRate ? hourlyRateId || null : null, ...times },
         });
       }}
@@ -270,7 +286,14 @@ export function TimeEntryForm({
         <div className={showPerson && showRate ? "grid gap-4 sm:grid-cols-2" : "grid gap-4"}>
           {showPerson ? (
             <Field label="Person">
-              <PersonSelect value={personId} onValueChange={setPersonId} className="h-10" />
+              <PersonSelect
+                value={selectedPersonId}
+                onValueChange={setPersonId}
+                className="h-10"
+                excludeSelf={excludeSelf}
+                activeOnly={activeOnly}
+                placeholder={excludeSelf ? "Select a member" : undefined}
+              />
             </Field>
           ) : null}
           {showRate ? (
@@ -415,7 +438,7 @@ export function TimeEntryForm({
         ) : null}
         <SubmitButton
           pending={entry ? update.isPending : create.isPending}
-          disabled={!entry && !placement.ready}
+          disabled={(!entry && !placement.ready) || (showPerson && !selectedPersonId)}
           className="h-9 w-full sm:w-auto"
         >
           {submitLabel ?? (entry ? "Save" : "Save time")}

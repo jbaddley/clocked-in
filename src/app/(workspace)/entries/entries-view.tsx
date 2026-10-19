@@ -62,7 +62,7 @@ export function EntriesView({ range, personId }: { range: DateRange; personId: s
             : undefined
         }
         actions={
-          <Link href="/log" className={buttonVariants({ className: "h-9" })}>
+          <Link href="/log/own" className={buttonVariants({ className: "h-9" })}>
             <PlusIcon />
             Log time
           </Link>
@@ -85,7 +85,7 @@ export function EntriesView({ range, personId }: { range: DateRange; personId: s
           title="No entries for this period"
           description="Try a wider date range, or log some time."
           action={
-            <Link href="/log" className={buttonVariants()}>
+            <Link href="/log/own" className={buttonVariants()}>
               Log time
             </Link>
           }

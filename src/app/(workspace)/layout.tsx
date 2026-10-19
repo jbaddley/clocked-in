@@ -1,23 +1,11 @@
-import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { Suspense } from "react";
 import { Hydrate } from "@/components/hydrate";
 import { AppShell, ShellSkeleton } from "@/components/shell/app-shell";
 import { WorkspaceProvider } from "@/hooks/use-workspace";
-import { defaultIcons, orgMarkIcon } from "@/lib/favicon";
 import { getQueryClient } from "@/lib/query-client";
 import { getWorkspace } from "@/lib/server/dal";
 import { prefetchOpenPunch } from "@/lib/server/prefetch";
-
-export async function generateMetadata(): Promise<Metadata> {
-  const { organization } = await getWorkspace();
-  const icon = organization ? orgMarkIcon(organization.markUrl) : null;
-  if (!icon) {
-    return {};
-  }
-
-  return { icons: { icon: [icon], apple: defaultIcons.apple } };
-}
 
 export default function WorkspaceLayout({ children }: LayoutProps<"/">) {
   return (

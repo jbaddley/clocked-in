@@ -1,14 +1,13 @@
 "use client";
 
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
-import { Loader2Icon, MoreHorizontalIcon, PencilIcon, Trash2Icon, TriangleAlertIcon, UsersIcon } from "lucide-react";
+import { Loader2Icon, MoreHorizontalIcon, PencilIcon, Trash2Icon, UsersIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { deleteGroupSessionAction } from "@/app/actions/collective";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { GroupSessionDialog, GroupSessionForm } from "@/components/entity-forms/group-session-form";
 import { EntryList } from "@/components/entry-row";
-import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,12 +25,13 @@ import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
 import { dayLabel, formatCurrency, formatMinutes, formatTime, toDateOnly } from "@/lib/format";
 import { keys } from "@/lib/queries";
 import type { GroupSession, Paged } from "@/lib/types";
+import { SetupAlert } from "../setup-alert";
 
 function sessionMinutes(session: GroupSession) {
   return Math.round((new Date(session.endedAt).getTime() - new Date(session.startedAt).getTime()) / 60000);
 }
 
-export function GroupsView() {
+export function GroupTimeView() {
   const organization = useOrganization();
   const { isAdmin, groupDepartments } = useWorkspace();
   const { lookups } = useLookups();
@@ -40,7 +40,6 @@ export function GroupsView() {
   const [pendingEdit, setPendingEdit] = useState<GroupSession | null>(null);
   const [pendingDelete, setPendingDelete] = useState<GroupSession | null>(null);
   const departmentIds = groupDepartments === "all" ? undefined : groupDepartments;
-  const canRecord = groupDepartments === "all" || groupDepartments.length > 0;
   const missingProject = lookups.projects.length === 0;
   const missingCategory = lookups.categories.length === 0;
   const sessionsKey = keys.groupSessions(organization.id);
@@ -73,37 +72,31 @@ export function GroupsView() {
   const totalValue = sessions.reduce((sum, session) => sum + session.inKindValue, 0);
 
   return (
-    <>
-      <PageHeader
-        description={
-          sessions.length
-            ? `${sessions.length} session${sessions.length === 1 ? "" : "s"} · ${formatCurrency(totalValue)} in-kind${hasNextPage ? " (loaded so far)" : ""}`
-            : undefined
-        }
-      />
-      {canRecord && (missingProject || missingCategory) ? (
-        <SetupAlert isAdmin={isAdmin} missingProject={missingProject} missingCategory={missingCategory} />
+    <div className="flex flex-col gap-6">
+      {missingProject || missingCategory ? (
+        <SetupAlert isAdmin={isAdmin} missingProject={missingProject} missingCategory={missingCategory} action="save group time" />
       ) : null}
-      {canRecord ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <UsersIcon className="size-4 text-muted-foreground" />
-              Record a session
-            </CardTitle>
-            <CardDescription>
-              In-kind value is the session length times the number of people, at the organization volunteer rate.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <GroupSessionForm key={departmentIds?.join(",") ?? "all"} departmentIds={departmentIds} />
-          </CardContent>
-        </Card>
-      ) : (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <UsersIcon className="size-4 text-muted-foreground" />
+            Record a session
+          </CardTitle>
+          <CardDescription>
+            In-kind value is the session length times the number of people, at the organization volunteer rate.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <GroupSessionForm key={departmentIds?.join(",") ?? "all"} departmentIds={departmentIds} />
+        </CardContent>
+      </Card>
+
+      {sessions.length ? (
         <p className="text-sm text-muted-foreground">
-          An organization admin, or a department admin, records group time. You can review the sessions here.
+          {sessions.length} session{sessions.length === 1 ? "" : "s"} · {formatCurrency(totalValue)} in-kind
+          {hasNextPage ? " (loaded so far)" : ""}
         </p>
-      )}
+      ) : null}
 
       {days.length === 0 ? (
         <EmptyState
@@ -157,35 +150,6 @@ export function GroupsView() {
         description="The hours and in-kind value are removed from group reports. This cannot be undone."
         onConfirm={() => pendingDelete && remove.mutate(pendingDelete)}
       />
-    </>
-  );
-}
-
-function SetupAlert({
-  isAdmin,
-  missingProject,
-  missingCategory,
-}: {
-  isAdmin: boolean;
-  missingProject: boolean;
-  missingCategory: boolean;
-}) {
-  const copy = useLabels();
-  const entities =
-    missingProject && missingCategory
-      ? `a ${copy.project.toLowerCase()} and a ${copy.taskCategory.toLowerCase()}`
-      : missingProject
-        ? `a ${copy.project.toLowerCase()}`
-        : `a ${copy.taskCategory.toLowerCase()}`;
-
-  return (
-    <div role="alert" className="flex items-start gap-3 rounded-xl bg-muted px-4 py-3 text-sm ring-1 ring-foreground/10">
-      <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" />
-      <p>
-        {isAdmin
-          ? `Add ${entities} before you can save group time.`
-          : `Ask an ${copy.organization.toLowerCase()} admin to add ${entities} before you can save group time.`}
-      </p>
     </div>
   );
 }

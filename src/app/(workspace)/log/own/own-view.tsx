@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarClockIcon, PlayIcon, SquareIcon, TimerIcon, TriangleAlertIcon } from "lucide-react";
+import { CalendarClockIcon, PlayIcon, SquareIcon, TimerIcon } from "lucide-react";
 import { useState } from "react";
 import { TimeEntryDialog, TimeEntryForm } from "@/components/entity-forms/time-entry-form";
 import { EntryList, EntryRow } from "@/components/entry-row";
@@ -10,15 +10,15 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { useClock } from "@/hooks/use-clock";
 import { useEntries } from "@/hooks/use-entries";
-import { useLabels } from "@/hooks/use-labels";
 import { useLookups } from "@/hooks/use-lookups";
 import { useElapsed, useOpenPunch } from "@/hooks/use-open-punch";
 import { usePlacement } from "@/hooks/use-placement";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { formatClock, formatTime, today } from "@/lib/format";
 import type { TimeEntry } from "@/lib/types";
+import { SetupAlert } from "../setup-alert";
 
-export function LogView() {
+export function OwnTimeView() {
   const { isAdmin } = useWorkspace();
   const { lookups } = useLookups();
   const missingProject = lookups.projects.length === 0;
@@ -27,44 +27,20 @@ export function LogView() {
   return (
     <div className="flex flex-col gap-6">
       {missingProject || missingCategory ? (
-        <SetupAlert isAdmin={isAdmin} missingProject={missingProject} missingCategory={missingCategory} />
+        <SetupAlert
+          isAdmin={isAdmin}
+          missingProject={missingProject}
+          missingCategory={missingCategory}
+          action="start a timer or save time"
+        />
       ) : null}
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="flex min-w-0 flex-col gap-6">
           <TimerCard />
           <ManualEntryCard />
         </div>
         <TodayCard />
       </div>
-    </div>
-  );
-}
-
-function SetupAlert({
-  isAdmin,
-  missingProject,
-  missingCategory,
-}: {
-  isAdmin: boolean;
-  missingProject: boolean;
-  missingCategory: boolean;
-}) {
-  const copy = useLabels();
-  const entities =
-    missingProject && missingCategory
-      ? `a ${copy.project.toLowerCase()} and a ${copy.taskCategory.toLowerCase()}`
-      : missingProject
-        ? `a ${copy.project.toLowerCase()}`
-        : `a ${copy.taskCategory.toLowerCase()}`;
-
-  return (
-    <div role="alert" className="flex items-start gap-3 rounded-xl bg-muted px-4 py-3 text-sm ring-1 ring-foreground/10">
-      <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" />
-      <p>
-        {isAdmin
-          ? `Add ${entities} before you can start a timer or save time.`
-          : `Ask an organization admin to add ${entities} before you can start a timer or save time.`}
-      </p>
     </div>
   );
 }
@@ -139,6 +115,7 @@ function TimerCard() {
 }
 
 function ManualEntryCard() {
+  const { viewer } = useWorkspace();
   return (
     <Card>
       <CardHeader>
@@ -149,7 +126,7 @@ function ManualEntryCard() {
         <CardDescription>Add a start time, then an end time or a duration.</CardDescription>
       </CardHeader>
       <CardContent>
-        <TimeEntryForm />
+        <TimeEntryForm userId={viewer.id} />
       </CardContent>
     </Card>
   );

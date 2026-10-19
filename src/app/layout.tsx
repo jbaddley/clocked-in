@@ -42,7 +42,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${sourceSans.variable} ${nunito.variable} ${geistMono.variable} h-full antialiased has-[[data-settings-layout]]:overflow-hidden`}
+      className={`${geistSans.variable} ${sourceSans.variable} ${nunito.variable} ${geistMono.variable} h-full antialiased has-[[data-section-layout]]:overflow-hidden`}
     >
       <body className="flex min-h-full flex-col">
         <Providers>{children}</Providers>
