@@ -46,7 +46,6 @@ export function ReportsView({ range }: { range: DateRange }) {
   return (
     <>
       <PageHeader
-        title="Reports"
         description={`${describe(range)} · valued at ${formatCurrency(organization.volunteerHourlyRate)}/h (${organization.rateSourceYear})`}
         actions={
           <div className="flex flex-wrap gap-2">

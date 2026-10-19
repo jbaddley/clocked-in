@@ -36,7 +36,7 @@ async function Log() {
 
   return (
     <>
-      <PageHeader title="Log time" description="Run a live timer or record hours you already worked." />
+      <PageHeader />
       <Hydrate client={queryClient}>
         <LogView />
       </Hydrate>

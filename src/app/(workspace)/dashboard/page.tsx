@@ -27,7 +27,7 @@ function weekStart() {
 }
 
 async function Dashboard() {
-  const { organization, viewer, role } = await getWorkspace();
+  const { organization, viewer } = await getWorkspace();
   if (!organization) {
     return <NoOrganization />;
   }
@@ -43,12 +43,7 @@ async function Dashboard() {
 
   return (
     <>
-      <PageHeader
-        title={`Welcome back, ${viewer.name.split(" ")[0]}`}
-        description={
-          role === "VOLUNTEER" ? "Log and review your own hours." : `Here is how ${organization.name} is doing.`
-        }
-      />
+      <PageHeader />
       <Hydrate client={queryClient}>
         <DashboardView weekStart={week} />
       </Hydrate>

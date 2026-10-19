@@ -26,7 +26,7 @@ async function Settings({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <PageHeader title="Settings" description={`Manage how ${organization.name} logs and values time.`} />
+      <PageHeader />
       <div className="grid gap-6 lg:grid-cols-[13rem_minmax(0,1fr)]">
         <SettingsNav />
         <div className="flex min-w-0 flex-col gap-6">{children}</div>

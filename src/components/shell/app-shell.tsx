@@ -1,4 +1,5 @@
 import { AppSidebar } from "@/components/shell/app-sidebar";
+import { HeaderTitle } from "@/components/shell/page-title";
 import { OrgSwitcher } from "@/components/shell/org-switcher";
 import { TimerChip } from "@/components/shell/timer-chip";
 import { UserMenu } from "@/components/shell/user-menu";
@@ -27,9 +28,12 @@ export function AppShell({
       <SidebarInset className="min-w-0 bg-muted/40">
         <header className="sticky top-0 z-20 shrink-0 bg-background/90 backdrop-blur">
           <div className="flex h-16 items-center gap-2 px-3 md:px-4 lg:px-6">
-            <SidebarTrigger className="size-9 md:hidden" />
-            <OrgSwitcher />
-            <div className="ml-auto flex items-center gap-1 sm:gap-2">
+            <div className="flex shrink-0 items-center gap-2">
+              <SidebarTrigger className="size-9 md:hidden" />
+              <OrgSwitcher />
+            </div>
+            <HeaderTitle />
+            <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
               <TimerChip />
               <UserMenu />
             </div>

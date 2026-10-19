@@ -56,11 +56,10 @@ export function EntriesView({ range, personId }: { range: DateRange; personId: s
   return (
     <>
       <PageHeader
-        title="Entries"
         description={
           entries.length
             ? `${formatMinutes(totalMinutes)} hours · ${formatCurrency(totalValue)} in-kind${hasNextPage ? " (loaded so far)" : ""}`
-            : "Every hour logged, grouped by day."
+            : undefined
         }
         actions={
           <Link href="/log" className={buttonVariants({ className: "h-9" })}>

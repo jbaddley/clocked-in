@@ -21,7 +21,7 @@ async function Profile() {
   const user = await getUser(access, access.caller.id);
   return (
     <div className="flex w-full max-w-3xl flex-col gap-6">
-      <PageHeader title="Profile" description="How you appear on time entries, and how you sign in." />
+      <PageHeader />
       {user.profile ? <ProfileForm user={{ ...user, profile: user.profile }} /> : null}
     </div>
   );

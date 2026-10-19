@@ -75,11 +75,10 @@ export function GroupsView() {
   return (
     <>
       <PageHeader
-        title="Group time"
         description={
           sessions.length
             ? `${sessions.length} session${sessions.length === 1 ? "" : "s"} · ${formatCurrency(totalValue)} in-kind${hasNextPage ? " (loaded so far)" : ""}`
-            : "One session covers a whole group and stays separate from each person's hours."
+            : undefined
         }
       />
       {canRecord && (missingProject || missingCategory) ? (
