@@ -12,8 +12,8 @@ export function SettingsSection({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   return (
-    <div ref={scroller} className="min-h-0 min-w-0 overflow-y-auto overscroll-y-contain">
-      <div className="flex flex-col gap-6">{children}</div>
+    <div ref={scroller} className="min-h-0 min-w-0 overflow-y-auto overscroll-y-contain [scrollbar-gutter:stable]">
+      <div className="flex flex-col gap-6 py-0.5 ps-0.5 pe-4">{children}</div>
     </div>
   );
 }

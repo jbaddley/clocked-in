@@ -220,6 +220,8 @@ export function TimeEntryForm({
     return span();
   }
 
+  const showPerson = !(entry || !isAdmin || lockedUserId || batch);
+  const showRate = canSelectRate || lookups.hourlyRates.some((rate) => rate.isDefault);
   const endsNextDay =
     driver === "duration" &&
     Boolean(start) &&
@@ -264,17 +266,19 @@ export function TimeEntryForm({
         });
       }}
     >
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-[minmax(9.5rem,1.35fr)_minmax(7.75rem,1fr)_minmax(7.75rem,1fr)_4.5rem]">
-        {entry || !isAdmin || lockedUserId || batch ? null : (
-          <Field label="Person" className="col-span-2 sm:col-span-4">
-            <PersonSelect value={personId} onValueChange={setPersonId} className="h-10" />
-          </Field>
-        )}
-        {canSelectRate || lookups.hourlyRates.some((rate) => rate.isDefault) ? (
-          <div className="col-span-2 sm:col-span-4">
+      {showPerson || showRate ? (
+        <div className={showPerson && showRate ? "grid gap-4 sm:grid-cols-2" : "grid gap-4"}>
+          {showPerson ? (
+            <Field label="Person">
+              <PersonSelect value={personId} onValueChange={setPersonId} className="h-10" />
+            </Field>
+          ) : null}
+          {showRate ? (
             <HourlyRateSelect value={hourlyRateId} onValueChange={setHourlyRateId} locked={!canSelectRate} />
-          </div>
-        ) : null}
+          ) : null}
+        </div>
+      ) : null}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-[minmax(9.5rem,1.35fr)_minmax(7.75rem,1fr)_minmax(7.75rem,1fr)_4.5rem]">
         {punch && !canEditTimes ? (
           <p className="text-sm text-muted-foreground sm:col-span-4">
             Timer times cannot be changed here. Update the project, category, and notes, or stop the timer.
