@@ -1,0 +1,50 @@
+name: Cache bust
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  production:
+    name: Production views
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx playwright install --with-deps chromium
+
+      - name: Wait for this commit on production
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+        run: node --input-type=module <<'EOF'
+          const sha = process.env.GITHUB_SHA;
+          const url = "https://clocked-in.baddley.us/health";
+          for (let attempt = 1; attempt <= 40; attempt += 1) {
+            try {
+              const response = await fetch(url, { headers: { "cache-control": "no-cache" } });
+              const body = await response.json();
+              console.log(`attempt ${attempt}: ${body.commit ?? "missing"} (${response.status})`);
+              if (body.commit === sha) process.exit(0);
+            } catch (error) {
+              console.log(`attempt ${attempt}: ${error instanceof Error ? error.message : error}`);
+            }
+            await new Promise((resolve) => setTimeout(resolve, 15_000));
+          }
+          console.error(`Production did not serve ${sha}.`);
+          process.exit(1);
+          EOF
+
+      - name: Bust cache and open every view
+        run: npm run test:e2e:prod
+        env:
+          E2E_ENV: PROD
+          E2E_BASE_URL: https://clocked-in.baddley.us/
+          SEED_SUPERADMIN_PASSWORD: ${{ secrets.SEED_SUPERADMIN_PASSWORD }}

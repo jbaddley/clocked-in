@@ -7,6 +7,7 @@
  * - The unnamed 25h row is an entry but not a unique volunteer.
  * - Seeded volunteer passwords are random; only jbaddley is a known login.
  * - Group sessions are unused; people totals stay separate from collective.
+ * - Log time lives at /log/own, /log/member, and /log/group. /log redirects to /log/own.
  * - Real names live in the local seed DB; do not run this suite against production.
  */
 import { expect, test } from "@playwright/test";
@@ -175,10 +176,23 @@ test("log form can add an e2e- Duration row that cleanup removes", async ({ page
   const organization = await loginAsAdmin(page);
   const before = await getReport(page.request, organization.id);
   expect(before.user.entries).toBe(expected.entries);
-  await page.goto("/log");
-  await expect(page.getByRole("button", { name: "Save time" })).toBeEnabled();
-  await page.getByLabel("Notes").fill(extraNotes);
-  await page.getByRole("button", { name: "Save time" }).click();
+  await page.goto("/log/own");
+  await expect(page.locator("header h1")).toHaveText("Log time");
+  await expect(page.getByRole("link", { name: "Log Own Time" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByText("Add time manually")).toBeVisible();
+  await page.getByRole("link", { name: "Log Member Time" }).click();
+  await expect(page).toHaveURL(/\/log\/member$/);
+  await expect(page.getByText("Add time for a member")).toBeVisible();
+  await page.getByRole("link", { name: "Log Group Time" }).click();
+  await expect(page).toHaveURL(/\/log\/group$/);
+  await expect(page.getByText("Record a session")).toBeVisible();
+  await page.getByRole("link", { name: "Log Own Time" }).click();
+  await expect(page).toHaveURL(/\/log\/own$/);
+  const notes = page.getByLabel("Notes").filter({ visible: true });
+  const save = page.getByRole("button", { name: "Save time" }).filter({ visible: true });
+  await expect(save).toBeEnabled();
+  await notes.fill(extraNotes);
+  await save.click();
   await expect(page.getByText("Time saved.")).toBeVisible();
   await expect(page.getByRole("listitem").filter({ hasText: extraNotes })).toBeVisible();
   await expect

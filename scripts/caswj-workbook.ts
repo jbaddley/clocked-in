@@ -141,6 +141,16 @@ export function text(value: unknown) {
   return String(value).trim();
 }
 
+/** Group cells are an XLOOKUP of the project. Shared array formulas often have no cached result, so use the project's group from Lists & Settings. */
+function groupFromLog(value: ExcelJS.CellValue, listedGroup: string) {
+  const resolved = cell(value);
+  if (resolved == null || typeof resolved === "object") {
+    return listedGroup;
+  }
+
+  return text(resolved);
+}
+
 export function slug(value: string) {
   return value
     .toLowerCase()
@@ -319,12 +329,15 @@ export async function loadCaswjWorkbook(filePath = workbookPath): Promise<CaswjW
   });
 
   const projects: CaswjProject[] = [];
+  const groupByProject = new Map<string, string>();
   for (let number = 21; number <= lists.rowCount; number += 1) {
     const row = lists.getRow(number);
     const title = text(cell(row.getCell(1).value));
     if (!title) {
       break;
     }
+
+    groupByProject.set(title.toLowerCase(), text(cell(row.getCell(5).value)));
 
     const startDate = calendarDate(cell(row.getCell(3).value));
     const endDate = calendarDate(cell(row.getCell(4).value));
@@ -380,6 +393,7 @@ export async function loadCaswjWorkbook(filePath = workbookPath): Promise<CaswjW
     const volunteer = text(cell(row.getCell(3).value));
     const project = canonicalProjectTitle(text(cell(row.getCell(2).value)), projectIndex);
     const category = text(cell(row.getCell(5).value));
+    const listedGroup = groupByProject.get(project.toLowerCase()) ?? "";
     const hours = asNumber(cell(row.getCell(10).value));
     if (!category || hours == null) {
       return;
@@ -401,7 +415,7 @@ export async function loadCaswjWorkbook(filePath = workbookPath): Promise<CaswjW
       occurredOn,
       project,
       volunteer,
-      group: text(cell(row.getCell(4).value)),
+      group: groupFromLog(row.getCell(4).value, listedGroup),
       category,
       startedAt: asDate(cell(row.getCell(7).value)),
       endedAt: asDate(cell(row.getCell(8).value)),

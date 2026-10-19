@@ -15,6 +15,7 @@
     "lint": "eslint",
     "test:http": "node --test --test-concurrency=4 tests/http/*.test.mjs",
     "test:e2e": "playwright test -c tests/e2e/playwright.config.ts",
+    "test:e2e:prod": "E2E_ENV=PROD playwright test -c tests/e2e/playwright.config.ts",
     "test:http:next": "API_TARGET=next npm run test:http",
     "test:http:csharp": "API_TARGET=csharp npm run test:http",
     "db:pull": "prisma db pull && prisma generate",

@@ -5,14 +5,18 @@ import { config } from "dotenv";
 const root = process.cwd();
 config({ path: path.join(root, ".env") });
 
-const baseURL = process.env.E2E_BASE_URL || "http://localhost:3025";
+const prod = process.env.E2E_ENV?.toUpperCase() === "PROD";
+const baseURL = prod
+  ? process.env.E2E_BASE_URL || "https://clocked-in.baddley.us/"
+  : process.env.E2E_BASE_URL || "http://localhost:3025";
 
 export default defineConfig({
   testDir: ".",
+  testIgnore: prod ? ["**/caswj-hours.spec.ts"] : ["**/cache-bust.spec.ts"],
   fullyParallel: false,
   workers: 1,
-  timeout: 120_000,
-  expect: { timeout: 15_000 },
+  timeout: prod ? 240_000 : 120_000,
+  expect: { timeout: prod ? 20_000 : 15_000 },
   globalSetup: "./global-setup.ts",
   reporter: [["list"]],
   use: {
@@ -22,7 +26,7 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer:
-    process.env.E2E_WEB_SERVER === "1"
+    !prod && process.env.E2E_WEB_SERVER === "1"
       ? {
           command: "npm run dev",
           url: baseURL,
