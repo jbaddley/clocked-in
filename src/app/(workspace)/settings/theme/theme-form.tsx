@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { MinusIcon, PlusIcon } from "lucide-react";
 import { applyThemeAction, deleteThemeAction, saveThemeAction } from "@/app/actions/organizations";
@@ -34,6 +34,54 @@ const fontOptions = brandFonts.map((font) => ({
 }));
 
 const hexColor = /^#[0-9A-Fa-f]{6}$/;
+
+function useCardPin(cardRef: React.RefObject<HTMLElement | null>, barRef: React.RefObject<HTMLElement | null>) {
+  const [pin, setPin] = useState<{ left: number; width: number; top: number; docked: boolean } | null>(null);
+
+  useLayoutEffect(() => {
+    const card = cardRef.current;
+    const bar = barRef.current;
+    if (!card || !bar) {
+      return;
+    }
+
+    let frame = 0;
+    const update = () => {
+      const rect = card.getBoundingClientRect();
+      const left = Math.round(rect.left);
+      const width = Math.round(rect.width);
+      const barHeight = bar.offsetHeight;
+      const viewportTop = window.innerHeight - barHeight;
+      const top = Math.max(Math.round(rect.top), Math.min(Math.round(rect.bottom - barHeight), viewportTop));
+      const docked = rect.bottom <= window.innerHeight + 1;
+      setPin((current) =>
+        current && current.left === left && current.width === width && current.top === top && current.docked === docked
+          ? current
+          : { left, width, top, docked },
+      );
+    };
+
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(update);
+    };
+
+    update();
+    const observer = new ResizeObserver(schedule);
+    observer.observe(card);
+    observer.observe(bar);
+    window.addEventListener("resize", schedule);
+    window.addEventListener("scroll", schedule, { passive: true, capture: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.removeEventListener("resize", schedule);
+      window.removeEventListener("scroll", schedule, true);
+    };
+  }, [barRef, cardRef]);
+
+  return pin;
+}
 
 function cloneTheme(theme: Theme): Theme {
   return {
@@ -218,10 +266,13 @@ function ThemeFields() {
   );
   const remove = useActionMutation((themeId: string) => deleteThemeAction(organization.id, themeId));
   const catalog = themes.data ?? [organization.theme];
+  const cardRef = useRef<HTMLDivElement>(null);
+  const barRef = useRef<HTMLDivElement>(null);
+  const pin = useCardPin(cardRef, barRef);
 
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]">
-      <Card>
+      <Card ref={cardRef}>
         <CardHeader>
           <CardTitle>Themes</CardTitle>
           <CardDescription>
@@ -231,7 +282,7 @@ function ThemeFields() {
         </CardHeader>
         <CardContent>
           <form
-            className="grid gap-4 sm:grid-cols-2"
+            className="grid gap-4 pb-28 sm:grid-cols-2"
             onSubmit={(event) => {
               event.preventDefault();
               save.mutate(draft);
@@ -345,7 +396,17 @@ function ThemeFields() {
                 onChange={(divergingPalette) => setDraft({ ...draft, divergingPalette })}
               />
             </div>
-            <div className="flex flex-wrap gap-2 sm:col-span-2">
+            <div
+              ref={barRef}
+              role="group"
+              aria-label="Theme actions"
+              className={`fixed z-30 flex flex-wrap gap-2 border-t bg-card px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_16px_-12px_rgb(0_0_0/0.35)] ${pin?.docked ? "rounded-b-xl" : ""}`}
+              style={
+                pin
+                  ? { left: pin.left, width: pin.width, top: pin.top, bottom: "auto" }
+                  : { left: 0, right: 0, bottom: 0, visibility: "hidden" }
+              }
+            >
               <SubmitButton pending={save.isPending} className="h-9">
                 Save theme
               </SubmitButton>

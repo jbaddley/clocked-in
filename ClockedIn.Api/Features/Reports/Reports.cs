@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Linq.Expressions;
 using System.Text;
+using System.Text.Json.Serialization;
 using ClockedIn.Api.Data;
 using ClockedIn.Api.Entities;
 using ClockedIn.Api.Features.Shared;
@@ -10,7 +11,14 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ClockedIn.Api.Features.Reports;
 
-public sealed record BucketDto(string Id, string Label, decimal Hours, int Volunteers, int Entries, decimal InKind);
+public sealed record BucketDto(
+    string Id,
+    string Label,
+    decimal Hours,
+    int Volunteers,
+    int Entries,
+    decimal InKind,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ProjectType = null);
 
 public sealed record UserRollupDto(
     decimal Hours,
@@ -67,7 +75,7 @@ public sealed class ReportsService(ClockedInDbContext db, Access access)
         var byPerson = await Buckets(
             entries,
             entry => new { entry.UserId, entry.User.Username, entry.User.Profile!.DisplayName, entry.User.Profile.FirstName, entry.User.Profile.LastName },
-            key => (key.UserId.ToString(), new PersonName(key.Username, key.DisplayName, key.FirstName, key.LastName).Label),
+            key => (key.UserId.ToString(), new PersonName(key.Username, key.DisplayName, key.FirstName, key.LastName).Label, (string?)null),
             cancellationToken);
         var named = byPerson.Where(row => row.Label.Length > 0).ToList();
         var volunteerMinutes = await entries
@@ -109,19 +117,19 @@ public sealed class ReportsService(ClockedInDbContext db, Access access)
             Sorted(await Buckets(
                 entries,
                 entry => new { entry.DepartmentId, Name = entry.Department != null ? entry.Department.Name : null },
-                key => (key.DepartmentId?.ToString() ?? "organization", key.Name ?? organization.Name),
+                key => (key.DepartmentId?.ToString() ?? "organization", key.Name ?? organization.Name, (string?)null),
                 cancellationToken)),
             Sorted(await Buckets(
                 entries,
                 entry => new { entry.TaskCategoryId, entry.TaskCategory.Name },
-                key => (key.TaskCategoryId.ToString(), key.Name),
+                key => (key.TaskCategoryId.ToString(), key.Name, (string?)null),
                 cancellationToken)),
             Sorted(named),
             Sorted(byVolunteer),
             Sorted(await Buckets(
                 entries,
-                entry => new { entry.ProjectId, entry.Project.Title },
-                key => (key.ProjectId.ToString(), key.Title),
+                entry => new { entry.ProjectId, entry.Project.Title, entry.Project.ProjectType },
+                key => (key.ProjectId.ToString(), key.Title, key.ProjectType.ToString()),
                 cancellationToken)),
             byMonth);
         return new ReportDto(user, await CollectiveRollup(organizationId, filter, cancellationToken));
@@ -245,7 +253,7 @@ public sealed class ReportsService(ClockedInDbContext db, Access access)
     private static async Task<List<BucketRow>> Buckets<TKey>(
         IQueryable<UserTimeEntry> entries,
         Expression<Func<UserTimeEntry, TKey>> key,
-        Func<TKey, (string Id, string Label)> describe,
+        Func<TKey, (string Id, string Label, string? ProjectType)> describe,
         CancellationToken cancellationToken)
     {
         var groups = await entries.GroupBy(key)
@@ -260,8 +268,8 @@ public sealed class ReportsService(ClockedInDbContext db, Access access)
             .ToListAsync(cancellationToken);
         return groups.Select(group =>
         {
-            var (id, label) = describe(group.Key);
-            return new BucketRow(id, label, group.Minutes, group.Volunteers, group.Entries, group.InKind);
+            var (id, label, projectType) = describe(group.Key);
+            return new BucketRow(id, label, group.Minutes, group.Volunteers, group.Entries, group.InKind, projectType);
         }).ToList();
     }
 
@@ -287,25 +295,31 @@ public sealed class ReportsService(ClockedInDbContext db, Access access)
                 CategoryName = entry.TaskCategory.Name,
                 entry.ProjectId,
                 entry.Project.Title,
+                entry.Project.ProjectType,
             })
             .ToListAsync(cancellationToken);
         var rows = entries.Select(entry => new CollectiveRow(
                 (int)Math.Round((entry.EndedAt - entry.StartedAt).TotalMinutes, MidpointRounding.AwayFromZero),
                 entry.InKindValue,
-                (entry.DepartmentId?.ToString() ?? "organization", entry.DepartmentName ?? "Organization"),
-                (entry.TaskCategoryId.ToString(), entry.CategoryName),
-                (entry.ProjectId.ToString(), entry.Title)))
+                (entry.DepartmentId?.ToString() ?? "organization", entry.DepartmentName ?? "Organization", (string?)null),
+                (entry.TaskCategoryId.ToString(), entry.CategoryName, (string?)null),
+                (entry.ProjectId.ToString(), entry.Title, entry.ProjectType.ToString())))
             .ToList();
 
-        BucketDto[] Group(Func<CollectiveRow, (string Id, string Label)> describe) =>
+        BucketDto[] Group(Func<CollectiveRow, (string Id, string Label, string? ProjectType)> describe) =>
             Sorted(rows.GroupBy(row => describe(row).Id)
-                .Select(group => new BucketRow(
-                    group.Key,
-                    describe(group.First()).Label,
-                    group.Sum(row => row.Minutes),
-                    0,
-                    group.Count(),
-                    group.Sum(row => row.InKind)))
+                .Select(group =>
+                {
+                    var described = describe(group.First());
+                    return new BucketRow(
+                        group.Key,
+                        described.Label,
+                        group.Sum(row => row.Minutes),
+                        0,
+                        group.Count(),
+                        group.Sum(row => row.InKind),
+                        described.ProjectType);
+                })
                 .ToList());
 
         return new CollectiveRollupDto(
@@ -318,7 +332,14 @@ public sealed class ReportsService(ClockedInDbContext db, Access access)
     }
 
     private static BucketDto[] Sorted(List<BucketRow> rows) =>
-        rows.Select(row => new BucketDto(row.Id, row.Label, HoursFromMinutes(row.Minutes), row.Volunteers, row.Entries, Fields.RoundMoney(row.InKind)))
+        rows.Select(row => new BucketDto(
+            row.Id,
+            row.Label,
+            HoursFromMinutes(row.Minutes),
+            row.Volunteers,
+            row.Entries,
+            Fields.RoundMoney(row.InKind),
+            row.ProjectType))
             .OrderByDescending(bucket => bucket.Hours)
             .ThenBy(bucket => bucket.Label, StringComparer.Ordinal)
             .ThenBy(bucket => bucket.Id, StringComparer.Ordinal)
@@ -385,11 +406,18 @@ public sealed class ReportsService(ClockedInDbContext db, Access access)
     private sealed record CollectiveRow(
         int Minutes,
         decimal InKind,
-        (string Id, string Label) Department,
-        (string Id, string Label) Category,
-        (string Id, string Label) Project);
+        (string Id, string Label, string? ProjectType) Department,
+        (string Id, string Label, string? ProjectType) Category,
+        (string Id, string Label, string? ProjectType) Project);
 
-    private sealed record BucketRow(string Id, string Label, int Minutes, int Volunteers, int Entries, decimal InKind);
+    private sealed record BucketRow(
+        string Id,
+        string Label,
+        int Minutes,
+        int Volunteers,
+        int Entries,
+        decimal InKind,
+        string? ProjectType = null);
 
     private async Task<Filter> ForCaller(Guid organizationId, Filter filter, CancellationToken cancellationToken)
     {

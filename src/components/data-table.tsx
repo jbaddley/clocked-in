@@ -7,6 +7,8 @@ export type Column<T> = {
   cell: (row: T) => React.ReactNode;
   align?: "left" | "right";
   className?: string;
+  width?: string;
+  wrap?: boolean;
   primary?: boolean;
 };
 
@@ -27,14 +29,19 @@ export function DataTable<T>({
   return (
     <div className={className}>
       <div className="hidden md:block">
-        <Table>
+        <Table className="table-fixed">
+          <colgroup>
+            {columns.map((column) => (
+              <col key={column.key} style={column.width ? { width: column.width } : undefined} />
+            ))}
+          </colgroup>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               {columns.map((column) => (
                 <TableHead
                   key={column.key}
                   className={cn(
-                    "text-xs font-medium tracking-wide text-muted-foreground uppercase",
+                    "text-xs font-medium tracking-wide whitespace-normal text-muted-foreground uppercase",
                     column.align === "right" && "text-right",
                     column.className,
                   )}
@@ -50,7 +57,11 @@ export function DataTable<T>({
                 {columns.map((column) => (
                   <TableCell
                     key={column.key}
-                    className={cn(column.align === "right" && "text-right tabular-nums", column.className)}
+                    className={cn(
+                      column.align === "right" && "text-right tabular-nums",
+                      column.wrap && "whitespace-normal break-words",
+                      column.className,
+                    )}
                   >
                     {column.cell(row)}
                   </TableCell>

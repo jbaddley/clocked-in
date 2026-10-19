@@ -80,7 +80,15 @@ describe("formats / reports and csv", suite, () => {
     assert.equal(response.json.collective.hours, 0.01667);
     assert.equal(response.json.collective.inKind, 1);
     assert.deepEqual(response.json.collective.byProject, [
-      { id: ctx.project.id, label: ctx.project.title, hours: 0.01667, volunteers: 0, entries: 1, inKind: 1 },
+      {
+        id: ctx.project.id,
+        label: ctx.project.title,
+        hours: 0.01667,
+        volunteers: 0,
+        entries: 1,
+        inKind: 1,
+        projectType: "Project",
+      },
     ]);
   });
 

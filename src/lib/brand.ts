@@ -86,6 +86,7 @@ export function brandStyle(theme: ThemeJson | null): CSSProperties {
     "--sidebar-border": `color-mix(in oklch, ${theme.primaryForeground} 14%, transparent)`,
     "--accent": `color-mix(in oklch, ${theme.accent} 14%, ${theme.surface})`,
     "--accent-foreground": theme.foreground,
+    "--brand-accent": theme.accent,
     "--highlight": theme.highlight,
     "--success": theme.success,
     "--background": theme.surface,

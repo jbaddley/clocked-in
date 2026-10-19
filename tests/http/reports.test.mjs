@@ -81,6 +81,7 @@ describe("reports", suite, () => {
     assert.equal(response.json.user.byPerson[0].label, "Ada Lovelace");
     assert.equal(response.json.user.byDepartment[0].label, ctx.department.name);
     assert.equal(response.json.user.byProject[0].label, ctx.project.title);
+    assert.equal(response.json.user.byProject[0].projectType, "Project");
     assert.equal(response.json.user.byCategory[0].id, ctx.category.id);
     assert.equal(response.json.user.byVolunteer[0].label, "Ada Lovelace");
     assert.equal(response.json.user.byVolunteer[0].hours, 1.5);
@@ -90,6 +91,7 @@ describe("reports", suite, () => {
     assert.equal(response.json.collective.hours, 2);
     assertMoney(response.json.collective.inKind, 70.94);
     assert.equal(response.json.collective.byProject[0].label, ctx.project.title);
+    assert.equal(response.json.collective.byProject[0].projectType, "Project");
     const outsider = await callApi(`/organizations/${ctx.org.id}/report`, { token: ctx.outsider.accessToken });
     const badDate = await callApi(`/organizations/${ctx.org.id}/report`, {
       token: ctx.member.accessToken,

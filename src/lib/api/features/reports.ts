@@ -54,7 +54,15 @@ const personSelect = {
   profile: { select: { displayName: true, firstName: true, lastName: true } },
 } as const;
 
-type BucketRow = { id: string; label: string; minutes: number; volunteers: number; entries: number; inKindCents: number };
+type BucketRow = {
+  id: string;
+  label: string;
+  projectType?: string;
+  minutes: number;
+  volunteers: number;
+  entries: number;
+  inKindCents: number;
+};
 
 function ordinal(a: string, b: string) {
   return a < b ? -1 : a > b ? 1 : 0;
@@ -69,6 +77,7 @@ function sorted(rows: BucketRow[]) {
       volunteers: row.volunteers,
       entries: row.entries,
       inKind: row.inKindCents / 100,
+      ...(row.projectType ? { projectType: row.projectType } : {}),
     }))
     .sort((a, b) => b.hours - a.hours || ordinal(a.label, b.label) || ordinal(a.id, b.id));
 }
@@ -93,7 +102,7 @@ type GroupRow = {
 function bucketsFrom<T extends GroupRow>(
   groups: T[],
   keyOf: (group: T) => string | null,
-  describe: (key: string | null) => { id: string; label: string },
+  describe: (key: string | null) => { id: string; label: string; projectType?: string },
 ) {
   const rows = new Map<string | null, BucketRow & { users: Set<string> }>();
   for (const group of groups) {
@@ -138,8 +147,11 @@ async function userRollup(organizationId: string, filter: Filter) {
       .findMany({ where: { id: { in: ids(byCategory.map((g) => g.taskCategoryId)) } }, select: { id: true, name: true } })
       .then((rows) => namesById(rows, (row) => row.name)),
     prisma.project
-      .findMany({ where: { id: { in: ids(byProject.map((g) => g.projectId)) } }, select: { id: true, title: true } })
-      .then((rows) => namesById(rows, (row) => row.title)),
+      .findMany({
+        where: { id: { in: ids(byProject.map((g) => g.projectId)) } },
+        select: { id: true, title: true, projectType: true },
+      })
+      .then((rows) => new Map(rows.map((row) => [row.id, row]))),
   ]);
 
   const organization = await prisma.organization.findUniqueOrThrow({
@@ -199,7 +211,10 @@ async function userRollup(organizationId: string, filter: Filter) {
         .map((row) => ({ ...row, minutes: volunteerHours.get(row.id) ?? 0 })),
     ),
     byProject: sorted(
-      bucketsFrom(byProject, (g) => g.projectId, (key) => ({ id: key!, label: projects.get(key!) ?? "" })),
+      bucketsFrom(byProject, (g) => g.projectId, (key) => {
+        const project = key ? projects.get(key) : undefined;
+        return { id: key!, label: project?.title ?? "", projectType: project?.projectType };
+      }),
     ),
     byMonth: [...months.values()]
       .sort((a, b) => ordinal(a.id, b.id))
@@ -233,7 +248,7 @@ async function collectiveRollup(organizationId: string, filter: Filter) {
       taskCategoryId: true,
       taskCategory: { select: { name: true } },
       projectId: true,
-      project: { select: { title: true } },
+      project: { select: { title: true, projectType: true } },
     },
   });
   const rows = entries.map((entry) => ({
@@ -243,18 +258,26 @@ async function collectiveRollup(organizationId: string, filter: Filter) {
       ? { id: entry.departmentId, label: entry.department!.name }
       : { id: "organization", label: "Organization" },
     category: { id: entry.taskCategoryId, label: entry.taskCategory.name },
-    project: { id: entry.projectId, label: entry.project.title },
+    project: { id: entry.projectId, label: entry.project.title, projectType: entry.project.projectType },
   }));
   type Row = (typeof rows)[number];
-  const group = (describe: (row: Row) => { id: string; label: string }) => {
+  const group = (describe: (row: Row) => { id: string; label: string; projectType?: string }) => {
     const buckets = new Map<string, BucketRow>();
     for (const row of rows) {
-      const { id, label } = describe(row);
-      const bucket = buckets.get(id) ?? { id, label, minutes: 0, volunteers: 0, entries: 0, inKindCents: 0 };
+      const described = describe(row);
+      const bucket = buckets.get(described.id) ?? {
+        id: described.id,
+        label: described.label,
+        projectType: described.projectType,
+        minutes: 0,
+        volunteers: 0,
+        entries: 0,
+        inKindCents: 0,
+      };
       bucket.minutes += row.minutes;
       bucket.entries += 1;
       bucket.inKindCents += row.inKindCents;
-      buckets.set(id, bucket);
+      buckets.set(described.id, bucket);
     }
 
     return sorted([...buckets.values()]);

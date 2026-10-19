@@ -16,7 +16,7 @@ import {
   loadCaswjWorkbook,
   type ExpectedCaswjReport,
 } from "../../scripts/caswj-workbook";
-import { formatCurrency, formatHours, formatNumber } from "../../src/lib/format";
+import { formatCompactCurrency, formatCompactNumber, formatCurrency, formatNumber } from "../../src/lib/format";
 import {
   cardNamed,
   cardTitle,
@@ -196,11 +196,13 @@ async function expectTable(
 ) {
   const card = cardNamed(page, title);
   await expect(card.locator("[data-slot='card-title']", { hasText: title })).toBeVisible();
+  const showType = title.startsWith("By project");
+  await expect(card.getByRole("columnheader", { name: "Type" })).toHaveCount(showType ? 1 : 0);
   for (const row of rows) {
     const line = card.getByRole("row").filter({ hasText: row.label });
     await expect(line.first()).toBeVisible();
-    await expect(line.first()).toContainText(formatHours(row.hours));
-    await expect(line.first()).toContainText(formatCurrency(row.inKind));
+    await expect(line.first()).toContainText(formatCompactNumber(row.hours));
+    await expect(line.first()).toContainText(formatCompactCurrency(row.inKind));
     if (showVolunteers) {
       await expect(line.first()).toContainText(String(row.volunteers));
     }
