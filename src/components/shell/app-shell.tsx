@@ -1,4 +1,5 @@
 import { AppSidebar } from "@/components/shell/app-sidebar";
+import { OrgFavicon } from "@/components/shell/org-favicon";
 import { HeaderTitle } from "@/components/shell/page-title";
 import { OrgSwitcher } from "@/components/shell/org-switcher";
 import { TimerChip } from "@/components/shell/timer-chip";
@@ -26,7 +27,7 @@ export function AppShell({
       className="has-[[data-settings-layout]]:h-svh has-[[data-settings-layout]]:overflow-hidden"
     >
       {css ? <style>{css}</style> : null}
-      {icon ? <link rel="icon" href={icon} type="image/webp" /> : null}
+      <OrgFavicon href={icon} />
       <AppSidebar organization={organization} isAdmin={isAdmin} />
       <SidebarInset className="min-w-0 bg-muted/40 has-[[data-settings-layout]]:min-h-0 has-[[data-settings-layout]]:overflow-hidden">
         <header className="sticky top-0 z-20 shrink-0 bg-background/90 backdrop-blur">
