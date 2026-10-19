@@ -18,7 +18,7 @@ export function SettingsNav() {
     { href: "/settings/brand", label: "Brand", icon: ImageIcon },
   ];
   return (
-    <nav className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0 lg:overflow-visible">
+    <nav className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0 lg:min-h-0 lg:overflow-y-auto lg:overscroll-y-contain">
       <ul className="flex gap-1 border-b lg:flex-col lg:border-b-0">
         {items.map((item) => {
           const active = pathname.startsWith(item.href);

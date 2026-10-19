@@ -21,11 +21,14 @@ export function AppShell({
   const css = brandCss(organization?.theme ?? null);
   const icon = organization ? brandAssetSrc("mark", organization.markUrl) : null;
   return (
-    <SidebarProvider defaultOpen={sidebarOpen}>
+    <SidebarProvider
+      defaultOpen={sidebarOpen}
+      className="has-[[data-settings-layout]]:h-svh has-[[data-settings-layout]]:overflow-hidden"
+    >
       {css ? <style>{css}</style> : null}
       {icon ? <link rel="icon" href={icon} type="image/webp" /> : null}
       <AppSidebar organization={organization} isAdmin={isAdmin} />
-      <SidebarInset className="min-w-0 bg-muted/40">
+      <SidebarInset className="min-w-0 bg-muted/40 has-[[data-settings-layout]]:min-h-0 has-[[data-settings-layout]]:overflow-hidden">
         <header className="sticky top-0 z-20 shrink-0 bg-background/90 backdrop-blur">
           <div className="flex h-16 items-center gap-2 px-3 md:px-4 lg:px-6">
             <div className="flex shrink-0 items-center gap-2">
@@ -40,7 +43,9 @@ export function AppShell({
           </div>
           <div className="brand-rule" />
         </header>
-        <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8">{children}</div>
+        <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 has-[[data-settings-layout]]:min-h-0 has-[[data-settings-layout]]:overflow-hidden">
+          {children}
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );
@@ -51,9 +56,14 @@ export function ShellSkeleton() {
     <div className="flex min-h-svh w-full">
       <div className="hidden w-64 shrink-0 bg-sidebar md:block" />
       <div className="flex flex-1 flex-col bg-muted/40">
-        <div className="h-16 border-b bg-background" />
+        <div className="flex h-16 items-center gap-3 bg-background px-3 md:px-4 lg:px-6">
+          <div className="h-9 w-40 animate-pulse rounded-md bg-muted" />
+          <div className="hidden h-8 w-48 animate-pulse rounded-md bg-muted lg:block" />
+          <div className="ml-auto size-9 animate-pulse rounded-full bg-muted" />
+        </div>
+        <div className="brand-rule" />
         <div className="mx-auto w-full max-w-7xl p-4 sm:p-6 lg:p-8">
-          <div className="h-8 w-48 animate-pulse rounded-md bg-muted" />
+          <div className="h-8 w-48 animate-pulse rounded-md bg-muted lg:hidden" />
         </div>
       </div>
     </div>
