@@ -271,6 +271,7 @@ export async function createOrgMembership(access: Access, organizationId: string
           username: request.username,
           email: request.email,
           passwordHash: await hashPassword(request.password),
+          mustChangePassword: true,
           profile: {
             create: {
               firstName: request.firstName,

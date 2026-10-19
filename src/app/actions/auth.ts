@@ -22,9 +22,11 @@ export async function logInAction(_: ActionResult | null, formData: FormData): P
   const result = await run(async () => {
     const session = await logIn(parseLogIn({ username: text(formData, "username"), password: text(formData, "password") }));
     await setSessionCookies(session);
+    return { mustChangePassword: session.user.mustChangePassword };
   });
   if (!result.ok) return result;
-  redirect(safeNext(text(formData, "next")));
+  const next = safeNext(text(formData, "next"));
+  redirect(result.data?.mustChangePassword ? `/change-password?next=${encodeURIComponent(next)}` : next);
 }
 
 export async function signUpAction(_: ActionResult | null, formData: FormData): Promise<ActionResult> {

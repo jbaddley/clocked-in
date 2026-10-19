@@ -12,9 +12,10 @@ public static class UsersEndpoints
         users.MapGet("", async Task<Ok<ListResponse<UserDto>>> ([AsParameters] PageQuery query, UsersService service, CancellationToken ct) =>
             TypedResults.Ok(await service.List(query, ct)));
         users.MapGet("/me", async Task<Ok<UserDto>> (CurrentUser current, UsersService service, CancellationToken ct) =>
-            TypedResults.Ok(await service.Get(current.Id, ct)));
+            TypedResults.Ok(await service.Get(current.Id, ct))).WithMetadata(new AllowPasswordChangeAttribute());
         users.MapPatch("/me", async Task<Ok<UserDto>> (UpdateUserRequest request, CurrentUser current, UsersService service, CancellationToken ct) =>
-            TypedResults.Ok(await service.Update(current.Id, request, fromMe: true, ct)));
+            TypedResults.Ok(await service.Update(current.Id, request, fromMe: true, ct)))
+            .WithMetadata(new AllowPasswordChangeAttribute());
         users.MapGet("/{id:guid}", async Task<Ok<UserDto>> (Guid id, UsersService service, CancellationToken ct) =>
             TypedResults.Ok(await service.Get(id, ct)));
         users.MapPatch("/{id:guid}", async Task<Ok<UserDto>> (Guid id, UpdateUserRequest request, UsersService service, CancellationToken ct) =>

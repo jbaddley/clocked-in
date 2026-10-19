@@ -1,9 +1,10 @@
 "use server";
 
 import { refresh } from "next/cache";
+import { redirect } from "next/navigation";
 import { logIn, parseLogIn } from "@/lib/api/features/auth";
 import { parseUpdateUser, updateUser } from "@/lib/api/features/users";
-import { body, run, text } from "@/lib/server/action";
+import { body, run, safeNext, text } from "@/lib/server/action";
 import { requireAccess, setSessionCookies } from "@/lib/server/session";
 import type { ActionResult } from "@/lib/types";
 
@@ -43,8 +44,8 @@ export async function changePasswordAction(_: ActionResult | null, formData: For
     return { ok: false, error: "The new passwords do not match." };
   }
 
-  return run(async () => {
-    const access = await requireAccess();
+  const result = await run(async () => {
+    const access = await requireAccess({ allowPasswordChange: true });
     const updated = await updateUser(
       access,
       access.caller.id,
@@ -52,6 +53,14 @@ export async function changePasswordAction(_: ActionResult | null, formData: For
       true,
     );
     await setSessionCookies(await logIn(parseLogIn({ username: updated.username, password })));
-    refresh();
+    return updated;
   }, "Password updated. Other sessions were signed out.");
+  if (!result.ok) return result;
+  const next = text(formData, "next");
+  if (next) {
+    redirect(safeNext(next));
+  }
+
+  refresh();
+  return result;
 }

@@ -24,6 +24,10 @@ export function forbidden(): never {
   fail(403, "forbidden", "Forbidden.");
 }
 
+export function passwordChangeRequired(): never {
+  fail(403, "password_change_required", "You must change your password before continuing.");
+}
+
 export function notFound(): never {
   fail(404, "not_found", "Not found.");
 }

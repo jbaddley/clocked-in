@@ -20,6 +20,8 @@ model User {
   updatedAt               DateTime                 @updatedAt @db.Timestamptz(6)
   /// User-level flag. Not a membership role.
   isSuperAdmin            Boolean                  @default(false)
+  /// When true, the user must set a new password before using the app.
+  mustChangePassword      Boolean                  @default(false)
   collectiveTimeEntries   CollectiveTimeEntry[]    @relation("CollectiveTimeEntryRecordedBy")
   departmentMemberships   DepartmentMembership[]
   invitationsSent         Invitation[]             @relation("InvitationInvitedBy")

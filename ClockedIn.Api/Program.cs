@@ -44,6 +44,7 @@ app.UseHttpsRedirection();
 app.UseExceptionHandler(new ExceptionHandlerOptions { ExceptionHandler = _ => Task.CompletedTask });
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<RequirePasswordChangeMiddleware>();
 
 app.MapHealthChecks("/health", new HealthCheckOptions
 {

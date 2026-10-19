@@ -18,6 +18,7 @@ classDiagram
     string email
     string passwordHash
     bool isSuperAdmin
+    bool mustChangePassword
     datetime createdAt
     datetime updatedAt
   }
@@ -211,6 +212,7 @@ Foreign keys below are the relationship ends from the diagram. Tag and project-e
 | email | yes | Unique, stored lowercase |
 | passwordHash | yes | Hash only. Never store the password |
 | isSuperAdmin | yes | Default false. User-level flag, not a membership role. Bypasses membership checks |
+| mustChangePassword | yes | Default false. Set when an admin creates the account with a temporary password. Cleared when the user sets a new password or completes a reset |
 | createdAt | yes | |
 | updatedAt | yes | |
 

@@ -56,6 +56,7 @@ public sealed class MembershipsService(ClockedInDbContext db, Access access, Tim
                 Username = request.Username,
                 Email = request.Email,
                 PasswordHash = Passwords.Hash(request.Password),
+                MustChangePassword = true,
                 Profile = new UserProfile
                 {
                     Id = Guid.NewGuid(),

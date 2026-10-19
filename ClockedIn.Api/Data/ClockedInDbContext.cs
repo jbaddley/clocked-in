@@ -49,6 +49,7 @@ public class ClockedInDbContext(DbContextOptions<ClockedInDbContext> options, Ti
         {
             entity.Property(user => user.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(user => user.IsSuperAdmin).HasDefaultValue(false);
+            entity.Property(user => user.MustChangePassword).HasDefaultValue(false);
             entity.HasIndex(user => user.Username).IsUnique();
             entity.HasIndex(user => user.Email).IsUnique();
             entity.ToTable(table => table.HasCheckConstraint(

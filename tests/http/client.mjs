@@ -122,7 +122,7 @@ export function assertNoSecrets(value) {
 }
 
 export function assertUser(user, expected = {}) {
-  assertKeys(user, ["id", "username", "email", "isSuperAdmin", "createdAt", "updatedAt", "profile"]);
+  assertKeys(user, ["id", "username", "email", "isSuperAdmin", "mustChangePassword", "createdAt", "updatedAt", "profile"]);
   assertUuid(user.id);
   assertInstant(user.createdAt);
   assertInstant(user.updatedAt);
@@ -135,6 +135,12 @@ export function assertUser(user, expected = {}) {
   }
   if (expected.isSuperAdmin !== undefined) {
     assert.equal(user.isSuperAdmin, expected.isSuperAdmin);
+  }
+  assert.equal(typeof user.mustChangePassword, "boolean");
+  if (expected.mustChangePassword !== undefined) {
+    assert.equal(user.mustChangePassword, expected.mustChangePassword);
+  } else {
+    assert.equal(user.mustChangePassword, false);
   }
   assertKeys(user.profile, [
     "id",
@@ -447,13 +453,13 @@ export async function signUp(prefix = "user", extra = {}) {
   return { ...person, ...response.json };
 }
 
-export async function logIn(username, password) {
+export async function logIn(username, password, expected = {}) {
   const response = await callApi("/auth/login", {
     method: "POST",
     body: { username, password },
   });
   assertStatus(response, 200);
-  assertSession(response.json, { username });
+  assertSession(response.json, { username, ...expected });
   return response.json;
 }
 

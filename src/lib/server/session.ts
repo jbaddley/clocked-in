@@ -12,8 +12,13 @@ export const getAccess = cache(async () => {
   return subject ? accessForSubject(subject) : null;
 });
 
-export async function requireAccess() {
-  return (await getAccess()) ?? redirect("/login");
+export async function requireAccess(options?: { allowPasswordChange?: boolean }) {
+  const access = (await getAccess()) ?? redirect("/login");
+  if (access.caller.mustChangePassword && !options?.allowPasswordChange) {
+    redirect("/change-password");
+  }
+
+  return access;
 }
 
 export async function setSessionCookies(session: IssuedSession) {

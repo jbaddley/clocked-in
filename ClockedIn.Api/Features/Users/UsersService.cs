@@ -83,9 +83,19 @@ public sealed class UsersService(ClockedInDbContext db, Access access, TimeProvi
             throw ApiException.Forbidden();
         }
 
+        if (caller.MustChangePassword && caller.Id == user.Id && !request.Password.HasValue)
+        {
+            throw ApiException.PasswordChangeRequired();
+        }
+
         if (request.Password.HasValue && !Passwords.Verify(request.CurrentPassword!, user.PasswordHash))
         {
             throw ApiException.Validation("The current password is incorrect.");
+        }
+
+        if (user.MustChangePassword && request.Password.HasValue && Passwords.Verify(request.Password.Value, user.PasswordHash))
+        {
+            throw ApiException.Validation("Choose a different password.");
         }
 
         await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
@@ -94,6 +104,7 @@ public sealed class UsersService(ClockedInDbContext db, Access access, TimeProvi
         if (request.Password.HasValue)
         {
             user.PasswordHash = Passwords.Hash(request.Password.Value);
+            user.MustChangePassword = false;
         }
 
         user.Profile.FirstName = request.FirstName.Or(user.Profile.FirstName);

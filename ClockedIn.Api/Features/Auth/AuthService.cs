@@ -173,6 +173,7 @@ public sealed class AuthService(
 
         await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
         user.PasswordHash = Passwords.Hash(request.Password);
+        user.MustChangePassword = false;
         reset.UsedAt = now;
         await db.RefreshTokens
             .Where(token => token.UserId == user.Id && token.RevokedAt == null)

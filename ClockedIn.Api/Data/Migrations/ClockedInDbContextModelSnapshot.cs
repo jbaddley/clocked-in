@@ -925,6 +925,12 @@ namespace ClockedIn.Api.Data.Migrations
                         .HasDefaultValue(false)
                         .HasColumnName("isSuperAdmin");
 
+                    b.Property<bool>("MustChangePassword")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("mustChangePassword");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasColumnType("text")

@@ -15,6 +15,7 @@ Instants are UTC ISO-8601. `occurredOn` is `YYYY-MM-DD`. Ids are UUIDs. Unknown 
 | 400 | `validation_error` |
 | 401 | `unauthorized` |
 | 403 | `forbidden` |
+| 403 | `password_change_required` |
 | 404 | `not_found` |
 | 405 | `method_not_allowed` |
 | 409 | `conflict` |
@@ -65,7 +66,7 @@ Refresh tokens last 30 days. Only their hash is stored. Refresh rotates the refr
 
 `displayName`, `timezone`, and `phone` are optional. `timezone` is an IANA name and defaults to `UTC`.
 
-`POST /auth/login` (200) body `{ "username": "", "password": "" }`.
+`POST /auth/login` (200) body `{ "username": "", "password": "" }`. A user created with a temporary password has `mustChangePassword: true`. They can sign in, call `GET /users/me`, change the password with `PATCH /users/me`, and log out. Other authenticated routes return 403 `password_change_required`: `You must change your password before continuing.` Reusing the temporary password fails with `Choose a different password.` Changing the password or completing a reset clears the flag.
 
 Both return:
 
@@ -86,7 +87,7 @@ Both return:
 
 `GET /auth/user/forgot-password?email=` stores a code, emails it with Resend, and always returns `{ "ok": true }` when `email` is present. Another request for the same user within 60 seconds does not send a second mail. Codes expire in 15 minutes. `RESEND_API_KEY`, `EMAIL_FROM`, and optional `RESEND_API_URL` configure mail. Mail failures return 502 `email_failed`: `Email is not configured.` when the key or sender is missing, and `The email could not be sent.` when Resend rejects the request or cannot be reached.
 
-`POST /auth/user/forgot-password` body `{ "email": "", "code": "", "password": "" }` sets the password, consumes the code, revokes refresh tokens, and returns `{ "ok": true }`.
+`POST /auth/user/forgot-password` body `{ "email": "", "code": "", "password": "" }` sets the password, consumes the code, clears `mustChangePassword`, revokes refresh tokens, and returns `{ "ok": true }`.
 
 ## User
 
@@ -96,6 +97,7 @@ Both return:
   "username": "",
   "email": "",
   "isSuperAdmin": false,
+  "mustChangePassword": false,
   "createdAt": "",
   "updatedAt": "",
   "profile": {
@@ -117,7 +119,7 @@ Both return:
 - `PATCH /users/{id}` is the user or a SuperAdmin
 - `DELETE /users/{id}` is the user or a SuperAdmin, and fails with 409 while time entries or projects still reference them
 
-Patch fields: `username`, `email`, `password`, `currentPassword`, `firstName`, `lastName`, `displayName` (up to 100 characters), `timezone`, `phone` (up to 40), `zipCode` (up to 20), and `notes` (up to 2000). `password` requires a non-empty `currentPassword`, or the request fails with `currentPassword is required to change the password.`. A wrong `currentPassword` fails with `The current password is incorrect.`. The update and the refresh-token revocation for a password change are saved together. Null or blank clears `displayName`, `phone`, `zipCode`, and `notes`. `PATCH /users/me` rejects `isSuperAdmin`. `PATCH /users/{id}` accepts `isSuperAdmin` only from a SuperAdmin. The last SuperAdmin cannot be removed.
+Patch fields: `username`, `email`, `password`, `currentPassword`, `firstName`, `lastName`, `displayName` (up to 100 characters), `timezone`, `phone` (up to 40), `zipCode` (up to 20), and `notes` (up to 2000). `password` requires a non-empty `currentPassword`, or the request fails with `currentPassword is required to change the password.`. A wrong `currentPassword` fails with `The current password is incorrect.`. While `mustChangePassword` is true, `PATCH /users/me` must include a new password; other profile-only patches return 403 `password_change_required`. The update and the refresh-token revocation for a password change are saved together and clear `mustChangePassword`. Null or blank clears `displayName`, `phone`, `zipCode`, and `notes`. `PATCH /users/me` rejects `isSuperAdmin`. `PATCH /users/{id}` accepts `isSuperAdmin` only from a SuperAdmin. The last SuperAdmin cannot be removed.
 
 Usernames are stored lowercase, 3 to 50 characters, matching `[a-z0-9][a-z0-9._-]*`. Emails are stored lowercase. Passwords are 8 to 200 characters and are bcrypt hashes.
 
@@ -182,7 +184,7 @@ Organization memberships leave `departmentId` null. Department memberships set b
 Only active organization memberships grant access. An inactive member cannot read or write the organization, and their department roles in it stop counting. Their time entries are kept.
 
 - `GET /organizations/{id}/memberships` and `GET /departments/{id}/memberships` require membership in the organization
-- `POST /organizations/{id}/memberships` requires an organization admin. Body `{ "email", "username", "password", "firstName", "lastName", "displayName", "timezone", "phone", "zipCode", "notes", "role", "departmentIds" }`. `firstName`, `lastName`, `email`, and `role` are required. A new account also needs `username` and `password`. An existing email adds that person to the organization and does not change their password. `departmentIds` is optional. A duplicate membership fails with 409 `This person is already in the organization.`
+- `POST /organizations/{id}/memberships` requires an organization admin. Body `{ "email", "username", "password", "firstName", "lastName", "displayName", "timezone", "phone", "zipCode", "notes", "role", "departmentIds" }`. `firstName`, `lastName`, `email`, and `role` are required. A new account also needs `username` and `password`, and is created with `mustChangePassword` true. An existing email adds that person to the organization and does not change their password. `departmentIds` is optional. A duplicate membership fails with 409 `This person is already in the organization.`
 - `PATCH .../memberships/{membershipId}` body may include `role`, and on an organization membership also `rateType` (`Volunteer` or `Professional`), `professionalBillingRate`, `isActive`, `primaryDepartmentId`, `departmentIds`, `email`, and profile fields `firstName`, `lastName`, `displayName`, `timezone`, `phone`, `zipCode`, and `notes`. `email` is stored lowercase. A duplicate fails with 409 `That email is already in use.` Organization memberships require an organization admin. Department memberships require that department's admin or the organization admin. `primaryDepartmentId` must be a department of that organization, or null. `departmentIds` replaces the person's departments in that organization. An organization membership patch with none of these fields fails with `Provide at least one field to update.`. Time entries no longer take their rate from membership `rateType` or `professionalBillingRate`.
 - `DELETE` removes the membership. The member, an organization admin, or (for a department) that department's admin may do it. Removing an organization membership also removes that user's department memberships in the organization. The account and time entries are kept. The last organization admin cannot be removed or demoted.
 

@@ -19,6 +19,7 @@ public sealed record UserDto(
     string Username,
     string Email,
     bool IsSuperAdmin,
+    bool MustChangePassword,
     DateTime CreatedAt,
     DateTime UpdatedAt,
     ProfileDto? Profile)
@@ -28,6 +29,7 @@ public sealed record UserDto(
         user.Username,
         user.Email,
         user.IsSuperAdmin,
+        user.MustChangePassword,
         user.CreatedAt,
         user.UpdatedAt,
         user.Profile is not { } profile

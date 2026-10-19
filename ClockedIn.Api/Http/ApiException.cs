@@ -12,6 +12,9 @@ public sealed class ApiException(int status, string code, string message) : Exce
 
     public static ApiException Forbidden() => new(403, "forbidden", "Forbidden.");
 
+    public static ApiException PasswordChangeRequired() =>
+        new(403, "password_change_required", "You must change your password before continuing.");
+
     public static ApiException NotFound() => new(404, "not_found", "Not found.");
 
     public static ApiException Conflict(string message) => new(409, "conflict", message);

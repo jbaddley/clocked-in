@@ -19,7 +19,7 @@ public static class AuthEndpoints
         {
             await service.LogOut(current.Id, request, ct);
             return TypedResults.Ok(OkResponse.Instance);
-        }).RequireAuthorization();
+        }).RequireAuthorization().WithMetadata(new AllowPasswordChangeAttribute());
         auth.MapGet("/user/forgot-password", async Task<Ok<OkResponse>> (string? email, AuthService service, CancellationToken ct) =>
         {
             await service.RequestPasswordReset(email, ct);

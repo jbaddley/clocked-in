@@ -1,5 +1,5 @@
 import { Prisma } from "@/generated/prisma/client";
-import { forbidden, notFound, unauthorized } from "@/lib/api/errors";
+import { forbidden, notFound, passwordChangeRequired, unauthorized } from "@/lib/api/errors";
 import { parseGuid } from "@/lib/api/guid";
 import { type RoleCode } from "@/lib/api/json";
 import { readAccessSubject } from "@/lib/api/security";
@@ -175,11 +175,16 @@ export async function accessForSubject(subject: string) {
   return user ? new Access(user) : null;
 }
 
-export async function authenticate(request: Request) {
+export async function authenticate(request: Request, options?: { allowPasswordChange?: boolean }) {
   const subject = await readAccessSubject(request);
   if (!parseGuid(subject)) {
     unauthorized();
   }
 
-  return (await accessForSubject(subject)) ?? unauthorized("This token is not valid for this server.");
+  const access = (await accessForSubject(subject)) ?? unauthorized("This token is not valid for this server.");
+  if (access.caller.mustChangePassword && !options?.allowPasswordChange) {
+    passwordChangeRequired();
+  }
+
+  return access;
 }

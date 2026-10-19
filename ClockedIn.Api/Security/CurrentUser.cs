@@ -7,6 +7,8 @@ public sealed class CurrentUser
 {
     private User? _user;
 
+    public User? UserOrNull => _user;
+
     public User User => _user ?? throw ApiException.Unauthorized();
 
     public Guid Id => User.Id;

@@ -251,6 +251,7 @@ describe("memberships", suite, () => {
       body: { username: person.username, password: person.password },
     });
     assert.equal(session.status, 200);
+    assert.equal(session.json.user.mustChangePassword, true);
 
     const existing = await signUp("alreadyin");
     const added = await createJson(ctx.second.accessToken, `/organizations/${ctx.org.id}/memberships`, {

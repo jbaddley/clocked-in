@@ -6,7 +6,9 @@ import {
   assertSession,
   assertUser,
   callApi,
+  createJson,
   identity,
+  label,
   logIn,
   signUp,
   suite,
@@ -189,5 +191,65 @@ describe("auth / forgot password", suite, () => {
     assertError(oldPassword, 401, "unauthorized", "The username or password is incorrect.");
     const session = await logIn(person.username, "new-password-1");
     assertUser(session.user, person);
+  });
+});
+
+describe("auth / temporary password", suite, () => {
+  test("requires a new password before other requests", async () => {
+    const admin = await signUp("tmpadmin");
+    const org = await createJson(admin.accessToken, "/organizations", { name: label("Temp password org") });
+    const person = identity("tmpuser");
+    await createJson(admin.accessToken, `/organizations/${org.id}/memberships`, {
+      email: person.email,
+      username: person.username,
+      password: person.password,
+      firstName: "Temp",
+      lastName: "User",
+      role: "MEMBER",
+    });
+
+    const session = await logIn(person.username, person.password, { mustChangePassword: true });
+
+    const blocked = await callApi("/organizations", { token: session.accessToken });
+    assertError(blocked, 403, "password_change_required", "You must change your password before continuing.");
+
+    const me = await callApi("/users/me", { token: session.accessToken });
+    assert.equal(me.status, 200);
+    assert.equal(me.json.mustChangePassword, true);
+
+    const profileOnly = await callApi("/users/me", {
+      method: "PATCH",
+      token: session.accessToken,
+      body: { displayName: "Nope" },
+    });
+    assertError(profileOnly, 403, "password_change_required", "You must change your password before continuing.");
+
+    const reuse = await callApi("/users/me", {
+      method: "PATCH",
+      token: session.accessToken,
+      body: { password: person.password, currentPassword: person.password },
+    });
+    assertError(reuse, 400, "validation_error", "Choose a different password.");
+
+    const loggedOut = await callApi("/auth/logout", {
+      method: "POST",
+      token: session.accessToken,
+      body: { refreshToken: session.refreshToken },
+    });
+    assert.equal(loggedOut.status, 200);
+
+    const again = await logIn(person.username, person.password, { mustChangePassword: true });
+    const changed = await callApi("/users/me", {
+      method: "PATCH",
+      token: again.accessToken,
+      body: { password: "new-password-1", currentPassword: person.password },
+    });
+    assert.equal(changed.status, 200);
+    assert.equal(changed.json.mustChangePassword, false);
+
+    const after = await logIn(person.username, "new-password-1");
+    assert.equal(after.user.mustChangePassword, false);
+    const orgs = await callApi("/organizations", { token: after.accessToken });
+    assert.equal(orgs.status, 200);
   });
 });

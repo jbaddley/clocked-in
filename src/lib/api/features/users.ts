@@ -1,6 +1,6 @@
 import { Access, Account, accountInclude } from "@/lib/api/access";
 import { lockSuperAdmins, transaction } from "@/lib/api/db";
-import { conflict, forbidden, notFound, validation } from "@/lib/api/errors";
+import { conflict, forbidden, notFound, passwordChangeRequired, validation } from "@/lib/api/errors";
 import {
   assertTimezone,
   Body,
@@ -26,6 +26,7 @@ export function userJson(user: Account, includePrivate = true) {
     username: user.username,
     email: user.email,
     isSuperAdmin: user.isSuperAdmin,
+    mustChangePassword: user.mustChangePassword,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
     profile: user.profile
@@ -156,8 +157,16 @@ export async function updateUser(access: Access, userId: string, request: Update
     forbidden();
   }
 
+  if (caller.mustChangePassword && caller.id === user.id && !request.password.set) {
+    passwordChangeRequired();
+  }
+
   if (request.password.set && !(await verifyPassword(request.currentPassword!, user.passwordHash))) {
     validation("The current password is incorrect.");
+  }
+
+  if (user.mustChangePassword && request.password.set && (await verifyPassword(request.password.value, user.passwordHash))) {
+    validation("Choose a different password.");
   }
 
   const passwordHash = request.password.set ? await hashPassword(request.password.value) : undefined;
@@ -176,6 +185,7 @@ export async function updateUser(access: Access, userId: string, request: Update
         username: request.username.set ? request.username.value : undefined,
         email: request.email.set ? request.email.value : undefined,
         passwordHash,
+        mustChangePassword: request.password.set ? false : undefined,
         isSuperAdmin: request.isSuperAdmin.set ? request.isSuperAdmin.value : undefined,
         profile: {
           update: {

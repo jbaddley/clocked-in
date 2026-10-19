@@ -675,7 +675,12 @@ function AddPersonForm({ onCancel, onSaved }: { onCancel: () => void; onSaved: (
         <Field label="Username" htmlFor="add-username">
           <Input id="add-username" name="username" required minLength={3} maxLength={50} className="h-9" />
         </Field>
-        <Field label="Temporary password" htmlFor="add-password" className="sm:col-span-2" hint="8 characters or more.">
+        <Field
+          label="Temporary password"
+          htmlFor="add-password"
+          className="sm:col-span-2"
+          hint="They will choose a new password the first time they sign in."
+        >
           <Input id="add-password" name="password" type="password" required minLength={8} className="h-9" />
         </Field>
         <Field label="Role">

@@ -229,7 +229,7 @@ export async function confirmPasswordReset(request: ConfirmPasswordResetRequest)
   const passwordHash = await hashPassword(request.password);
   await transaction(async (tx) => {
     const now = new Date();
-    await tx.user.update({ where: { id: user.id }, data: { passwordHash } });
+    await tx.user.update({ where: { id: user.id }, data: { passwordHash, mustChangePassword: false } });
     await tx.passwordResetCode.update({ where: { id: reset.id }, data: { usedAt: now } });
     await tx.refreshToken.updateMany({ where: { userId: user.id, revokedAt: null }, data: { revokedAt: now } });
   });

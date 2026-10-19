@@ -3,7 +3,16 @@ import { refresh } from "@/lib/api/features/auth";
 import { accessCookie, refreshCookie, verifyAccessToken } from "@/lib/api/security";
 import { eraseSession, writeSession, type IssuedSession } from "@/lib/server/session-cookies";
 
-const protectedPrefixes = ["/dashboard", "/log", "/entries", "/groups", "/reports", "/settings", "/profile"];
+const protectedPrefixes = [
+  "/dashboard",
+  "/log",
+  "/entries",
+  "/groups",
+  "/reports",
+  "/settings",
+  "/profile",
+  "/change-password",
+];
 const guestOnly = ["/login", "/signup"];
 
 // Parallel requests often carry the same expired token; share one rotation so the
