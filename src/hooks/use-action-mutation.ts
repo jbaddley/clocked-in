@@ -10,6 +10,7 @@ type Options<TVars, TData> = {
   onSuccess?: (data: TData | undefined, vars: TVars) => void;
   onError?: (error: Error, vars: TVars) => void;
   silent?: boolean;
+  errorToast?: boolean;
 };
 
 export function useActionMutation<TVars, TData = unknown>(
@@ -35,7 +36,9 @@ export function useActionMutation<TVars, TData = unknown>(
       options.onSuccess?.(result.data, vars);
     },
     onError: (error, vars) => {
-      toast.error(error.message);
+      if (options.errorToast !== false) {
+        toast.error(error.message);
+      }
       options.onError?.(error, vars);
     },
     onSettled: (_result, _error, vars) => {

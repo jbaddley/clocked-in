@@ -15,7 +15,7 @@ import {
 } from "@/app/actions/members";
 import { TimeEntryDialog } from "@/components/entity-forms/time-entry-form";
 import { EntityFormDialog } from "@/components/entity-forms/entity-form-dialog";
-import { Field } from "@/components/field";
+import { Field, FormMessage } from "@/components/field";
 import { SelectField } from "@/components/select-field";
 import { SubmitButton } from "@/components/submit-button";
 import { Badge } from "@/components/ui/badge";
@@ -642,6 +642,7 @@ function AddPersonForm({ onCancel, onSaved }: { onCancel: () => void; onSaved: (
   const [departmentIds, setDepartmentIds] = useState<string[]>([]);
   const create = useActionMutation((input: NewPerson) => createPersonAction(organization.id, input), {
     invalidate: [keys.members(organization.id)],
+    errorToast: false,
     onSuccess: onSaved,
   });
 
@@ -688,6 +689,7 @@ function AddPersonForm({ onCancel, onSaved }: { onCancel: () => void; onSaved: (
         </Field>
       </div>
       <DepartmentChecks value={departmentIds} onChange={setDepartmentIds} />
+      <FormMessage result={create.error ? { ok: false, error: create.error.message } : null} />
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" className="h-9" onClick={onCancel}>
           Cancel
@@ -724,7 +726,7 @@ function EditPersonForm({
   });
   const save = useActionMutation(
     (patch: MemberPatch) => updateMemberAction(organization.id, member.id, patch),
-    { invalidate: [keys.members(organization.id)], onSuccess: onSaved },
+    { invalidate: [keys.members(organization.id)], errorToast: false, onSuccess: onSaved },
   );
 
   useEffect(() => {
@@ -863,6 +865,7 @@ function EditPersonForm({
           </Field>
         </TabsContent>
       </Tabs>
+      <FormMessage result={save.error ? { ok: false, error: save.error.message } : null} />
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" className="h-9" onClick={onCancel}>
           Cancel
