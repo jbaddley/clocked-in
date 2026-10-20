@@ -51,7 +51,7 @@ export async function loginAsAdmin(page: Page) {
   await page.locator("#password").fill(adminPassword());
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL((url) => !url.pathname.startsWith("/login"));
-  const organization = await caswjOrganization(page.request);
+  const organization = await sessionOrganization(page.request);
   await page.context().addCookies([
     {
       name: "clocked-in-org",
@@ -65,16 +65,37 @@ export async function loginAsAdmin(page: Page) {
 }
 
 export async function caswjOrganization(request: APIRequestContext, token?: string) {
-  const headers = token ? { authorization: `Bearer ${token}` } : undefined;
-  const response = await request.get("/organizations?limit=100", { headers });
-  expect(response.ok(), await response.text()).toBeTruthy();
-  const body = (await response.json()) as { items: Organization[] };
-  const organization = body.items.find((item) => item.name === orgName);
+  const organization = (await organizations(request, token)).find((item) => item.name === orgName);
   if (!organization) {
     throw new Error("CASWJ organization was not found. Run npm run db:seed:caswj.");
   }
 
   return organization;
+}
+
+export async function sessionOrganization(request: APIRequestContext, token?: string) {
+  if (process.env.E2E_ENV?.toUpperCase() !== "STAGING") {
+    return caswjOrganization(request, token);
+  }
+
+  try {
+    return await caswjOrganization(request, token);
+  } catch {
+    const organization = (await organizations(request, token))[0];
+    if (!organization) {
+      throw new Error("The signed-in user has no organization.");
+    }
+
+    return organization;
+  }
+}
+
+async function organizations(request: APIRequestContext, token?: string) {
+  const headers = token ? { authorization: `Bearer ${token}` } : undefined;
+  const response = await request.get("/organizations?limit=100", { headers });
+  expect(response.ok(), await response.text()).toBeTruthy();
+  const body = (await response.json()) as { items: Organization[] };
+  return body.items;
 }
 
 export async function getReport(request: APIRequestContext, organizationId: string, token?: string) {
@@ -127,7 +148,7 @@ export async function deleteMembershipByEmail(request: APIRequestContext, email:
 export async function deleteE2eEntries(request: APIRequestContext) {
   const session = await loginBearer(request);
   const headers = { authorization: `Bearer ${session.accessToken}` };
-  const organization = await caswjOrganization(request, session.accessToken);
+  const organization = await sessionOrganization(request, session.accessToken);
   const listed = await request.get(`/users/${session.user.id}/time-entries?organizationId=${organization.id}&limit=100`, {
     headers,
   });

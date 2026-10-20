@@ -1,10 +1,13 @@
 "use client";
 
+import { PlusIcon, XIcon } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 import {
+  createDayEntriesAction,
   createEntriesAction,
   createEntryAction,
   updateEntryAction,
+  type DayEntry,
   type EntryPatch,
   type NewEntry,
 } from "@/app/actions/entries";
@@ -39,6 +42,34 @@ function hoursFromMinutes(minutes: number | null) {
 
 function localDateValue(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+const maxDays = 31;
+
+function previousOpenDay(dates: string[]) {
+  const used = new Set(dates.filter(Boolean));
+  const cursor = new Date();
+  cursor.setHours(0, 0, 0, 0);
+  for (let i = 0; i < 366; i += 1) {
+    cursor.setDate(cursor.getDate() - 1);
+    const value = localDateValue(cursor);
+    if (!used.has(value)) return value;
+  }
+
+  return "";
+}
+
+function shiftDay(template: DayEntry & { startedAt: string; endedAt: string }, date: string) {
+  if (date === template.occurredOn) return template;
+  const [fromYear, fromMonth, fromDay] = template.occurredOn.split("-").map(Number);
+  const [toYear, toMonth, toDay] = date.split("-").map(Number);
+  const delta = new Date(toYear, toMonth - 1, toDay).getTime() - new Date(fromYear, fromMonth - 1, fromDay).getTime();
+  return {
+    occurredOn: date,
+    durationMinutes: template.durationMinutes,
+    startedAt: new Date(new Date(template.startedAt).getTime() + delta).toISOString(),
+    endedAt: new Date(new Date(template.endedAt).getTime() + delta).toISOString(),
+  };
 }
 
 export function TimeEntryForm({
@@ -96,6 +127,7 @@ export function TimeEntryForm({
     entry?.hourlyRateId ?? defaultVolunteerRateId(lookups.hourlyRates),
   );
   const [occurredOn, setOccurredOn] = useState(entry?.occurredOn ?? today());
+  const [extraDates, setExtraDates] = useState<string[]>([]);
   const [hours, setHours] = useState(entry ? hoursFromMinutes(entry.durationMinutes) : "1");
   const [start, setStart] = useState(localTime(entry?.startedAt ?? null, entry ? "" : "09:00"));
   const [end, setEnd] = useState(localTime(entry?.endedAt ?? null, entry ? "" : "10:00"));
@@ -104,7 +136,21 @@ export function TimeEntryForm({
   const [error, setError] = useState("");
 
   const create = useActionMutation(
-    async ({ userId, next }: { userId: string; next: NewEntry }) => {
+    async ({ userId, next, entries }: { userId: string; next: NewEntry; entries?: DayEntry[] }) => {
+      if (entries && entries.length > 1) {
+        return createDayEntriesAction(batch ? userIds! : [userId], {
+          organizationId: next.organizationId,
+          departmentId: next.departmentId,
+          projectId: next.projectId,
+          taskCategoryId: next.taskCategoryId,
+          description: next.description,
+          tagIds: next.tagIds,
+          mode: next.mode,
+          hourlyRateId: next.hourlyRateId,
+          entries,
+        });
+      }
+
       if (batch) return createEntriesAction(userIds!, next);
       const result = await createEntryAction(userId, next);
       return result.ok ? { ok: true as const, message: result.message } : result;
@@ -113,6 +159,7 @@ export function TimeEntryForm({
       invalidate: [keys.organization(organization.id)],
       onSuccess: () => {
         setNotes("");
+        setExtraDates([]);
         setError("");
         onSaved?.();
       },
@@ -191,6 +238,28 @@ export function TimeEntryForm({
 
     setError("Add an end time or a duration.");
     return null;
+  }
+
+  function collectDays(): (DayEntry & { startedAt: string; endedAt: string })[] | null {
+    const dates = [occurredOn, ...extraDates];
+    if (dates.some((date) => !date)) {
+      setError("Each day needs a date.");
+      return null;
+    }
+
+    if (dates.some((date) => date > today())) {
+      setError("Days must be today or earlier.");
+      return null;
+    }
+
+    if (new Set(dates).size !== dates.length) {
+      setError("Each day can only be saved once.");
+      return null;
+    }
+
+    const template = span();
+    if (!template) return null;
+    return dates.map((date) => shiftDay(template, date));
   }
 
   function timePatch(): EntryPatch | null {
@@ -274,11 +343,12 @@ export function TimeEntryForm({
           return;
         }
 
-        const times = span();
-        if (!times) return;
+        const entries = collectDays();
+        if (!entries) return;
         create.mutate({
           userId: selectedPersonId,
-          next: { ...base, mode: "Duration", hourlyRateId: canSelectRate ? hourlyRateId || null : null, ...times },
+          next: { ...base, mode: "Duration", hourlyRateId: canSelectRate ? hourlyRateId || null : null, ...entries[0] },
+          entries,
         });
       }}
     >
@@ -337,7 +407,26 @@ export function TimeEntryForm({
           </>
         ) : (
           <>
-            <Field label="Date" htmlFor={`${idPrefix}-occurredOn`}>
+            <Field
+              label="Date"
+              htmlFor={`${idPrefix}-occurredOn`}
+              action={
+                !entry ? (
+                  <button
+                    type="button"
+                    aria-label="Add day"
+                    disabled={extraDates.length + 1 >= maxDays}
+                    onClick={() =>
+                      setExtraDates((current) => [...current, previousOpenDay([occurredOn, ...current])])
+                    }
+                    className="-mr-0.5 inline-flex h-5 items-center gap-0.5 rounded-sm px-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    <PlusIcon className="size-3" />
+                    Add day
+                  </button>
+                ) : undefined
+              }
+            >
               <Input
                 id={`${idPrefix}-occurredOn`}
                 type="date"
@@ -364,7 +453,7 @@ export function TimeEntryForm({
                 className="h-10"
               />
             </Field>
-            <Field label="End" htmlFor={`${idPrefix}-end`} error={error || null}>
+            <Field label="End" htmlFor={`${idPrefix}-end`} error={extraDates.length > 0 ? null : error || null}>
               <Input
                 id={`${idPrefix}-end`}
                 type="time"
@@ -416,6 +505,38 @@ export function TimeEntryForm({
           </>
         )}
         {endsNextDay ? <p className="col-span-full text-sm text-muted-foreground">Ends the next day.</p> : null}
+        {extraDates.length > 0 ? (
+          <div className="col-span-full flex flex-col gap-2">
+            <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">More days</p>
+            {extraDates.map((date, index) => (
+              <div key={index} className="flex items-center gap-2">
+                <Input
+                  aria-label={`Additional day ${index + 2}`}
+                  type="date"
+                  value={date}
+                  max={today()}
+                  onChange={(event) =>
+                    setExtraDates((current) => current.map((item, itemIndex) => (itemIndex === index ? event.target.value : item)))
+                  }
+                  required
+                  className="h-10 sm:max-w-56"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0"
+                  aria-label={`Remove additional day ${index + 2}`}
+                  onClick={() => setExtraDates((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+                >
+                  <XIcon />
+                </Button>
+              </div>
+            ))}
+            <p className="text-sm text-muted-foreground">This saves the same times and settings on each day.</p>
+            {error ? <p className="text-xs text-destructive">{error}</p> : null}
+          </div>
+        ) : null}
         {!canEditTimes && !punch ? (
           <p className="col-span-full text-sm text-muted-foreground">Times stay as saved until an admin allows time entry editing.</p>
         ) : null}
@@ -441,7 +562,7 @@ export function TimeEntryForm({
           disabled={(!entry && !placement.ready) || (showPerson && !selectedPersonId)}
           className="h-9 w-full sm:w-auto"
         >
-          {submitLabel ?? (entry ? "Save" : "Save time")}
+          {submitLabel ?? (entry ? "Save" : extraDates.length > 0 ? `Save ${extraDates.length + 1} days` : "Save time")}
         </SubmitButton>
       </div>
     </form>
@@ -473,9 +594,9 @@ export function TimeEntryDialog({
           ? canEditTimes
             ? "Change the start, then the end or the duration."
             : "You can update the project, category, and notes."
-          : userIds && userIds.length > 1
-            ? `This saves the same entry for ${userIds.length} people.`
-            : "Add a start time, then an end time or a duration."
+            : userIds && userIds.length > 1
+            ? `This saves the same entry for ${userIds.length} people. Add days to record it on each one.`
+            : "Add a start time, then an end time or a duration. Add days to record the same entry on each one."
       }
       className="sm:max-w-xl"
     >

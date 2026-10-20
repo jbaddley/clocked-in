@@ -1,0 +1,63 @@
+name: Staging E2E
+
+on:
+  push:
+    branches: [staging]
+
+jobs:
+  staging:
+    name: Staging views
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx playwright install --with-deps chromium
+
+      - name: Wait for this commit on staging
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          node --input-type=module <<'EOF'
+          const sha = process.env.GITHUB_SHA;
+          const secret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim();
+          if (!secret) {
+            console.error("VERCEL_AUTOMATION_BYPASS_SECRET is required to reach staging.");
+            process.exit(1);
+          }
+          const url = "https://staging.clocked-in.baddley.us/health";
+          for (let attempt = 1; attempt <= 40; attempt += 1) {
+            try {
+              const response = await fetch(url, {
+                headers: {
+                  "cache-control": "no-cache",
+                  "x-vercel-protection-bypass": secret,
+                },
+              });
+              const body = await response.json();
+              console.log(`attempt ${attempt}: ${body.commit ?? "missing"} (${response.status})`);
+              if (body.commit === sha) process.exit(0);
+            } catch (error) {
+              console.log(`attempt ${attempt}: ${error instanceof Error ? error.message : error}`);
+            }
+            await new Promise((resolve) => setTimeout(resolve, 15_000));
+          }
+          console.error(`Staging did not serve ${sha}.`);
+          process.exit(1);
+          EOF
+
+      - name: Run staging end-to-end tests
+        run: npm run test:e2e:staging
+        env:
+          E2E_ENV: STAGING
+          E2E_BASE_URL: https://staging.clocked-in.baddley.us/
+          SEED_SUPERADMIN_PASSWORD: ${{ secrets.SEED_SUPERADMIN_PASSWORD }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}

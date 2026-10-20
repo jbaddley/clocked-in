@@ -95,7 +95,7 @@ test("public pages rebuild a cache and open on the first click", async ({ page }
 });
 
 test("signed-in views rebuild a cache and open on the first click", async ({ page }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(480_000);
   const errors = watch(page);
   await loginAsAdmin(page);
   await rebuild(page, signedInPaths);

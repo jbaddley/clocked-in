@@ -3,10 +3,12 @@
 import {
   clockIn,
   clockOut,
+  createTimeEntries,
   createTimeEntry,
   deleteTimeEntry,
   parseClockIn,
   parseClockOut,
+  parseCreateTimeEntries,
   parseCreateTimeEntry,
   parseUpdateTimeEntry,
   updateTimeEntry,
@@ -47,6 +49,40 @@ export async function createEntriesAction(userIds: string[], entry: NewEntry) {
       await createTimeEntry(access, userId, parsed);
     }
   }, userIds.length === 1 ? "Time saved." : `Time saved for ${userIds.length} people.`);
+}
+
+export type DayEntry = {
+  occurredOn: string;
+  durationMinutes: number;
+  startedAt?: string;
+  endedAt?: string;
+};
+
+export async function createDayEntriesAction(
+  userIds: string[],
+  entry: Placement & {
+    mode: "Duration" | "Total";
+    hourlyRateId?: string | null;
+    entries: DayEntry[];
+  },
+) {
+  const days = entry.entries.length;
+  const people = userIds.length;
+  const message =
+    days > 1 && people > 1
+      ? `Time saved for ${people} people on ${days} days.`
+      : days > 1
+        ? `Time saved for ${days} days.`
+        : people > 1
+          ? `Time saved for ${people} people.`
+          : "Time saved.";
+  return run(async () => {
+    const access = await requireAccess();
+    const parsed = parseCreateTimeEntries(body(entry));
+    for (const userId of userIds) {
+      await createTimeEntries(access, userId, parsed);
+    }
+  }, message);
 }
 
 export type EntryPatch = {
