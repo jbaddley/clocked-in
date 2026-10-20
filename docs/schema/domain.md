@@ -76,6 +76,7 @@ classDiagram
     decimal perHourRate
     bool isDefault
     bool isArchived
+    string source
   }
   class OrganizationMembership {
     uuid id
@@ -297,6 +298,7 @@ An organization-scoped catalog of rates. Names are unique within that organizati
 | perHourRate | yes | decimal(10,2), greater than zero |
 | isDefault | yes | Default false. True only when `type` is `Volunteer`. One default volunteer rate per organization |
 | isArchived | yes | Default false. Archived rates stay on the organization and cannot be selected for new entries. The default volunteer rate cannot be archived |
+| source | no | Where the amount comes from, 1 to 200 characters. Empty when omitted |
 
 ### OrganizationMembership
 

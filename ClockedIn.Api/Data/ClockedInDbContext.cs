@@ -131,6 +131,7 @@ public class ClockedInDbContext(DbContextOptions<ClockedInDbContext> options, Ti
                   ("isDefault" = FALSE)
                   OR ("type" = 'Volunteer')
                 )
+                AND ("source" IS NULL OR char_length("source") BETWEEN 1 AND 200)
                 """));
         });
 

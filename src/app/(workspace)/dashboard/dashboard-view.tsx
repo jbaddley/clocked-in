@@ -12,17 +12,26 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 import { useEntries } from "@/hooks/use-entries";
 import { useLabels } from "@/hooks/use-labels";
 import { useReport } from "@/hooks/use-report";
+import { DashboardSkeleton } from "@/components/skeletons";
 import { useWorkspace } from "@/hooks/use-workspace";
-import { formatCurrency, formatHours, formatNumber } from "@/lib/format";
+import { formatCurrency, formatHours, formatNumber, toDateOnly } from "@/lib/format";
 import { canLogGroupTime } from "@/lib/roles";
 
-export function DashboardView({ weekStart }: { weekStart: string }) {
+function weekStart() {
+  const now = new Date();
+  now.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+  return toDateOnly(now);
+}
+
+export function DashboardView() {
   const { viewer, groupDepartments } = useWorkspace();
   const copy = useLabels();
-  const { data: report } = useReport({});
-  const { data: week } = useReport({ from: weekStart });
+  const week = weekStart();
+  const { data: report, isPending } = useReport({});
+  const { data: weekReport } = useReport({ from: week });
   const { entries } = useEntries(viewer.id, {});
 
+  if (isPending) return <DashboardSkeleton />;
   if (!report) return null;
   const people = report.user;
   const mine = people.byPerson.find((row) => row.id === viewer.id);
@@ -59,12 +68,12 @@ export function DashboardView({ weekStart }: { weekStart: string }) {
           <CardTitle>This week</CardTitle>
           <CardDescription>Share of hours by {copy.project.toLowerCase()} since Monday</CardDescription>
           <CardAction className="text-right">
-            <p className="text-xl font-semibold tabular-nums">{formatHours(week?.user.hours ?? 0)}</p>
+            <p className="text-xl font-semibold tabular-nums">{formatHours(weekReport?.user.hours ?? 0)}</p>
           </CardAction>
         </CardHeader>
         <CardContent>
-          {week && week.user.hours > 0 ? (
-            <ShareBar rows={week.user.byProject} total={week.user.hours} />
+          {weekReport && weekReport.user.hours > 0 ? (
+            <ShareBar rows={weekReport.user.byProject} total={weekReport.user.hours} />
           ) : (
             <p className="text-sm text-muted-foreground">No hours logged this week yet.</p>
           )}

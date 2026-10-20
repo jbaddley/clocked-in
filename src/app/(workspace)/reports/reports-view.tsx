@@ -2,9 +2,11 @@
 
 import { ClockIcon, DownloadIcon, HandCoinsIcon, ListChecksIcon, UsersIcon } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { SummaryBars } from "@/components/charts";
-import { DateRangeFilter } from "@/components/date-range-filter";
+import { DateRangeFilter, rangeFromSearch } from "@/components/date-range-filter";
+import { CardSkeleton, StatsSkeleton } from "@/components/skeletons";
 import { GroupTable } from "@/components/group-table";
 import { PageHeader } from "@/components/page-header";
 import { StatCard } from "@/components/stat-card";
@@ -39,11 +41,12 @@ function ChartCard({ title, rows, children }: { title: string; rows: ReportGroup
   );
 }
 
-export function ReportsView({ range }: { range: DateRange }) {
+export function ReportsView() {
   const organization = useOrganization();
   const { groupDepartments } = useWorkspace();
   const copy = useLabels();
-  const { data: report, isFetching } = useReport(range);
+  const range = rangeFromSearch(useSearchParams());
+  const { data: report, isFetching, isPending } = useReport(range);
 
   return (
     <>
@@ -67,7 +70,16 @@ export function ReportsView({ range }: { range: DateRange }) {
         {isFetching ? <span className="text-xs text-muted-foreground sm:ml-auto">Updating…</span> : null}
       </div>
 
-      {report ? (
+      {isPending ? (
+        <>
+          <StatsSkeleton />
+          <div className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-3">
+            <CardSkeleton rows={5} />
+            <CardSkeleton rows={5} />
+            <CardSkeleton rows={5} />
+          </div>
+        </>
+      ) : report ? (
         <Tabs defaultValue="summary" className="gap-6">
           <TabsList className="w-full sm:w-fit">
             <TabsTrigger value="summary" className="flex-1 sm:flex-none">

@@ -338,6 +338,10 @@ namespace ClockedIn.Api.Data.Migrations
                         .HasColumnType("numeric(10,2)")
                         .HasColumnName("perHourRate");
 
+                    b.Property<string>("Source")
+                        .HasColumnType("text")
+                        .HasColumnName("source");
+
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasColumnType("text")
@@ -355,7 +359,7 @@ namespace ClockedIn.Api.Data.Migrations
 
                     b.ToTable("HourlyRate", t =>
                         {
-                            t.HasCheckConstraint("HourlyRate_rate_check", "\"type\" IN ('Volunteer', 'Professional')\r\nAND \"perHourRate\" > 0\r\nAND (\r\n  (\"isDefault\" = FALSE)\r\n  OR (\"type\" = 'Volunteer')\r\n)");
+                            t.HasCheckConstraint("HourlyRate_rate_check", "\"type\" IN ('Volunteer', 'Professional')\r\nAND \"perHourRate\" > 0\r\nAND (\r\n  (\"isDefault\" = FALSE)\r\n  OR (\"type\" = 'Volunteer')\r\n)\r\nAND (\"source\" IS NULL OR char_length(\"source\") BETWEEN 1 AND 200)");
                         });
                 });
 

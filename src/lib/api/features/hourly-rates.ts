@@ -4,6 +4,7 @@ import { guard, transaction } from "@/lib/api/db";
 import { conflict, notFound, validation } from "@/lib/api/errors";
 import {
   Body,
+  limited,
   list,
   normalizeRateType,
   optional,
@@ -26,6 +27,7 @@ function rateJson(rate: {
   perHourRate: Prisma.Decimal;
   isDefault: boolean;
   isArchived: boolean;
+  source: string | null;
 }) {
   return {
     id: rate.id,
@@ -35,6 +37,7 @@ function rateJson(rate: {
     perHourRate: Number(rate.perHourRate),
     isDefault: rate.isDefault,
     isArchived: rate.isArchived,
+    source: rate.source,
   };
 }
 
@@ -66,7 +69,12 @@ export type CreateHourlyRateRequest = {
   perHourRate: number;
   isDefault: boolean;
   isArchived: boolean;
+  source: string | null;
 };
+
+function rateSource(body: Body) {
+  return limited(body, "source", 200, "source must be 200 characters or fewer.");
+}
 
 export function parseCreateHourlyRate(body: Body): CreateHourlyRateRequest {
   const type = normalizeRateType(requireString(body, "type"));
@@ -86,7 +94,7 @@ export function parseCreateHourlyRate(body: Body): CreateHourlyRateRequest {
     validation("The default volunteer rate cannot be archived.");
   }
 
-  return { type, name, perHourRate, isDefault, isArchived };
+  return { type, name, perHourRate, isDefault, isArchived, source: rateSource(body) };
 }
 
 export type UpdateHourlyRateRequest = {
@@ -95,6 +103,7 @@ export type UpdateHourlyRateRequest = {
   perHourRate: Optional<number>;
   isDefault: Optional<boolean>;
   isArchived: Optional<boolean>;
+  source: Optional<string | null>;
 };
 
 export function parseUpdateHourlyRate(body: Body): UpdateHourlyRateRequest {
@@ -111,13 +120,15 @@ export function parseUpdateHourlyRate(body: Body): UpdateHourlyRateRequest {
     }),
     isDefault: optional(body, "isDefault", requireBool),
     isArchived: optional(body, "isArchived", requireBool),
+    source: optional(body, "source", (b) => rateSource(b)),
   };
   if (
     !request.type.set &&
     !request.name.set &&
     !request.perHourRate.set &&
     !request.isDefault.set &&
-    !request.isArchived.set
+    !request.isArchived.set &&
+    !request.source.set
   ) {
     validation("Provide at least one field to update.");
   }
@@ -171,6 +182,7 @@ export async function createHourlyRate(access: Access, organizationId: string, r
             perHourRate: request.perHourRate,
             isDefault: request.isDefault,
             isArchived: request.isArchived,
+            source: request.source,
           },
         }),
       );
@@ -210,6 +222,7 @@ export async function updateHourlyRate(access: Access, rateId: string, request: 
             perHourRate: request.perHourRate.set ? request.perHourRate.value : undefined,
             isDefault,
             isArchived,
+            source: request.source.set ? request.source.value : undefined,
           },
         }),
       );

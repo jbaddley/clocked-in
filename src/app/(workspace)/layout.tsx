@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { Suspense } from "react";
 import { Hydrate } from "@/components/hydrate";
+import { OrganizationGate } from "@/components/organization-gate";
 import { AppShell, ShellSkeleton } from "@/components/shell/app-shell";
 import { WorkspaceProvider } from "@/hooks/use-workspace";
 import { getQueryClient } from "@/lib/query-client";
@@ -29,7 +30,7 @@ async function Workspace({ children }: { children: React.ReactNode }) {
           isSuperAdmin={workspace.viewer.isSuperAdmin}
           sidebarOpen={store.get("sidebar_state")?.value !== "false"}
         >
-          {children}
+          <OrganizationGate>{children}</OrganizationGate>
         </AppShell>
       </Hydrate>
     </WorkspaceProvider>

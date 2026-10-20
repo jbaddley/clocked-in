@@ -13,7 +13,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { PageSkeleton } from "@/components/skeletons";
 import { useActionMutation } from "@/hooks/use-action-mutation";
+import { useClientRedirect } from "@/hooks/use-client-redirect";
+import { useWorkspace } from "@/hooks/use-workspace";
 import type { FeedbackStatus } from "@/lib/api/json";
 import { feedbackAreas, feedbackLabel, feedbackPriorities, feedbackStatuses, feedbackTypes } from "@/lib/feedback";
 import { keys, feedbackQuery } from "@/lib/queries";
@@ -28,6 +31,10 @@ function formatWhen(value: string) {
 }
 
 export function FeedbackView() {
+  const { viewer } = useWorkspace();
+  useClientRedirect(!viewer.isSuperAdmin, "/dashboard");
+  if (!viewer.isSuperAdmin) return <PageSkeleton rows={8} />;
+
   return (
     <>
       <PageHeader description="Bugs and feature requests from everyone using Clocked In." />
@@ -48,7 +55,7 @@ export function FeedbackView() {
 }
 
 function FeedbackTable({ active }: { active: boolean }) {
-  const { data } = useQuery(feedbackQuery(active));
+  const { data, isPending } = useQuery(feedbackQuery(active));
   const [search, setSearch] = useState("");
   const [type, setType] = useState("all");
   const [priority, setPriority] = useState("all");
@@ -197,7 +204,9 @@ function FeedbackTable({ active }: { active: boolean }) {
           options={[{ value: "all", label: "All statuses" }, ...feedbackStatuses]}
         />
       </div>
-      {rows.length ? (
+      {isPending ? (
+        <PageSkeleton rows={8} />
+      ) : rows.length ? (
         <DataTable rows={rows} columns={columns} rowKey={(row) => row.id} />
       ) : (
         <p className="text-sm text-muted-foreground">No feedback in this list.</p>

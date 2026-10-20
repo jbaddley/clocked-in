@@ -88,13 +88,13 @@ Give the web app a system-assigned managed identity and store secrets in Key Vau
 | `CORS_ORIGINS` | Optional comma-separated browser origins (Vercel and MCP web clients). Defaults to `APP_URL` |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | Optional Application Insights |
 
-MCP is Streamable HTTP at `/mcp` on the same host. Organization API keys authenticate both REST and MCP:
+MCP is Streamable HTTP at `/mcp` on both hosts. ClockedIn.Api accepts organization API keys on REST and MCP. The Next.js app accepts the same keys on `/mcp` (Bearer or `X-Api-Key`); Next.js REST routes still require a user JWT. Clients change only the URL:
 
 ```json
 {
   "mcpServers": {
     "clocked-in": {
-      "url": "https://<app>.azurewebsites.net/mcp",
+      "url": "https://<next-host>/mcp",
       "headers": {
         "Authorization": "Bearer cki_live_…"
       }

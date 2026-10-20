@@ -2,12 +2,14 @@
 
 import { NetworkIcon } from "lucide-react";
 import { LookupListCard } from "@/components/lookup-list";
+import { PageSkeleton } from "@/components/skeletons";
 import { useLabels } from "@/hooks/use-labels";
 import { useLookups } from "@/hooks/use-lookups";
 
 export function DepartmentsView() {
-  const { lookups } = useLookups();
+  const { lookups, isPending } = useLookups();
   const copy = useLabels();
+  if (isPending) return <PageSkeleton rows={4} />;
   return (
     <LookupListCard
       kind="departments"

@@ -42,6 +42,7 @@ export const keys = {
     ["org", organizationId, "report", range.from ?? "", range.to ?? ""] as const,
   themes: (organizationId: string) => ["org", organizationId, "themes"] as const,
   openPunch: (userId: string) => ["user", userId, "open-punch"] as const,
+  me: () => ["user", "me"] as const,
   feedback: (active?: boolean) => (active === undefined ? (["feedback"] as const) : (["feedback", active] as const)),
 };
 
@@ -133,6 +134,27 @@ export function openPunchQuery(userId: string) {
       const recent = await fetchJson<Paged<TimeEntry>>(`/users/${userId}/time-entries?limit=20`, signal);
       return recent.items.find((entry) => entry.mode === "Punch" && !entry.endedAt) ?? null;
     },
+  });
+}
+
+export type MeUser = {
+  username: string;
+  email: string;
+  profile: {
+    firstName: string;
+    lastName: string;
+    displayName: string | null;
+    timezone: string;
+    phone: string | null;
+    zipCode: string | null;
+    notes: string | null;
+  } | null;
+};
+
+export function meQuery() {
+  return queryOptions({
+    queryKey: keys.me(),
+    queryFn: ({ signal }) => fetchJson<MeUser>("/users/me", signal),
   });
 }
 

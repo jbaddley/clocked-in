@@ -235,7 +235,7 @@ export function assertOrganization(org, name) {
 }
 
 export function assertHourlyRate(rate, expected) {
-  assertKeys(rate, ["id", "organizationId", "type", "name", "perHourRate", "isDefault", "isArchived"]);
+  assertKeys(rate, ["id", "organizationId", "type", "name", "perHourRate", "isDefault", "isArchived", "source"]);
   assertUuid(rate.id);
   assert.equal(rate.organizationId, expected.organizationId);
   assert.equal(rate.type, expected.type);
@@ -243,6 +243,7 @@ export function assertHourlyRate(rate, expected) {
   assertMoney(rate.perHourRate, expected.perHourRate);
   assert.equal(rate.isDefault, expected.isDefault);
   assert.equal(rate.isArchived, expected.isArchived ?? false);
+  assert.equal(rate.source, expected.source ?? null);
 }
 
 export function assertNamed(entity, { organizationId, name }) {

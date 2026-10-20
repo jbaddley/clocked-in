@@ -16,6 +16,7 @@ export type HourlyRateInput = {
   perHourRate: number;
   isDefault?: boolean;
   isArchived?: boolean;
+  source?: string | null;
 };
 
 export async function createHourlyRateAction(organizationId: string, input: HourlyRateInput) {

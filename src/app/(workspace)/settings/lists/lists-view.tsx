@@ -2,13 +2,15 @@
 
 import { LayersIcon, TagsIcon } from "lucide-react";
 import { LookupListCard } from "@/components/lookup-list";
+import { PageSkeleton } from "@/components/skeletons";
 import { useLabels } from "@/hooks/use-labels";
 import { useLookups } from "@/hooks/use-lookups";
 import { ProjectsCard } from "./projects-card";
 
 export function ListsView() {
-  const { lookups } = useLookups();
+  const { lookups, isPending } = useLookups();
   const copy = useLabels();
+  if (isPending) return <PageSkeleton rows={6} />;
   return (
     <div className="flex flex-col gap-6">
       <ProjectsCard />

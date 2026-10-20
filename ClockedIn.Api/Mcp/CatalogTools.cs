@@ -82,11 +82,11 @@ public sealed class CatalogTools(
     public Task<ListResponse<HourlyRateDto>> ListHourlyRates(Guid organizationId, int? limit, int? offset, CancellationToken cancellationToken) =>
         McpCall.Run(() => rates.List(organizationId, new PageQuery(limit?.ToString(), offset?.ToString()), cancellationToken));
 
-    [McpServerTool, Description("Create an hourly rate. Pass JSON with type, name, perHourRate, and optional isDefault and isArchived.")]
+    [McpServerTool, Description("Create an hourly rate. Pass JSON with type, name, perHourRate, and optional isDefault, isArchived, and source.")]
     public Task<HourlyRateDto> CreateHourlyRate(Guid organizationId, string body, CancellationToken cancellationToken) =>
         McpCall.Run(() => rates.Create(organizationId, CreateHourlyRateRequest.Parse(McpCall.Object(body)), cancellationToken));
 
-    [McpServerTool, Description("Update an hourly rate. Pass JSON with any of type, name, perHourRate, isDefault, isArchived.")]
+    [McpServerTool, Description("Update an hourly rate. Pass JSON with any of type, name, perHourRate, isDefault, isArchived, and source.")]
     public Task<HourlyRateDto> UpdateHourlyRate(Guid hourlyRateId, string body, CancellationToken cancellationToken) =>
         McpCall.Run(() => rates.Update(hourlyRateId, UpdateHourlyRateRequest.Parse(McpCall.Object(body)), cancellationToken));
 

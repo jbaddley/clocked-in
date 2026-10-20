@@ -8,6 +8,17 @@ import { Input } from "@/components/ui/input";
 import { toDateOnly } from "@/lib/format";
 import type { DateRange } from "@/lib/types";
 
+const dateOnly = /^\d{4}-\d{2}-\d{2}$/;
+
+export function rangeFromSearch(search: { get: (key: string) => string | null }): DateRange {
+  const from = search.get("from");
+  const to = search.get("to");
+  return {
+    from: from && dateOnly.test(from) ? from : undefined,
+    to: to && dateOnly.test(to) ? to : undefined,
+  };
+}
+
 const presets = {
   all: "All time",
   week: "This week",

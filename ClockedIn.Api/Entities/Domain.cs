@@ -187,6 +187,7 @@ public class HourlyRate
     public decimal PerHourRate { get; set; }
     public bool IsDefault { get; set; }
     public bool IsArchived { get; set; }
+    public string? Source { get; set; }
 
     public Organization Organization { get; set; } = null!;
     public ICollection<UserTimeEntry> UserTimeEntries { get; set; } = [];

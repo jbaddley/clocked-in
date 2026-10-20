@@ -3,11 +3,13 @@
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { InboxIcon, Loader2Icon, PlusIcon } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { deleteEntryAction } from "@/app/actions/entries";
 import { TimeEntryDialog } from "@/components/entity-forms/time-entry-form";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { DateRangeFilter, useUrlParams } from "@/components/date-range-filter";
+import { DateRangeFilter, rangeFromSearch, useUrlParams } from "@/components/date-range-filter";
+import { CardSkeleton } from "@/components/skeletons";
 import { EmptyState } from "@/components/empty-state";
 import { EntryList, EntryRow } from "@/components/entry-row";
 import { PageHeader } from "@/components/page-header";
@@ -19,13 +21,17 @@ import { useEntries } from "@/hooks/use-entries";
 import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
 import { dayLabel, formatCurrency, formatMinutes } from "@/lib/format";
 import { keys } from "@/lib/queries";
-import type { DateRange, Paged, TimeEntry } from "@/lib/types";
+import type { Paged, TimeEntry } from "@/lib/types";
 
-export function EntriesView({ range, personId }: { range: DateRange; personId: string }) {
+export function EntriesView() {
   const organization = useOrganization();
-  const { viewer } = useWorkspace();
+  const { viewer, isAdmin } = useWorkspace();
+  const search = useSearchParams();
+  const range = rangeFromSearch(search);
+  const person = search.get("person");
+  const personId = isAdmin && person ? person : viewer.id;
   const queryClient = useQueryClient();
-  const { entries, fetchNextPage, hasNextPage, isFetchingNextPage } = useEntries(personId, range);
+  const { entries, fetchNextPage, hasNextPage, isFetchingNextPage, isPending } = useEntries(personId, range);
   const [pendingEdit, setPendingEdit] = useState<TimeEntry | null>(null);
   const [pendingDelete, setPendingDelete] = useState<TimeEntry | null>(null);
   const { update } = useUrlParams({ from: range.from, to: range.to, person: personId === viewer.id ? undefined : personId });
@@ -79,7 +85,9 @@ export function EntriesView({ range, personId }: { range: DateRange; personId: s
         </div>
       </div>
 
-      {days.length === 0 ? (
+      {isPending ? (
+        <CardSkeleton rows={8} />
+      ) : days.length === 0 ? (
         <EmptyState
           icon={InboxIcon}
           title="No entries for this period"

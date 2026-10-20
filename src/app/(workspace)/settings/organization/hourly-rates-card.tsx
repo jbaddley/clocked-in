@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createHourlyRateAction, deleteHourlyRateAction, updateHourlyRateAction } from "@/app/actions/hourly-rates";
 import { Field } from "@/components/field";
 import { SelectField } from "@/components/select-field";
@@ -29,6 +29,7 @@ export function HourlyRatesCard() {
   const [name, setName] = useState("");
   const [type, setType] = useState("Volunteer");
   const [perHourRate, setPerHourRate] = useState("35.47");
+  const [source, setSource] = useState("");
   const [isDefault, setIsDefault] = useState(false);
   const create = useActionMutation(
     () =>
@@ -37,18 +38,25 @@ export function HourlyRatesCard() {
         name,
         perHourRate: Number(perHourRate),
         isDefault: type === "Volunteer" && isDefault,
+        source: source.trim() || null,
       }),
     {
       invalidate,
       onSuccess: () => {
         setName("");
+        setSource("");
         setIsDefault(false);
       },
     },
   );
   const update = useActionMutation(
-    ({ rateId, patch }: { rateId: string; patch: { isDefault?: boolean; isArchived?: boolean } }) =>
-      updateHourlyRateAction(rateId, patch),
+    ({
+      rateId,
+      patch,
+    }: {
+      rateId: string;
+      patch: { isDefault?: boolean; isArchived?: boolean; source?: string | null };
+    }) => updateHourlyRateAction(rateId, patch),
     { invalidate },
   );
   const remove = useActionMutation((rateId: string) => deleteHourlyRateAction(rateId), { invalidate });
@@ -99,6 +107,16 @@ export function HourlyRatesCard() {
           <SubmitButton pending={create.isPending} className="h-9 sm:mt-6">
             Add rate
           </SubmitButton>
+          <Field label="Source" htmlFor="rate-source" hint="Optional. Where this amount comes from." className="sm:col-span-4">
+            <Input
+              id="rate-source"
+              value={source}
+              onChange={(event) => setSource(event.target.value)}
+              maxLength={200}
+              placeholder="Independent Sector"
+              className="h-9"
+            />
+          </Field>
         </form>
         {type === "Volunteer" ? (
           <label className="flex items-center gap-2 text-sm">
@@ -114,6 +132,7 @@ export function HourlyRatesCard() {
               pending={update.isPending || remove.isPending}
               onDefault={() => update.mutate({ rateId: rate.id, patch: { isDefault: true } })}
               onArchive={() => update.mutate({ rateId: rate.id, patch: { isArchived: !rate.isArchived } })}
+              onSource={(next) => update.mutate({ rateId: rate.id, patch: { source: next } })}
               onDelete={() => remove.mutate(rate.id)}
             />
           ))}
@@ -128,12 +147,14 @@ function RateRow({
   pending,
   onDefault,
   onArchive,
+  onSource,
   onDelete,
 }: {
   rate: HourlyRate;
   pending: boolean;
   onDefault: () => void;
   onArchive: () => void;
+  onSource: (source: string | null) => void;
   onDelete: () => void;
 }) {
   return (
@@ -144,6 +165,7 @@ function RateRow({
           {rate.type} · {formatCurrency(rate.perHourRate)}/h
         </p>
       </div>
+      <SourceField rate={rate} pending={pending} onSource={onSource} />
       {rate.isDefault ? <Badge>Default</Badge> : null}
       {rate.isArchived ? <Badge variant="outline">Archived</Badge> : null}
       {rate.type === "Volunteer" && !rate.isDefault ? (
@@ -160,5 +182,42 @@ function RateRow({
         </Button>
       )}
     </li>
+  );
+}
+
+function SourceField({
+  rate,
+  pending,
+  onSource,
+}: {
+  rate: HourlyRate;
+  pending: boolean;
+  onSource: (source: string | null) => void;
+}) {
+  const saved = rate.source ?? "";
+  const [value, setValue] = useState(saved);
+  useEffect(() => {
+    setValue(saved);
+  }, [saved]);
+
+  return (
+    <Input
+      value={value}
+      aria-label={`Source for ${rate.name}`}
+      placeholder="Source"
+      maxLength={200}
+      disabled={pending}
+      onChange={(event) => setValue(event.target.value)}
+      onBlur={() => {
+        const next = value.trim();
+        if (next === saved) {
+          setValue(saved);
+          return;
+        }
+
+        onSource(next || null);
+      }}
+      className="h-8 w-full max-w-56 text-sm sm:w-56"
+    />
   );
 }

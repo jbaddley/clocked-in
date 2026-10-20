@@ -15,7 +15,8 @@ public sealed record HourlyRateDto(
     string Name,
     decimal PerHourRate,
     bool IsDefault,
-    bool IsArchived)
+    bool IsArchived,
+    string? Source)
 {
     public static HourlyRateDto From(HourlyRate rate) => new(
         rate.Id,
@@ -24,10 +25,17 @@ public sealed record HourlyRateDto(
         rate.Name,
         rate.PerHourRate,
         rate.IsDefault,
-        rate.IsArchived);
+        rate.IsArchived,
+        rate.Source);
 }
 
-public sealed record CreateHourlyRateRequest(RateType Type, string Name, decimal PerHourRate, bool IsDefault, bool IsArchived)
+public sealed record CreateHourlyRateRequest(
+    RateType Type,
+    string Name,
+    decimal PerHourRate,
+    bool IsDefault,
+    bool IsArchived,
+    string? Source)
 {
     public static async ValueTask<CreateHourlyRateRequest?> BindAsync(HttpContext context) => Parse(await Body.Read(context));
 
@@ -53,7 +61,28 @@ public sealed record CreateHourlyRateRequest(RateType Type, string Name, decimal
             throw ApiException.Validation("The default volunteer rate cannot be archived.");
         }
 
-        return new CreateHourlyRateRequest(type, name, perHourRate, isDefault, isArchived);
+        return new CreateHourlyRateRequest(type, name, perHourRate, isDefault, isArchived, ReadSource(body));
+    }
+
+    internal static string? ReadSource(JsonObject body)
+    {
+        if (!Fields.Has(body, "source") || body["source"] is null)
+        {
+            return null;
+        }
+
+        var value = (Fields.OptionalString(body, "source") ?? "").Trim();
+        if (value.Length == 0)
+        {
+            return null;
+        }
+
+        if (value.Length > 200)
+        {
+            throw ApiException.Validation("source must be 200 characters or fewer.");
+        }
+
+        return value;
     }
 }
 
@@ -62,7 +91,8 @@ public sealed record UpdateHourlyRateRequest(
     Optional<string> Name,
     Optional<decimal> PerHourRate,
     Optional<bool> IsDefault,
-    Optional<bool> IsArchived)
+    Optional<bool> IsArchived,
+    Optional<string?> Source)
 {
     public static async ValueTask<UpdateHourlyRateRequest?> BindAsync(HttpContext context) => Parse(await Body.Read(context));
 
@@ -82,12 +112,14 @@ public sealed record UpdateHourlyRateRequest(
                 return rate;
             }),
             Optional.Read(body, "isDefault", Fields.RequiredBool),
-            Optional.Read(body, "isArchived", Fields.RequiredBool));
+            Optional.Read(body, "isArchived", Fields.RequiredBool),
+            Optional.Read(body, "source", (b, _) => CreateHourlyRateRequest.ReadSource(b)));
         if (!request.Type.HasValue
             && !request.Name.HasValue
             && !request.PerHourRate.HasValue
             && !request.IsDefault.HasValue
-            && !request.IsArchived.HasValue)
+            && !request.IsArchived.HasValue
+            && !request.Source.HasValue)
         {
             throw ApiException.Validation("Provide at least one field to update.");
         }
@@ -142,6 +174,7 @@ public sealed class HourlyRatesService(ClockedInDbContext db, Access access)
             PerHourRate = request.PerHourRate,
             IsDefault = request.IsDefault,
             IsArchived = request.IsArchived,
+            Source = request.Source,
         };
         db.HourlyRates.Add(rate);
         await db.SaveOrThrowAsync(cancellationToken);
@@ -181,6 +214,10 @@ public sealed class HourlyRatesService(ClockedInDbContext db, Access access)
         rate.PerHourRate = request.PerHourRate.Or(rate.PerHourRate);
         rate.IsDefault = isDefault;
         rate.IsArchived = isArchived;
+        if (request.Source.HasValue)
+        {
+            rate.Source = request.Source.Value;
+        }
         await db.SaveOrThrowAsync(cancellationToken);
         await tx.CommitAsync(cancellationToken);
         return HourlyRateDto.From(rate);

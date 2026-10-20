@@ -4,6 +4,7 @@ import { CalendarClockIcon } from "lucide-react";
 import { TimeEntryForm } from "@/components/entity-forms/time-entry-form";
 import { selectableMembers } from "@/components/person-select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useClientRedirect } from "@/hooks/use-client-redirect";
 import { useLookups } from "@/hooks/use-lookups";
 import { useMembers } from "@/hooks/use-members";
 import { useWorkspace } from "@/hooks/use-workspace";
@@ -11,8 +12,10 @@ import { SetupAlert } from "../setup-alert";
 
 export function MemberTimeView() {
   const { viewer, isAdmin } = useWorkspace();
+  useClientRedirect(!isAdmin, "/log/own");
   const { lookups } = useLookups();
-  const { members, isPending } = useMembers();
+  const { members, isPending } = useMembers({ enabled: isAdmin });
+  if (!isAdmin) return null;
   const eligible = selectableMembers(members, viewer.id, { excludeSelf: true, activeOnly: true });
   const missingProject = lookups.projects.length === 0;
   const missingCategory = lookups.categories.length === 0;

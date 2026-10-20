@@ -1,3 +1,5 @@
+"use client";
+
 import { BuildingIcon } from "lucide-react";
 import Link from "next/link";
 import { NewOrganizationForm } from "@/components/shell/org-switcher";

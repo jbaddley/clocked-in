@@ -43,6 +43,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { PageSkeleton } from "@/components/skeletons";
 import { useActionMutation } from "@/hooks/use-action-mutation";
 import { useInvitations } from "@/hooks/use-invitations";
 import { useLabels } from "@/hooks/use-labels";
@@ -214,8 +215,8 @@ export function MembersView() {
   const organization = useOrganization();
   const copy = useLabels();
   const { viewer } = useWorkspace();
-  const { members } = useMembers();
-  const { lookups } = useLookups();
+  const { members, isPending: membersPending } = useMembers();
+  const { lookups, isPending: lookupsPending } = useLookups();
   const [selected, setSelected] = useState<string[]>([]);
   const [addOpen, setAddOpen] = useState(false);
   const [editMember, setEditMember] = useState<Membership | null>(null);
@@ -249,6 +250,7 @@ export function MembersView() {
 
   const selectedIds = useMemo(() => new Set(selected), [selected]);
   const allSelected = members.length > 0 && members.every((member) => selectedIds.has(member.id));
+  if (membersPending || lookupsPending) return <PageSkeleton rows={8} />;
 
   return (
     <div className="flex flex-col gap-6">

@@ -196,6 +196,61 @@ describe("hourly rates", suite, () => {
     assertMoney(currentDefault.perHourRate, 41.25);
   });
 
+  test("source is optional and can be cleared", async () => {
+    const cited = await createJson(ctx.admin.accessToken, `/organizations/${ctx.org.id}/hourly-rates`, {
+      type: "Volunteer",
+      name: "Cited",
+      perHourRate: 40,
+      source: "  Independent Sector  ",
+    });
+    assertHourlyRate(cited, {
+      organizationId: ctx.org.id,
+      type: "Volunteer",
+      name: "Cited",
+      perHourRate: 40,
+      isDefault: false,
+      source: "Independent Sector",
+    });
+
+    const omitted = await createJson(ctx.admin.accessToken, `/organizations/${ctx.org.id}/hourly-rates`, {
+      type: "Professional",
+      name: "Uncited",
+      perHourRate: 70,
+    });
+    assert.equal(omitted.source, null);
+
+    const blank = await callApi(`/organizations/${ctx.org.id}/hourly-rates`, {
+      method: "POST",
+      token: ctx.admin.accessToken,
+      body: { type: "Professional", name: "Blank source", perHourRate: 71, source: "   " },
+    });
+    assert.equal(blank.status, 201);
+    assert.equal(blank.json.source, null);
+
+    const tooLong = await callApi(`/organizations/${ctx.org.id}/hourly-rates`, {
+      method: "POST",
+      token: ctx.admin.accessToken,
+      body: { type: "Professional", name: "Long source", perHourRate: 72, source: "x".repeat(201) },
+    });
+    assertError(tooLong, 400, "validation_error", "source must be 200 characters or fewer.");
+
+    const cleared = await callApi(`/hourly-rates/${cited.id}`, {
+      method: "PATCH",
+      token: ctx.admin.accessToken,
+      body: { source: null },
+    });
+    assert.equal(cleared.status, 200);
+    assert.equal(cleared.json.source, null);
+
+    const restored = await callApi(`/hourly-rates/${cited.id}`, {
+      method: "PATCH",
+      token: ctx.admin.accessToken,
+      body: { source: "State bar" },
+    });
+    assert.equal(restored.status, 200);
+    assert.equal(restored.json.source, "State bar");
+  });
+
   test("a referenced rate cannot be deleted", async () => {
     const unused = await createJson(ctx.admin.accessToken, `/organizations/${ctx.org.id}/hourly-rates`, {
       type: "Volunteer",

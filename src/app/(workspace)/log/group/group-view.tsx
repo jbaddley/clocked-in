@@ -18,12 +18,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useActionMutation } from "@/hooks/use-action-mutation";
+import { useClientRedirect } from "@/hooks/use-client-redirect";
 import { useGroupSessions } from "@/hooks/use-group-sessions";
 import { useLabels } from "@/hooks/use-labels";
 import { useLookups } from "@/hooks/use-lookups";
 import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
 import { dayLabel, formatCurrency, formatMinutes, formatTime, toDateOnly } from "@/lib/format";
 import { keys } from "@/lib/queries";
+import { canLogGroupTime } from "@/lib/roles";
 import type { GroupSession, Paged } from "@/lib/types";
 import { SetupAlert } from "../setup-alert";
 
@@ -34,6 +36,8 @@ function sessionMinutes(session: GroupSession) {
 export function GroupTimeView() {
   const organization = useOrganization();
   const { isAdmin, groupDepartments } = useWorkspace();
+  const allowed = canLogGroupTime(groupDepartments);
+  useClientRedirect(!allowed, "/log/own");
   const { lookups } = useLookups();
   const queryClient = useQueryClient();
   const { sessions, fetchNextPage, hasNextPage, isFetchingNextPage, isPending } = useGroupSessions();
@@ -70,6 +74,7 @@ export function GroupTimeView() {
   }, [sessions]);
 
   const totalValue = sessions.reduce((sum, session) => sum + session.inKindValue, 0);
+  if (!allowed) return null;
 
   return (
     <div className="flex flex-col gap-6">

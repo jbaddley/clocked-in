@@ -135,7 +135,7 @@ Organization `{ "id", "name", "volunteerHourlyRate", "rateSourceYear", "defaultR
 - `GET /organizations/{id}` requires membership or SuperAdmin
 - `PATCH /organizations/{id}` requires an organization admin. Fields: `name`, `volunteerHourlyRate`, `rateSourceYear`, `defaultRateType`, `preferences`, `themeId`, `wordmarkUrl`, `wordmarkOnLightUrl`, `markUrl`, and `accentImageUrl`. `volunteerHourlyRate` updates the organization's default volunteer rate. `themeId` must be a global theme or a theme owned by this organization. Marks stay on the organization.
 - `GET/POST /organizations/{id}/themes` and `PATCH/DELETE /organizations/{id}/themes/{themeId}`. List requires membership. Create, edit, and delete require an organization admin and apply only to org-owned themes. Global themes are read-only; saving edits of a global theme creates a new org-owned copy in the UI. Theme body: `name`, hex colors `primary`, `primaryForeground`, `highlight`, `accent`, `success`, `surface`, `surfaceForeground`, `foreground`, and `chartColor`, fonts `headingFont` and `bodyFont` (`SourceSans3`, `NunitoSans`, or `Geist`), `categoricalPalette` (6–8 colors), `sequentialPalette` (5–10), and `divergingPalette` (7). `chartColor` is the single color used by every chart. Deleting the active org theme reassigns the organization to Clocked In.
-- `GET/POST /organizations/{id}/hourly-rates` and `PATCH/DELETE /hourly-rates/{id}`. Create and edit require an organization admin. List requires membership. Body `{ "type", "name", "perHourRate", "isDefault", "isArchived" }`. `type` is `Volunteer` or `Professional`. Each organization has exactly one default volunteer rate. Only a volunteer rate can be the default, and that rate cannot be archived or deleted. Archived rates stay in this list. Time entries snapshot `hourlyRateId` and `hourlyRate`; deleting a rate that is still referenced fails with 409 `Archive this rate instead. Time entries still use it.`.
+- `GET/POST /organizations/{id}/hourly-rates` and `PATCH/DELETE /hourly-rates/{id}`. Create and edit require an organization admin. List requires membership. Body `{ "type", "name", "perHourRate", "isDefault", "isArchived", "source" }`. `type` is `Volunteer` or `Professional`. `source` is optional, 1 to 200 characters, and empty when omitted or blank. A patch can set `source` to `null` to clear it. Each organization has exactly one default volunteer rate. Only a volunteer rate can be the default, and that rate cannot be archived or deleted. Archived rates stay in this list. Time entries snapshot `hourlyRateId` and `hourlyRate`; deleting a rate that is still referenced fails with 409 `Archive this rate instead. Time entries still use it.`.
 - `DELETE /organizations/{id}` requires an organization admin and fails with 409 while time entries remain
 - `GET/POST /organizations/{id}/task-categories` and `PATCH/DELETE /task-categories/{id}`. Create and edit require an organization admin. Body `{ "name" }`. Delete fails with 409 while time entries remain.
 - `GET/POST /organizations/{id}/projects` and `GET/PATCH/DELETE /projects/{id}`. Body includes `title`, `accessType` (`Public`, `Private`, or `Department`), optional `projectType` (`Project` or `Event`, default `Project`), optional `departmentId`, `description`, `startDate`, `endDate`, `isActive`, and `editorIds`. Department projects require `departmentId`, and other projects must leave it empty. Only an organization admin or that department's admin can make a Department project. Editors must be members of the organization. See Project visibility below.
@@ -350,7 +350,7 @@ A cell that starts with `=`, `+`, `-`, `@`, a tab, or a carriage return gets a l
 
 ## Organization API keys
 
-ClockedIn.Api accepts organization API keys on REST and on `POST /mcp`. Keys do not work on the Next.js API unless `CSHARP_API_URL` is set and Next proxies to ClockedIn.Api. A key is shown once at create or rotate: `cki_live_<prefix>_<secret>` in production, `cki_test_…` otherwise. Send `Authorization: Bearer <key>` or `X-Api-Key: <key>`. Only the HMAC hash is stored. Key create, list, rotate, and revoke require a human organization admin JWT. A key cannot mint other keys.
+ClockedIn.Api accepts organization API keys on REST and on `POST /mcp`. The Next.js app accepts the same keys on `POST /mcp`. Next.js REST routes still require a user JWT unless `CSHARP_API_URL` is set and Next proxies to ClockedIn.Api. A key is shown once at create or rotate: `cki_live_<prefix>_<secret>` in production, `cki_test_…` otherwise. Send `Authorization: Bearer <key>` or `X-Api-Key: <key>`. Only the HMAC hash is stored. Key create, list, rotate, and revoke require a human organization admin JWT. A key cannot mint other keys.
 
 Scopes:
 
@@ -362,13 +362,13 @@ Scopes:
 
 `PATCH /organizations/{id}/api-keys/{keyId}` updates `name`, `scopes`, or `expiresAt`. `POST .../rotate` issues a new secret and prefix. `DELETE` revokes. Clock-in and clock-out with a key require `userId`.
 
-MCP is Streamable HTTP at `/mcp`. Clients send the same Bearer key. Tools wrap the same feature services as REST. Auth, signup, password reset, SuperAdmin user list, feedback moderation, and deleting an organization are not exposed.
+MCP is Streamable HTTP at `/mcp` on ClockedIn.Api and on the Next.js app. Clients send the same Bearer key. Tools wrap the same feature services as REST, with the same names and arguments on both hosts. Auth, signup, password reset, SuperAdmin user list, feedback moderation, and deleting an organization are not exposed.
 
 ```json
 {
   "mcpServers": {
     "clocked-in": {
-      "url": "https://<app>.azurewebsites.net/mcp",
+      "url": "https://<next-host>/mcp",
       "headers": { "Authorization": "Bearer cki_live_…" }
     }
   }
