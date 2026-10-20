@@ -167,7 +167,7 @@ export function parseUpdateFeedback(body: Body): UpdateFeedbackRequest {
 }
 
 function requireSuperAdmin(access: Access) {
-  if (!access.caller.isSuperAdmin) {
+  if (!access.isSuperAdmin) {
     forbidden();
   }
 }
@@ -287,11 +287,12 @@ export async function createFeedback(access: Access, request: CreateFeedbackRequ
     }
   }
 
+  const caller = access.requireHuman();
   const now = utcNow();
   const created = await guard(
     prisma.feedback.create({
       data: {
-        userId: access.caller.id,
+        userId: caller.id,
         organizationId: request.organizationId,
         type: request.type,
         priority: request.priority,

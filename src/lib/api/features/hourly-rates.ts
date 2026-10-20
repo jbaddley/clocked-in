@@ -143,7 +143,7 @@ async function managed(access: Access, rateId: string) {
     notFound();
   }
 
-  await access.requireOrganization(rate.organizationId, true);
+  await access.requireOrganizationAdmin(rate.organizationId);
   return rate;
 }
 
@@ -155,7 +155,7 @@ async function clearDefault(tx: Prisma.TransactionClient, organizationId: string
 }
 
 export async function createHourlyRate(access: Access, organizationId: string, request: CreateHourlyRateRequest) {
-  await access.requireOrganization(organizationId, true);
+  await access.requireOrganizationAdmin(organizationId);
   return rateJson(
     await transaction(async (tx) => {
       if (request.isDefault) {

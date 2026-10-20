@@ -186,13 +186,13 @@ export async function listThemes(access: Access, organizationId: string) {
 }
 
 export async function createTheme(access: Access, organizationId: string, request: ThemeWriteRequest) {
-  await access.requireOrganization(organizationId, true);
+  await access.requireOrganizationAdmin(organizationId);
   const theme = await guard(prisma.theme.create({ data: { organizationId, ...themeData(request) } }));
   return themeJson(theme);
 }
 
 export async function updateTheme(access: Access, organizationId: string, themeId: string, request: ThemeWriteRequest) {
-  await access.requireOrganization(organizationId, true);
+  await access.requireOrganizationAdmin(organizationId);
   const theme = await prisma.theme.findFirst({ where: { id: themeId, organizationId } });
   if (!theme) {
     notFound();
@@ -202,7 +202,7 @@ export async function updateTheme(access: Access, organizationId: string, themeI
 }
 
 export async function deleteTheme(access: Access, organizationId: string, themeId: string) {
-  await access.requireOrganization(organizationId, true);
+  await access.requireOrganizationAdmin(organizationId);
   const theme = await prisma.theme.findFirst({ where: { id: themeId, organizationId } });
   if (!theme) {
     notFound();

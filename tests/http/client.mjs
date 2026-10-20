@@ -32,7 +32,7 @@ export function missingId() {
   return randomUUID();
 }
 
-export async function callApi(path, { method = "GET", token, body, query } = {}) {
+export async function callApi(path, { method = "GET", token, apiKey, body, query } = {}) {
   const url = new URL(path, apiBaseUrl);
   if (query) {
     for (const [key, value] of Object.entries(query)) {
@@ -48,6 +48,9 @@ export async function callApi(path, { method = "GET", token, body, query } = {})
   }
   if (token) {
     headers.authorization = `Bearer ${token}`;
+  }
+  if (apiKey) {
+    headers["x-api-key"] = apiKey;
   }
 
   const response = await fetch(url, {

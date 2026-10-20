@@ -258,15 +258,20 @@ export function parseLogTotal(body: Body) {
 }
 
 export function parseClockIn(body: Body) {
-  return { placement: parsePlacement(body), hourlyRateId: has(body, "hourlyRateId") ? optionalUuid(body, "hourlyRateId") : null };
+  return {
+    placement: parsePlacement(body),
+    hourlyRateId: has(body, "hourlyRateId") ? optionalUuid(body, "hourlyRateId") : null,
+    userId: has(body, "userId") ? optionalUuid(body, "userId") : null,
+  };
 }
 
-export type ClockOutRequest = { description: Optional<string | null>; tagIds: Optional<string[]> };
+export type ClockOutRequest = { description: Optional<string | null>; tagIds: Optional<string[]>; userId: string | null };
 
 export function parseClockOut(body: Body): ClockOutRequest {
   return {
     description: optional(body, "description", (b, k) => description(optionalString(b, k))),
     tagIds: optional(body, "tagIds", (b, k) => ids(b, k, false)),
+    userId: has(body, "userId") ? optionalUuid(body, "userId") : null,
   };
 }
 
@@ -412,7 +417,7 @@ function newEntry(
 ) {
   return {
     userId,
-    enteredByUserId: access.caller.id,
+    enteredByUserId: access.actorUserId,
     organizationId: placement.organizationId,
     departmentId: placement.departmentId,
     projectId: placement.projectId,
@@ -426,21 +431,25 @@ function newEntry(
   };
 }
 
-async function owned(access: Access, entryId: string) {
-  const caller = access.caller;
+async function owned(access: Access, entryId: string, write: boolean) {
   const entry = await prisma.userTimeEntry.findUnique({ where: { id: entryId }, include: entryInclude });
   if (!entry) {
     notFound();
   }
 
-  if (!caller.isSuperAdmin && entry.userId !== caller.id && (await access.isOrgVolunteer(entry.organizationId))) {
+  if (access.isApiKey) {
+    await access.requireOrganization(entry.organizationId, write);
+    return entry;
+  }
+
+  if (!access.isSuperAdmin && entry.userId !== access.actorUserId && (await access.isOrgVolunteer(entry.organizationId))) {
     forbidden();
   }
 
   if (
-    entry.userId === caller.id ||
-    entry.enteredByUserId === caller.id ||
-    caller.isSuperAdmin ||
+    entry.userId === access.actorUserId ||
+    entry.enteredByUserId === access.actorUserId ||
+    access.isSuperAdmin ||
     (await access.isOrgAdmin(entry.organizationId)) ||
     (entry.departmentId !== null && (await access.isDepartmentAdmin(entry.departmentId)))
   ) {
@@ -456,9 +465,10 @@ export async function listTimeEntries(access: Access, userId: string, params: UR
   const departmentId = queryUuid(params, "departmentId");
   const from = queryDate(params, "from");
   const to = queryDate(params, "to");
-  const caller = access.caller;
   let visible: string[] | null = null;
-  if (caller.id !== userId && !caller.isSuperAdmin) {
+  if (access.isApiKey) {
+    visible = await access.activeOrganizationIds();
+  } else if (access.actorUserId !== userId && !access.isSuperAdmin) {
     const shared = new Set(await access.sharedOrganizationIds(userId));
     visible = (await access.organizationsWhereCallerCanReadOthers()).filter((organizationId) => shared.has(organizationId));
     if (visible.length === 0) {
@@ -541,11 +551,11 @@ export async function createTimeEntry(access: Access, userId: string, request: C
 }
 
 export async function getTimeEntry(access: Access, entryId: string) {
-  return timeEntryJson(await owned(access, entryId));
+  return timeEntryJson(await owned(access, entryId, false));
 }
 
 export async function updateTimeEntry(access: Access, entryId: string, request: UpdateTimeEntryRequest) {
-  const existing = await owned(access, entryId);
+  const existing = await owned(access, entryId, true);
   const organizationId = or(request.organizationId, existing.organizationId);
   const departmentId = or(request.departmentId, existing.departmentId);
   const projectId = or(request.projectId, existing.projectId);
@@ -642,27 +652,36 @@ export async function updateTimeEntry(access: Access, entryId: string, request: 
 }
 
 export async function deleteTimeEntry(access: Access, entryId: string) {
-  await owned(access, entryId);
+  await owned(access, entryId, true);
   await guard(prisma.userTimeEntry.delete({ where: { id: entryId } }));
 }
 
-export async function clockIn(access: Access, request: { placement: EntryPlacement; hourlyRateId: string | null }) {
-  const caller = access.caller;
+function punchUserId(access: Access, userId: string | null) {
+  return userId ?? (access.isApiKey ? validation("userId is required.") : access.actorUserId);
+}
+
+export async function clockIn(access: Access, request: { placement: EntryPlacement; hourlyRateId: string | null; userId: string | null }) {
+  const userId = punchUserId(access, request.userId);
+  const user = await prisma.user.findUnique({ where: { id: userId }, include: accountInclude });
+  if (!user) {
+    notFound();
+  }
+
   const placement = request.placement;
-  const tagIds = await assertPlacementRules(access, caller.id, placement);
-  const resolved = await resolveHourlyRate(access, caller.id, placement.organizationId, request.hourlyRateId);
+  const tagIds = await assertPlacementRules(access, userId, placement);
+  const resolved = await resolveHourlyRate(access, userId, placement.organizationId, request.hourlyRateId);
   const startedAt = utcNow();
   const entry = await transaction(async (tx) => {
-    await lockUser(tx, caller.id);
-    if (await hasOpenPunch(tx, caller.id)) {
+    await lockUser(tx, userId);
+    if (await hasOpenPunch(tx, userId)) {
       conflict("You already have an open punch.");
     }
 
     return tx.userTimeEntry.create({
       data: {
-        ...newEntry(access, caller.id, placement, "Punch", resolved.id, resolved.rate, tagIds),
+        ...newEntry(access, userId, placement, "Punch", resolved.id, resolved.rate, tagIds),
         startedAt,
-        occurredOn: localDate(startedAt, timeZoneOf(caller)),
+        occurredOn: localDate(startedAt, timeZoneOf(user)),
       },
       include: entryInclude,
     });
@@ -671,13 +690,15 @@ export async function clockIn(access: Access, request: { placement: EntryPlaceme
 }
 
 export async function clockOut(access: Access, request: ClockOutRequest) {
-  const callerId = access.caller.id;
+  const userId = punchUserId(access, request.userId);
   const entry = await transaction(async (tx) => {
-    await lockUser(tx, callerId);
-    const open = await tx.userTimeEntry.findFirst({ where: { userId: callerId, mode: "Punch", endedAt: null } });
+    await lockUser(tx, userId);
+    const open = await tx.userTimeEntry.findFirst({ where: { userId, mode: "Punch", endedAt: null } });
     if (!open?.startedAt) {
       conflict("No open punch.");
     }
+
+    await assertCanWriteUserEntry(access, userId, open.organizationId, open.departmentId);
 
     const startedAt = open.startedAt;
     let endedAt = utcNow();

@@ -150,7 +150,7 @@ export async function listCollective(access: Access, params: URLSearchParams) {
   const where: Prisma.CollectiveTimeEntryWhereInput = {};
   if (organizationId !== undefined) {
     where.organizationId = organizationId;
-  } else if (!access.caller.isSuperAdmin) {
+  } else if (!access.isSuperAdmin) {
     where.organizationId = { in: await access.activeOrganizationIds() };
   }
 
@@ -169,7 +169,7 @@ export async function listCollective(access: Access, params: URLSearchParams) {
 }
 
 export async function createCollective(access: Access, request: CreateCollectiveRequest) {
-  const callerId = access.caller.id;
+  const callerId = access.actorUserId;
   await assertCollectiveWrite(access, request.organizationId, request.departmentId);
   await assertProject(access, callerId, request.organizationId, request.departmentId, request.projectId);
   await assertTaskCategory(request.organizationId, request.taskCategoryId);
@@ -219,11 +219,11 @@ export async function updateCollective(access: Access, entryId: string, request:
   const participantCount = or(request.participantCount, existing.participantCount);
   assertSpan(startedAt, endedAt, participantCount);
   await assertCollectiveWrite(access, existing.organizationId, departmentId);
-  await assertProject(access, access.caller.id, existing.organizationId, departmentId, projectId);
+  await assertProject(access, access.actorUserId, existing.organizationId, departmentId, projectId);
   await assertTaskCategory(existing.organizationId, taskCategoryId);
   const tagIds = request.tagIds.set ? await tags(existing.organizationId, request.tagIds.value) : null;
   const resolved = request.hourlyRateId.set
-    ? await resolveHourlyRate(access, access.caller.id, existing.organizationId, request.hourlyRateId.value)
+    ? await resolveHourlyRate(access, access.actorUserId, existing.organizationId, request.hourlyRateId.value)
     : { id: existing.hourlyRateId, rate: Number(existing.hourlyRate) };
   const updated = await guard(
     prisma.collectiveTimeEntry.update({

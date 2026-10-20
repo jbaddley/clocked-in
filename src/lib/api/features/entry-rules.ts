@@ -9,14 +9,21 @@ export async function assertCanWriteUserEntry(
   organizationId: string,
   departmentId: string | null,
 ) {
-  const caller = access.caller;
-  if (!caller.isSuperAdmin && caller.id !== userId && (await access.isOrgVolunteer(organizationId))) {
+  if (access.isApiKey) {
+    if (!access.canWrite(organizationId)) {
+      forbidden();
+    }
+
+    return;
+  }
+
+  if (!access.isSuperAdmin && access.actorUserId !== userId && (await access.isOrgVolunteer(organizationId))) {
     forbidden();
   }
 
   if (
-    caller.id === userId ||
-    caller.isSuperAdmin ||
+    access.actorUserId === userId ||
+    access.isSuperAdmin ||
     (await access.isOrgAdmin(organizationId)) ||
     (departmentId !== null && (await access.isDepartmentAdmin(departmentId)))
   ) {
@@ -53,7 +60,7 @@ export async function assertLogTarget(
   departmentId: string | null,
 ) {
   await assertPlacement(organizationId, departmentId);
-  if (access.caller.isSuperAdmin) {
+  if (access.isSuperAdmin) {
     return;
   }
 
@@ -66,7 +73,8 @@ export async function assertLogTarget(
 export async function assertCollectiveWrite(access: Access, organizationId: string, departmentId: string | null) {
   await assertPlacement(organizationId, departmentId);
   if (
-    access.caller.isSuperAdmin ||
+    access.isSuperAdmin ||
+    access.canWrite(organizationId) ||
     (await access.isOrgAdmin(organizationId)) ||
     (departmentId !== null && (await access.isDepartmentAdmin(departmentId)))
   ) {
@@ -105,9 +113,10 @@ export async function assertProject(
 
   if (
     project.accessType === "Private" &&
-    !access.caller.isSuperAdmin &&
+    !access.isSuperAdmin &&
     project.ownerUserId !== workerId &&
     project.editors.every((editor) => editor.userId !== workerId) &&
+    !access.canWrite(organizationId) &&
     !(await access.isOrgAdmin(organizationId))
   ) {
     forbidden();
@@ -148,7 +157,7 @@ export async function resolveHourlyRate(
   organizationId: string,
   hourlyRateId: string | null | undefined,
 ) {
-  const lockToDefault = access.caller.id === userId && (await access.isOrgVolunteer(organizationId));
+  const lockToDefault = !access.isApiKey && access.actorUserId === userId && (await access.isOrgVolunteer(organizationId));
   if (lockToDefault || !hourlyRateId) {
     return defaultVolunteerRate(organizationId);
   }

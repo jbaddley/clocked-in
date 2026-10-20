@@ -18,7 +18,7 @@ import {
 
 const csharp = apiTarget === "csharp";
 
-describe("organization API keys", { ...suite, skip: !csharp }, () => {
+describe("organization API keys", suite, () => {
   const ctx = {};
 
   before(async () => {
@@ -95,6 +95,10 @@ describe("organization API keys", { ...suite, skip: !csharp }, () => {
     assert.equal(read.status, 200);
     assert.equal(read.json.id, ctx.org.id);
 
+    const header = await callApi(`/organizations/${ctx.org.id}`, { apiKey: ctx.key.key });
+    assert.equal(header.status, 200);
+    assert.equal(header.json.id, ctx.org.id);
+
     const tagged = await callApi(`/organizations/${ctx.org.id}/tags`, {
       method: "POST",
       token: ctx.key.key,
@@ -157,7 +161,7 @@ describe("organization API keys", { ...suite, skip: !csharp }, () => {
     assertError(missing, 404, "not_found", "Not found.");
   });
 
-  test("MCP requires authentication", async () => {
+  test("MCP requires authentication", { skip: !csharp }, async () => {
     const missing = await callApi("/mcp", {
       method: "POST",
       body: { jsonrpc: "2.0", id: 1, method: "initialize", params: {} },

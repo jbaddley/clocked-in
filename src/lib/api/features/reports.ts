@@ -294,7 +294,7 @@ async function collectiveRollup(organizationId: string, filter: Filter) {
 }
 
 async function forCaller(access: Access, organizationId: string, filter: Filter) {
-  if (access.caller.isSuperAdmin || (await access.isOrgAdmin(organizationId))) {
+  if (access.isSuperAdmin || access.isApiKey || (await access.isOrgAdmin(organizationId))) {
     return filter;
   }
 
@@ -302,11 +302,11 @@ async function forCaller(access: Access, organizationId: string, filter: Filter)
     return filter;
   }
 
-  if (filter.userId && filter.userId !== access.caller.id) {
+  if (filter.userId && filter.userId !== access.actorUserId) {
     forbidden();
   }
 
-  return { ...filter, userId: access.caller.id };
+  return { ...filter, userId: access.actorUserId };
 }
 
 export async function report(access: Access, organizationId: string, params: URLSearchParams) {

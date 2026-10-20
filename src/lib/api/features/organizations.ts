@@ -217,6 +217,7 @@ export function parseUpdateOrganization(body: Body): UpdateOrganizationRequest {
 }
 
 export async function createOrganization(access: Access, request: NameRequest) {
+  const caller = access.requireHuman();
   const adminRoleId = await roleId("ADMIN");
   const organization = await guard(
     prisma.organization.create({
@@ -227,7 +228,7 @@ export async function createOrganization(access: Access, request: NameRequest) {
         themeId: clockedInThemeId,
         hourlyRates: { create: { type: "Volunteer", name: "Volunteer", perHourRate: 35.47, isDefault: true } },
         memberships: {
-          create: { userId: access.caller.id, roleId: adminRoleId, rateType: "Volunteer", isActive: true },
+          create: { userId: caller.id, roleId: adminRoleId, rateType: "Volunteer", isActive: true },
         },
       },
       include: themeInclude,
@@ -238,10 +239,13 @@ export async function createOrganization(access: Access, request: NameRequest) {
 
 export async function listOrganizations(access: Access, params: URLSearchParams) {
   const paging = page(params);
-  const organizations = await prisma.organization.findMany({
-    where: access.caller.isSuperAdmin
+  const where = access.isApiKey
+    ? { id: { in: await access.activeOrganizationIds() } }
+    : access.isSuperAdmin
       ? {}
-      : { memberships: { some: { userId: access.caller.id, isActive: true } } },
+      : { memberships: { some: { userId: access.actorUserId, isActive: true } } };
+  const organizations = await prisma.organization.findMany({
+    where,
     include: { ...themeInclude, hourlyRates: { where: { isDefault: true }, take: 1 } },
     orderBy: { name: "asc" },
     skip: paging.offset,
@@ -261,7 +265,7 @@ export async function getOrganization(access: Access, organizationId: string) {
 }
 
 export async function updateOrganization(access: Access, organizationId: string, request: UpdateOrganizationRequest) {
-  await access.requireOrganization(organizationId, true);
+  await access.requireOrganizationAdmin(organizationId);
   const organization = await transaction(async (tx) => {
     const current = await tx.organization.findUniqueOrThrow({
       where: { id: organizationId },
@@ -340,7 +344,8 @@ async function assertNotifyUsers(db: Db, organizationId: string, userIds: string
 }
 
 export async function deleteOrganization(access: Access, organizationId: string) {
-  await access.requireOrganization(organizationId, true);
+  access.requireHuman();
+  await access.requireOrganizationAdmin(organizationId);
   const referenced =
     (await prisma.userTimeEntry.count({ where: { organizationId } })) > 0 ||
     (await prisma.collectiveTimeEntry.count({ where: { organizationId } })) > 0;

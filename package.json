@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "node scripts/with-env.mjs local -- next dev --port 3025",
     "dev:staging": "node scripts/with-env.mjs staging -- next dev --port 3025",
+    "push:staging": "node scripts/push-branch.mjs --branch staging",
+    "push:production": "node scripts/push-branch.mjs --branch main",
     "build": "node scripts/with-env.mjs -- node scripts/build.mjs",
     "build:staging": "node scripts/with-env.mjs staging -- node scripts/build.mjs",
     "build:production": "node scripts/with-env.mjs production -- node scripts/build.mjs",

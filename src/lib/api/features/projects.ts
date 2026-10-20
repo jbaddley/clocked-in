@@ -115,13 +115,13 @@ async function load(projectId: string) {
 
 async function requireRead(access: Access, project: ProjectRow) {
   await access.requireOrganization(project.organizationId, false);
-  const caller = access.caller;
   if (
-    caller.isSuperAdmin ||
+    access.isApiKey ||
+    access.isSuperAdmin ||
     (await access.isOrgAdmin(project.organizationId)) ||
     project.accessType === "Public" ||
-    project.ownerUserId === caller.id ||
-    project.editors.some((editor) => editor.userId === caller.id)
+    project.ownerUserId === access.actorUserId ||
+    project.editors.some((editor) => editor.userId === access.actorUserId)
   ) {
     return;
   }
@@ -138,12 +138,19 @@ async function requireRead(access: Access, project: ProjectRow) {
 }
 
 async function assertManage(access: Access, project: ProjectRow) {
-  const caller = access.caller;
+  if (access.isApiKey) {
+    if (!access.canWrite(project.organizationId)) {
+      forbidden();
+    }
+
+    return;
+  }
+
   if (
-    caller.isSuperAdmin ||
+    access.isSuperAdmin ||
     (await access.isOrgAdmin(project.organizationId)) ||
-    project.ownerUserId === caller.id ||
-    project.editors.some((editor) => editor.userId === caller.id)
+    project.ownerUserId === access.actorUserId ||
+    project.editors.some((editor) => editor.userId === access.actorUserId)
   ) {
     return;
   }
@@ -187,7 +194,8 @@ async function assertAccessWrite(
   }
 
   if (
-    !access.caller.isSuperAdmin &&
+    !access.isSuperAdmin &&
+    !access.canWrite(organizationId) &&
     !(await access.isOrgAdmin(organizationId)) &&
     !(await access.isDepartmentAdmin(departmentId))
   ) {
@@ -228,15 +236,14 @@ async function editors(organizationId: string, ownerUserId: string, editorIds: s
 export async function listProjects(access: Access, organizationId: string, params: URLSearchParams) {
   const paging = page(params);
   await access.requireOrganization(organizationId, false);
-  const caller = access.caller;
   let where: Prisma.ProjectWhereInput = { organizationId };
-  if (!caller.isSuperAdmin && !(await access.isOrgAdmin(organizationId))) {
+  if (!access.isApiKey && !access.isSuperAdmin && !(await access.isOrgAdmin(organizationId))) {
     where = {
       organizationId,
       OR: [
         { accessType: "Public" },
-        { ownerUserId: caller.id },
-        { editors: { some: { userId: caller.id } } },
+        { ownerUserId: access.actorUserId },
+        { editors: { some: { userId: access.actorUserId } } },
         { accessType: "Department", departmentId: { in: await access.departmentIds() } },
       ],
     };
@@ -253,16 +260,16 @@ export async function listProjects(access: Access, organizationId: string, param
 }
 
 export async function createProject(access: Access, organizationId: string, request: CreateProjectRequest) {
-  await access.requireOrganization(organizationId, false);
+  await access.requireOrganization(organizationId, access.isApiKey);
   await assertAccessWrite(access, organizationId, request.accessType, request.departmentId);
   assertDates(request.accessType, request.departmentId, request.startDate, request.endDate);
-  const editorIds = await editors(organizationId, access.caller.id, request.editorIds);
+  const editorIds = await editors(organizationId, access.actorUserId, request.editorIds);
   const project = await guard(
     prisma.project.create({
       data: {
         organizationId,
         departmentId: request.accessType === "Department" ? request.departmentId : null,
-        ownerUserId: access.caller.id,
+        ownerUserId: access.actorUserId,
         title: request.title,
         description: request.description,
         accessType: request.accessType,

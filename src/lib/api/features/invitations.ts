@@ -87,7 +87,7 @@ async function create(
         departmentId,
         roleId: await roleId(request.role),
         codeHash: hashCode(code),
-        invitedByUserId: access.caller.id,
+        invitedByUserId: access.actorUserId,
         expiresAt: new Date(now.getTime() + inviteMs),
         createdAt: now,
       },
@@ -151,19 +151,19 @@ export async function createOrganizationInvitation(
   organizationId: string,
   request: CreateInvitationRequest,
 ) {
-  const organization = await access.requireOrganization(organizationId, true);
+  const organization = await access.requireOrganizationAdmin(organizationId);
   return create(access, organization.id, null, inviteTarget(organization), request);
 }
 
 export async function createDepartmentInvitation(access: Access, departmentId: string, request: CreateInvitationRequest) {
   const department = await access.requireDepartmentManager(departmentId);
-  const organization = await access.requireOrganization(department.organizationId, true);
+  const organization = await access.requireOrganizationAdmin(department.organizationId);
   return create(access, department.organizationId, department.id, inviteTarget(organization, department.name), request);
 }
 
 export async function listOrganizationInvitations(access: Access, organizationId: string, params: URLSearchParams) {
   const paging = page(params);
-  await access.requireOrganization(organizationId, true);
+  await access.requireOrganizationAdmin(organizationId);
   return listWhere({ organizationId, departmentId: null }, paging);
 }
 
@@ -221,12 +221,12 @@ async function resend(where: Prisma.InvitationWhereInput, target: { targetKind: 
 }
 
 export async function resendOrganizationInvitation(access: Access, organizationId: string, invitationId: string) {
-  const organization = await access.requireOrganization(organizationId, true);
+  const organization = await access.requireOrganizationAdmin(organizationId);
   return resend({ id: invitationId, organizationId, departmentId: null }, inviteTarget(organization));
 }
 
 export async function revokeOrganizationInvitation(access: Access, organizationId: string, invitationId: string) {
-  await access.requireOrganization(organizationId, true);
+  await access.requireOrganizationAdmin(organizationId);
   return revoke({ id: invitationId, organizationId, departmentId: null });
 }
 
@@ -240,7 +240,7 @@ function usable(invitation: { acceptedAt: Date | null; revokedAt: Date | null; e
 }
 
 export async function acceptInvitation(access: Access, request: AcceptInvitationRequest) {
-  const caller = access.caller;
+  const caller = access.requireHuman();
   const now = new Date();
   const codeHash = hashCode(request.code);
   const found = await prisma.invitation.findUnique({ where: { codeHash } });

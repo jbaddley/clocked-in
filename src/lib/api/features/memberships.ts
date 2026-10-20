@@ -254,7 +254,7 @@ async function assertAnotherAdmin(tx: Prisma.TransactionClient, organizationId: 
 }
 
 export async function createOrgMembership(access: Access, organizationId: string, request: CreateOrgMembershipRequest) {
-  await access.requireOrganization(organizationId, true);
+  await access.requireOrganizationAdmin(organizationId);
   // Resolve outside the transaction. The production pool has one connection, so a
   // query on the global client while the transaction holds it times out.
   const resolvedRoleId = await roleId(request.role);
@@ -332,7 +332,7 @@ export async function updateOrgMembership(
   membershipId: string,
   request: UpdateOrgMembershipRequest,
 ) {
-  await access.requireOrganization(organizationId, true);
+  await access.requireOrganizationAdmin(organizationId);
   const nextRoleId = request.role.set ? await roleId(request.role.value) : undefined;
   return transaction(async (tx) => {
     await lockOrganization(tx, organizationId);
@@ -421,13 +421,12 @@ export async function updateOrgMembership(
 }
 
 export async function deleteOrgMembership(access: Access, organizationId: string, membershipId: string) {
-  const caller = access.caller;
   const membership = await prisma.organizationMembership.findFirst({ where: { id: membershipId, organizationId } });
   if (!membership) {
     notFound();
   }
 
-  if (!caller.isSuperAdmin && caller.id !== membership.userId && !(await access.isOrgAdmin(organizationId))) {
+  if (!access.isSuperAdmin && access.actorUserId !== membership.userId && !(await access.isOrgAdmin(organizationId))) {
     forbidden();
   }
 
@@ -484,7 +483,6 @@ export async function updateDepartmentMembership(
 }
 
 export async function deleteDepartmentMembership(access: Access, departmentId: string, membershipId: string) {
-  const caller = access.caller;
   const membership = await prisma.departmentMembership.findFirst({
     where: { id: membershipId, departmentId },
     include: { department: true },
@@ -494,8 +492,8 @@ export async function deleteDepartmentMembership(access: Access, departmentId: s
   }
 
   const allowed =
-    caller.isSuperAdmin ||
-    caller.id === membership.userId ||
+    access.isSuperAdmin ||
+    access.actorUserId === membership.userId ||
     (await access.isOrgAdmin(membership.department.organizationId)) ||
     (await access.isDepartmentAdmin(departmentId));
   if (!allowed) {

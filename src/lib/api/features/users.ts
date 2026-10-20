@@ -93,7 +93,7 @@ export function parseUpdateUser(body: Body): UpdateUserRequest {
 
 export async function listUsers(access: Access, params: URLSearchParams) {
   const paging = page(params);
-  if (!access.caller.isSuperAdmin) {
+  if (!access.isSuperAdmin) {
     forbidden();
   }
 
@@ -107,13 +107,12 @@ export async function listUsers(access: Access, params: URLSearchParams) {
 }
 
 export async function getUser(access: Access, userId: string) {
-  const caller = access.caller;
   const user = await prisma.user.findUnique({ where: { id: userId }, include: accountInclude });
   if (!user) {
     notFound();
   }
 
-  if (caller.isSuperAdmin || caller.id === user.id) {
+  if (access.isSuperAdmin || access.actorUserId === user.id) {
     return userJson(user);
   }
 
@@ -131,7 +130,7 @@ export async function getUser(access: Access, userId: string) {
 }
 
 export async function updateUser(access: Access, userId: string, request: UpdateUserRequest, fromMe: boolean) {
-  const caller = access.caller;
+  const caller = access.requireHuman();
   const user = await prisma.user.findUnique({ where: { id: userId }, include: accountInclude });
   if (!user || !user.profile) {
     notFound();
@@ -214,7 +213,7 @@ export async function updateUser(access: Access, userId: string, request: Update
 }
 
 export async function deleteUser(access: Access, userId: string) {
-  const caller = access.caller;
+  const caller = access.requireHuman();
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) {
     notFound();
