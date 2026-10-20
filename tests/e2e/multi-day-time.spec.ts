@@ -67,7 +67,7 @@ test("adding days saves the same entry once per day", async ({ page }) => {
   await expect(page.getByText("Time saved for 2 days.")).toBeVisible();
   await expect(page.getByLabel("Notes")).toHaveValue("");
   await expect(page.getByRole("button", { name: "Save time" })).toBeVisible();
-  await expect(page.getByText(notes, { exact: true })).toBeVisible();
+  await expect(page.getByText(notes, { exact: true })).toHaveCount(2);
 
   await page.goto(`/entries?from=${yesterdayValue}&to=${todayValue}`);
   await expect(page.getByText(notes, { exact: true })).toHaveCount(2);
