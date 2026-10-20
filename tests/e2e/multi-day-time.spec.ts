@@ -50,7 +50,7 @@ test("adding days saves the same entry once per day", async ({ page }) => {
   const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
   const todayValue = localDate(today);
   const yesterdayValue = localDate(yesterday);
-  await expect(page.getByLabel("Date")).toHaveValue(todayValue);
+  await expect(page.getByRole("textbox", { name: "Date", exact: true })).toHaveValue(todayValue);
   await expect(extraDay).toHaveValue(yesterdayValue);
 
   const notes = `e2e-multi-day ${Date.now().toString(36)}`;
