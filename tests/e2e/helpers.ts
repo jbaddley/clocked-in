@@ -100,6 +100,30 @@ export async function loginBearer(request: APIRequestContext) {
   return body;
 }
 
+export async function deleteMembershipByEmail(request: APIRequestContext, email: string) {
+  const session = await loginBearer(request);
+  const headers = { authorization: `Bearer ${session.accessToken}` };
+  const organization = await caswjOrganization(request, session.accessToken);
+  const needle = email.trim().toLowerCase();
+  for (let offset = 0; ; offset += 100) {
+    const listed = await request.get(`/organizations/${organization.id}/memberships?limit=100&offset=${offset}`, {
+      headers,
+    });
+    expect(listed.ok(), await listed.text()).toBeTruthy();
+    const body = (await listed.json()) as { items: { id: string; user: { email: string } }[] };
+    const match = body.items.find((item) => item.user.email.toLowerCase() === needle);
+    if (match) {
+      const deleted = await request.delete(`/organizations/${organization.id}/memberships/${match.id}`, { headers });
+      expect(deleted.ok(), await deleted.text()).toBeTruthy();
+      return;
+    }
+
+    if (body.items.length < 100) {
+      return;
+    }
+  }
+}
+
 export async function deleteE2eEntries(request: APIRequestContext) {
   const session = await loginBearer(request);
   const headers = { authorization: `Bearer ${session.accessToken}` };

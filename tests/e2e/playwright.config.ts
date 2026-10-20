@@ -12,7 +12,7 @@ const baseURL = prod
 
 export default defineConfig({
   testDir: ".",
-  testIgnore: prod ? ["**/caswj-hours.spec.ts"] : ["**/cache-bust.spec.ts"],
+  testIgnore: prod ? ["**/caswj-hours.spec.ts", "**/add-person.spec.ts"] : ["**/cache-bust.spec.ts"],
   fullyParallel: false,
   workers: 1,
   timeout: prod ? 240_000 : 120_000,
