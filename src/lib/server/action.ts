@@ -1,6 +1,6 @@
 import "server-only";
 import { unstable_rethrow } from "next/navigation";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, explain } from "@/lib/api/errors";
 import type { ActionResult } from "@/lib/types";
 
 export async function run<T>(work: () => Promise<T>, message?: string): Promise<ActionResult<T>> {
@@ -9,12 +9,11 @@ export async function run<T>(work: () => Promise<T>, message?: string): Promise<
     return { ok: true, data, message };
   } catch (error) {
     unstable_rethrow(error);
-    if (error instanceof ApiError) {
-      return { ok: false, error: error.message };
+    if (!(error instanceof ApiError)) {
+      console.error(error);
     }
 
-    console.error(error);
-    return { ok: false, error: "Something went wrong." };
+    return { ok: false, error: explain(error) };
   }
 }
 

@@ -255,6 +255,9 @@ async function assertAnotherAdmin(tx: Prisma.TransactionClient, organizationId: 
 
 export async function createOrgMembership(access: Access, organizationId: string, request: CreateOrgMembershipRequest) {
   await access.requireOrganization(organizationId, true);
+  // Resolve outside the transaction. The production pool has one connection, so a
+  // query on the global client while the transaction holds it times out.
+  const resolvedRoleId = await roleId(request.role);
   return transaction(async (tx) => {
     await lockOrganization(tx, organizationId);
     let user = await tx.user.findUnique({
@@ -312,7 +315,7 @@ export async function createOrgMembership(access: Access, organizationId: string
       data: {
         userId: user.id,
         organizationId,
-        roleId: await roleId(request.role),
+        roleId: resolvedRoleId,
         rateType: organization.defaultRateType,
         isActive: true,
         primaryDepartmentId: request.departmentIds[0] ?? null,

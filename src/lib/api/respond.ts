@@ -1,5 +1,5 @@
 import { connection } from "next/server";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, explain } from "@/lib/api/errors";
 import { json, noContent } from "@/lib/api/json";
 
 export async function respond(work: () => Promise<unknown>, status = 200) {
@@ -21,6 +21,6 @@ export async function respond(work: () => Promise<unknown>, status = 200) {
     }
 
     console.error(error);
-    return json({ code: "server_error", message: "Something went wrong." }, 500);
+    return json({ code: "server_error", message: explain(error) }, 500);
   }
 }
