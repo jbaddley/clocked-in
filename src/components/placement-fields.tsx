@@ -2,7 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { XIcon } from "lucide-react";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { createLookupAction } from "@/app/actions/lookups";
 import { EntitySelect } from "@/components/entity-forms/entity-select";
 import { CreateDepartmentDialog, CreateTaskCategoryDialog } from "@/components/entity-forms/name-entity-form";
@@ -14,9 +14,23 @@ import { organizationWide, type PlacementState } from "@/hooks/use-placement";
 import { useLabels } from "@/hooks/use-labels";
 import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
 import { keys } from "@/lib/queries";
+import type { Project } from "@/lib/types";
 
 type Creating = "project" | "category" | "department" | null;
 type TagOption = { id: string; name: string };
+
+const projectTypeGroups = [
+  { type: "Project", label: "Projects" },
+  { type: "Event", label: "Events" },
+] as const;
+
+function projectOptions(projects: Project[]) {
+  return projectTypeGroups.flatMap((group) =>
+    projects
+      .filter((project) => (project.projectType === "Event" ? "Event" : "Project") === group.type)
+      .map((project) => ({ value: project.id, label: project.title, group: group.label })),
+  );
+}
 
 /** Date / start / end, plus a narrow fourth column, sharing tracks with placement fields. */
 export const alignedEntryGridClass =
@@ -35,6 +49,7 @@ export function PlacementFields({
   embedded?: boolean;
 }) {
   const { lookups, value, set } = state;
+  const projects = useMemo(() => projectOptions(lookups.projects), [lookups.projects]);
   const departments = departmentIds
     ? lookups.departments.filter((item) => departmentIds.includes(item.id))
     : lookups.departments;
@@ -56,7 +71,8 @@ export function PlacementFields({
           label={copy.project}
           value={value.projectId}
           onValueChange={(projectId) => set({ projectId })}
-          options={lookups.projects.map((item) => ({ value: item.id, label: item.title }))}
+          options={projects}
+          searchable
           createLabel={`Add a ${copy.project.toLowerCase()}`}
           onCreate={() => setCreating("project")}
         />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { usePathname } from "next/navigation";
 import { createFeedbackAction } from "@/app/actions/feedback";
 import { EntityFormDialog } from "@/components/entity-forms/entity-form-dialog";
 import { Field, FormMessage } from "@/components/field";
@@ -11,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useActionMutation } from "@/hooks/use-action-mutation";
 import { useWorkspace } from "@/hooks/use-workspace";
-import { feedbackAreas, feedbackPriorities, feedbackTypes } from "@/lib/feedback";
+import { feedbackAreaForPath, feedbackAreas, feedbackPriorities, feedbackTypes } from "@/lib/feedback";
 import { keys } from "@/lib/queries";
 import type { ActionResult } from "@/lib/types";
 
@@ -40,9 +41,10 @@ function FeedbackForm({
   onCancel: () => void;
 }) {
   const { organization } = useWorkspace();
+  const pathname = usePathname();
   const [type, setType] = useState("Bug");
   const [priority, setPriority] = useState("Medium");
-  const [area, setArea] = useState("Other");
+  const [area, setArea] = useState(() => feedbackAreaForPath(pathname));
   const create = useActionMutation((formData: FormData) => createFeedbackAction(formData), {
     invalidate: [keys.feedback()],
     onSuccess: onCreated,

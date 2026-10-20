@@ -13,6 +13,7 @@ test("submit feedback and update it from the SuperAdmin inbox", async ({ page })
   await page.getByRole("button", { name: "Feedback" }).click();
   const dialog = page.getByRole("dialog", { name: "Send feedback" });
   await expect(dialog).toBeVisible();
+  await expect(dialog.getByLabel("Area")).toContainText("Dashboard");
   const title = `E2E timer ${Date.now().toString(36)}`;
   await dialog.getByLabel("Title").fill(title);
   await dialog.getByLabel("Description").fill("The stop button did nothing.");

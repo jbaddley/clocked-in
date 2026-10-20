@@ -1,8 +1,9 @@
 "use client";
 
-import { CalendarClockIcon, PlayIcon, SquareIcon, TimerIcon } from "lucide-react";
-import { useState } from "react";
+import { CalendarClockIcon, Loader2Icon, PlayIcon, SquareIcon, TimerIcon } from "lucide-react";
+import { useMemo, useState } from "react";
 import { TimeEntryDialog, TimeEntryForm } from "@/components/entity-forms/time-entry-form";
+import { DateRangeFilter, rangeLabel } from "@/components/date-range-filter";
 import { EntryList, EntryRow } from "@/components/entry-row";
 import { PlacementFields } from "@/components/placement-fields";
 import { Button } from "@/components/ui/button";
@@ -14,11 +15,11 @@ import { useLookups } from "@/hooks/use-lookups";
 import { useElapsed, useOpenPunch } from "@/hooks/use-open-punch";
 import { usePlacement } from "@/hooks/use-placement";
 import { useWorkspace } from "@/hooks/use-workspace";
-import { formatClock, formatTime, today } from "@/lib/format";
-import type { TimeEntry } from "@/lib/types";
+import { dayLabel, formatClock, formatMinutes, formatTime } from "@/lib/format";
+import type { DateRange, TimeEntry } from "@/lib/types";
 import { SetupAlert } from "../setup-alert";
 
-export function OwnTimeView() {
+export function OwnTimeView({ range }: { range: DateRange }) {
   const { isAdmin } = useWorkspace();
   const { lookups } = useLookups();
   const missingProject = lookups.projects.length === 0;
@@ -34,13 +35,9 @@ export function OwnTimeView() {
           action="start a timer or save time"
         />
       ) : null}
-      <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="flex min-w-0 flex-col gap-6">
-          <TimerCard />
-          <ManualEntryCard />
-        </div>
-        <TodayCard />
-      </div>
+      <TimerCard />
+      <ManualEntryCard />
+      <EntriesCard range={range} />
     </div>
   );
 }
@@ -132,31 +129,65 @@ function ManualEntryCard() {
   );
 }
 
-function TodayCard() {
+function EntriesCard({ range }: { range: DateRange }) {
   const { viewer } = useWorkspace();
-  const day = today();
-  const { entries, isPending } = useEntries(viewer.id, { from: day, to: day });
+  const { entries, isPending, fetchNextPage, hasNextPage, isFetchingNextPage } = useEntries(viewer.id, range);
   const [pendingEdit, setPendingEdit] = useState<TimeEntry | null>(null);
   const total = entries.reduce((sum, entry) => sum + (entry.durationMinutes ?? 0), 0);
+  const filtered = Boolean(range.from || range.to);
+  const days = useMemo(() => {
+    const groups = new Map<string, TimeEntry[]>();
+    for (const entry of entries) {
+      groups.set(entry.occurredOn, [...(groups.get(entry.occurredOn) ?? []), entry]);
+    }
+    return [...groups.entries()];
+  }, [entries]);
 
   return (
     <Card className="h-fit pb-0">
       <CardHeader>
-        <CardTitle>Today</CardTitle>
-        <CardDescription>Your entries for today</CardDescription>
-        <CardAction className="font-mono text-lg font-semibold tabular-nums">
-          {String(Math.floor(total / 60)).padStart(2, "0")}:{String(total % 60).padStart(2, "0")}
-        </CardAction>
+        <CardTitle>Your entries</CardTitle>
+        <CardDescription>
+          {rangeLabel(range)}
+          {hasNextPage ? " · loaded so far" : ""}
+        </CardDescription>
+        <CardAction className="font-mono text-lg font-semibold tabular-nums">{formatMinutes(total)}</CardAction>
       </CardHeader>
-      {entries.length ? (
-        <EntryList className="border-t">
-          {entries.map((entry: TimeEntry) => (
-            <EntryRow key={entry.id} entry={entry} onEdit={setPendingEdit} />
-          ))}
-        </EntryList>
+      <div className="border-t px-4 py-3">
+        <DateRangeFilter range={range} stacked />
+      </div>
+      {days.length ? (
+        <div className="border-t">
+          {days.map(([day, items]) => {
+            const minutes = items.reduce((sum, entry) => sum + (entry.durationMinutes ?? 0), 0);
+            return (
+              <div key={day} className="border-t first:border-t-0">
+                <div className="flex items-center justify-between bg-muted/40 px-4 py-2">
+                  <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase" suppressHydrationWarning>
+                    {dayLabel(day)}
+                  </p>
+                  <p className="font-mono text-xs tabular-nums">{formatMinutes(minutes)}</p>
+                </div>
+                <EntryList>
+                  {items.map((entry) => (
+                    <EntryRow key={entry.id} entry={entry} onEdit={setPendingEdit} />
+                  ))}
+                </EntryList>
+              </div>
+            );
+          })}
+          {hasNextPage ? (
+            <div className="border-t p-3">
+              <Button variant="outline" className="w-full" onClick={() => fetchNextPage()} disabled={isFetchingNextPage}>
+                {isFetchingNextPage ? <Loader2Icon className="animate-spin" /> : null}
+                Load more
+              </Button>
+            </div>
+          ) : null}
+        </div>
       ) : (
-        <CardContent className="pb-4 text-sm text-muted-foreground">
-          {isPending ? "Loading…" : "Nothing logged yet today."}
+        <CardContent className="border-t pb-4 text-sm text-muted-foreground">
+          {isPending ? "Loading…" : filtered ? "No entries in this range." : "Nothing logged yet."}
         </CardContent>
       )}
       <TimeEntryDialog open={pendingEdit !== null} entry={pendingEdit} onOpenChange={(open) => !open && setPendingEdit(null)} />

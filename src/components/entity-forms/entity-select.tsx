@@ -2,6 +2,7 @@
 
 import { PlusIcon } from "lucide-react";
 import { Field } from "@/components/field";
+import { SearchableSelect } from "@/components/searchable-select";
 import { SelectField, type Option } from "@/components/select-field";
 import { useWorkspace } from "@/hooks/use-workspace";
 
@@ -15,6 +16,7 @@ export function EntitySelect({
   createLabel = "Add",
   hint,
   placeholder,
+  searchable = false,
   className,
 }: {
   id?: string;
@@ -26,6 +28,7 @@ export function EntitySelect({
   createLabel?: string;
   hint?: React.ReactNode;
   placeholder?: string;
+  searchable?: boolean;
   className?: string;
 }) {
   const { isAdmin } = useWorkspace();
@@ -50,14 +53,25 @@ export function EntitySelect({
         ) : undefined
       }
     >
-      <SelectField
-        id={id}
-        value={value}
-        onValueChange={onValueChange}
-        options={options}
-        placeholder={placeholder}
-        className="h-10 min-w-0"
-      />
+      {searchable ? (
+        <SearchableSelect
+          id={id}
+          value={value}
+          onValueChange={onValueChange}
+          options={options}
+          placeholder={placeholder}
+          className="h-10 min-w-0"
+        />
+      ) : (
+        <SelectField
+          id={id}
+          value={value}
+          onValueChange={onValueChange}
+          options={options}
+          placeholder={placeholder}
+          className="h-10 min-w-0"
+        />
+      )}
     </Field>
   );
 }

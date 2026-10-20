@@ -21,6 +21,16 @@ export const feedbackAreas: { value: FeedbackArea; label: string }[] = [
   { value: "Other", label: "Other" },
 ];
 
+export function feedbackAreaForPath(pathname: string): FeedbackArea {
+  const path = pathname.split("?")[0] || "/";
+  if (path === "/dashboard" || path.startsWith("/dashboard/")) return "Dashboard";
+  if (path === "/log" || path.startsWith("/log/")) return "LogTime";
+  if (path === "/entries" || path.startsWith("/entries/")) return "Entries";
+  if (path === "/reports" || path.startsWith("/reports/")) return "Reports";
+  if (path === "/settings" || path.startsWith("/settings/")) return "Settings";
+  return "Other";
+}
+
 export const feedbackStatuses: { value: FeedbackStatus; label: string }[] = [
   { value: "Pending", label: "Pending" },
   { value: "Acknowledged", label: "Acknowledged" },

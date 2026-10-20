@@ -1,5 +1,6 @@
 /**
- * Read-only crawl of production. Set E2E_ENV=PROD (npm run test:e2e:prod).
+ * Read-only crawl of a remote host. Set E2E_ENV=PROD or STAGING
+ * (npm run test:e2e:prod / test:e2e:staging).
  * Each view is opened with a fresh query so the CDN stores a new response,
  * then every link is clicked once. The first click has to change the view.
  */

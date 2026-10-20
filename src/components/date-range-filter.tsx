@@ -1,11 +1,12 @@
 "use client";
 
+import { cn } from "cn";
 import { CalendarRangeIcon, Loader2Icon } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { SelectField } from "@/components/select-field";
 import { Input } from "@/components/ui/input";
-import { toDateOnly } from "@/lib/format";
+import { formatDate, toDateOnly } from "@/lib/format";
 import type { DateRange } from "@/lib/types";
 
 const dateOnly = /^\d{4}-\d{2}-\d{2}$/;
@@ -21,6 +22,7 @@ export function rangeFromSearch(search: { get: (key: string) => string | null })
 
 const presets = {
   all: "All time",
+  today: "Today",
   week: "This week",
   month: "This month",
   last30: "Last 30 days",
@@ -34,6 +36,8 @@ function rangeFor(preset: Preset): DateRange {
   const now = new Date();
   const start = new Date(now);
   switch (preset) {
+    case "today":
+      return { from: toDateOnly(now), to: toDateOnly(now) };
     case "week":
       start.setDate(now.getDate() - ((now.getDay() + 6) % 7));
       return { from: toDateOnly(start) };
@@ -49,13 +53,26 @@ function rangeFor(preset: Preset): DateRange {
   }
 }
 
+function sameRange(range: DateRange, next: DateRange) {
+  return range.from === next.from && range.to === next.to;
+}
+
 function presetFor(range: DateRange): Preset {
   if (!range.from && !range.to) return "all";
-  if (range.to) return "custom";
   const match = (Object.keys(presets) as Preset[]).find(
-    (key) => key !== "custom" && key !== "all" && rangeFor(key).from === range.from,
+    (key) => key !== "custom" && key !== "all" && sameRange(range, rangeFor(key)),
   );
   return match ?? "custom";
+}
+
+export function rangeLabel(range: DateRange) {
+  const preset = presetFor(range);
+  if (preset !== "custom") return presets[preset];
+  if (range.from && range.to && range.from === range.to) return formatDate(range.from);
+  if (range.from && range.to) return `${formatDate(range.from)} – ${formatDate(range.to)}`;
+  if (range.from) return `Since ${formatDate(range.from)}`;
+  if (range.to) return `Through ${formatDate(range.to)}`;
+  return presets.custom;
 }
 
 export function useUrlParams(params: Record<string, string | undefined>) {
@@ -77,23 +94,26 @@ export function useUrlParams(params: Record<string, string | undefined>) {
 export function DateRangeFilter({
   range,
   params = {},
+  stacked = false,
 }: {
   range: DateRange;
   params?: Record<string, string | undefined>;
+  /** Stack the preset and dates until the filter itself is wide enough for one row. */
+  stacked?: boolean;
 }) {
   const { update, pending } = useUrlParams({ ...params, from: range.from, to: range.to });
   const preset = presetFor(range);
-
-  return (
-    <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-      <div className="flex items-center gap-2">
+  const fields = (
+    <>
+      <div className={cn("flex min-w-0 items-center gap-2", stacked && "@min-[32rem]:w-40")}>
         {pending ? (
           <Loader2Icon className="size-4 shrink-0 animate-spin text-muted-foreground" />
         ) : (
           <CalendarRangeIcon className="size-4 shrink-0 text-muted-foreground" />
         )}
         <SelectField
-          className="sm:w-40"
+          aria-label="Date range"
+          className={cn("w-full", !stacked && "sm:w-40")}
           value={preset}
           onValueChange={(value) => {
             if (value === "custom") return;
@@ -103,14 +123,14 @@ export function DateRangeFilter({
           options={(Object.keys(presets) as Preset[]).map((key) => ({ value: key, label: presets[key] }))}
         />
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      <div className={cn("grid min-w-0 grid-cols-2 gap-2", stacked && "@min-[32rem]:w-fit")}>
         <Input
           type="date"
           aria-label="From"
           value={range.from ?? ""}
           max={range.to}
           onChange={(event) => update({ from: event.target.value || undefined })}
-          className="sm:w-38"
+          className={cn(stacked ? "@min-[32rem]:w-38" : "sm:w-38")}
         />
         <Input
           type="date"
@@ -118,9 +138,19 @@ export function DateRangeFilter({
           value={range.to ?? ""}
           min={range.from}
           onChange={(event) => update({ to: event.target.value || undefined })}
-          className="sm:w-38"
+          className={cn(stacked ? "@min-[32rem]:w-38" : "sm:w-38")}
         />
       </div>
-    </div>
+    </>
   );
+
+  if (stacked) {
+    return (
+      <div className="@container w-full">
+        <div className="flex w-full flex-col gap-2 @min-[32rem]:flex-row @min-[32rem]:items-center">{fields}</div>
+      </div>
+    );
+  }
+
+  return <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">{fields}</div>;
 }
