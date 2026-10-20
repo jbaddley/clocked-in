@@ -249,6 +249,78 @@ export function parseCreateTimeEntry(body: Body) {
   return parseCreate(body, null);
 }
 
+const maxBatchDays = 31;
+const dayTimeKeys = ["occurredOn", "startedAt", "endedAt", "durationMinutes"] as const;
+
+function dayTimes(value: unknown): Body {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    validation("entries must be a list of days.");
+  }
+
+  const day = value as Body;
+  const next: Body = {};
+  for (const key of dayTimeKeys) {
+    if (has(day, key)) {
+      next[key] = day[key];
+    }
+  }
+
+  return next;
+}
+
+export function parseCreateTimeEntries(body: Body): CreateTimeEntryRequest[] {
+  if (!has(body, "entries") || !Array.isArray(body.entries)) {
+    validation("entries must be a list of days.");
+  }
+
+  const days = body.entries;
+  if (days.length < 1) {
+    validation("entries must include at least one day.");
+  }
+
+  if (days.length > maxBatchDays) {
+    validation("You can save up to 31 days at once.");
+  }
+
+  if (has(body, "sourceRef") && body.sourceRef != null && body.sourceRef !== "") {
+    validation("sourceRef cannot be set when saving multiple days.");
+  }
+
+  const mode = requireString(body, "mode");
+  if (mode !== "Duration" && mode !== "Total") {
+    validation("A batch can only save duration or total time.");
+  }
+
+  const shared: Body = { ...body };
+  delete shared.entries;
+  for (const key of dayTimeKeys) {
+    delete shared[key];
+  }
+
+  const parsed = days.map((day) => parseCreate({ ...shared, ...dayTimes(day) }, null));
+  const durationMinutes = parsed[0].times!.durationMinutes;
+  if (parsed.some((item) => item.times!.durationMinutes !== durationMinutes)) {
+    validation("Each day must use the same duration.");
+  }
+
+  const started = parsed.filter((item) => item.times!.startedAt !== null).length;
+  if (started !== 0 && started !== parsed.length) {
+    validation("Each day must use the same start time.");
+  }
+
+  const ended = parsed.filter((item) => item.times!.endedAt !== null).length;
+  if (ended !== 0 && ended !== parsed.length) {
+    validation("Each day must use the same end time.");
+  }
+
+  const dates = parsed.map((item) => asDateOnly(item.times!.occurredOn));
+  if (new Set(dates).size !== dates.length) {
+    validation("Each day can only be saved once.");
+  }
+
+  return parsed;
+}
+
 export function parseLogDuration(body: Body) {
   return parseCreate(body, "Duration");
 }
@@ -548,6 +620,45 @@ export async function createTimeEntry(access: Access, userId: string, request: C
     });
   });
   return timeEntryJson(entry);
+}
+
+export async function createTimeEntries(access: Access, userId: string, requests: CreateTimeEntryRequest[]) {
+  if (requests.length === 0) {
+    validation("entries must include at least one day.");
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+  if (!user) {
+    notFound();
+  }
+
+  const first = requests[0];
+  const tagIds = await assertPlacementRules(access, userId, first.placement);
+  const resolved = await resolveHourlyRate(access, userId, first.placement.organizationId, first.hourlyRateId);
+  const created = await transaction(async (tx) => {
+    await lockUser(tx, userId);
+    const rows: EntryRow[] = [];
+    for (const request of requests) {
+      const times = request.times;
+      if (!times) {
+        validation("A batch can only save duration or total time.");
+      }
+
+      rows.push(
+        await tx.userTimeEntry.create({
+          data: {
+            ...newEntry(access, userId, request.placement, request.mode, resolved.id, resolved.rate, tagIds),
+            ...times,
+            inKindValue: inKindFromMinutes(times.durationMinutes, resolved.rate),
+          },
+          include: entryInclude,
+        }),
+      );
+    }
+
+    return rows;
+  });
+  return { items: created.map(timeEntryJson) };
 }
 
 export async function getTimeEntry(access: Access, entryId: string) {
