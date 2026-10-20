@@ -26,6 +26,7 @@ jobs:
           EF_DATABASE_URL: ${{ secrets.EF_DATABASE_URL }}
         run: |
           dotnet tool update --global dotnet-ef --version 10.*
+          dotnet restore ClockedIn.Api
           dotnet ef database update --project ClockedIn.Api
 
       - name: Publish

@@ -50,7 +50,13 @@ export async function loginAsAdmin(page: Page) {
   await page.locator("#username").fill("jbaddley");
   await page.locator("#password").fill(adminPassword());
   await page.getByRole("button", { name: "Sign in" }).click();
-  await page.waitForURL((url) => !url.pathname.startsWith("/login"));
+  const formError = page.locator("form").getByRole("alert").filter({ hasText: /.+/ });
+  await Promise.race([
+    page.waitForURL((url) => !url.pathname.startsWith("/login"), { waitUntil: "commit" }),
+    formError.waitFor({ state: "visible" }).then(async () => {
+      throw new Error((await formError.innerText()).trim());
+    }),
+  ]);
   const organization = await sessionOrganization(page.request);
   await page.context().addCookies([
     {

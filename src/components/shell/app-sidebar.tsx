@@ -33,11 +33,12 @@ const sections = [
     ],
   },
   { label: "Analyze", links: [{ href: "/reports", label: "Reports", icon: BarChart3Icon }] },
-  { label: "Manage", admin: true, links: [{ href: "/settings", label: "Settings", icon: SettingsIcon }] },
   {
-    label: "Product",
-    superAdmin: true,
-    links: [{ href: "/feedback", label: "Feedback", icon: MessageSquarePlusIcon }],
+    label: "Manage",
+    links: [
+      { href: "/settings", label: "Settings", icon: SettingsIcon, admin: true },
+      { href: "/feedback", label: "Feedback", icon: MessageSquarePlusIcon, superAdmin: true },
+    ],
   },
 ];
 
@@ -81,7 +82,11 @@ export function AppSidebar({
       </SidebarHeader>
       <SidebarContent className="py-2">
         {sections
-          .filter((section) => (!section.admin || isAdmin) && (!section.superAdmin || isSuperAdmin))
+          .map((section) => ({
+            ...section,
+            links: section.links.filter((link) => (!link.admin || isAdmin) && (!link.superAdmin || isSuperAdmin)),
+          }))
+          .filter((section) => section.links.length > 0)
           .map((section) => (
             <SidebarGroup key={section.label}>
               <SidebarGroupLabel className="text-[0.68rem] tracking-widest text-sidebar-foreground/60 uppercase">
