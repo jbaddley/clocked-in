@@ -28,7 +28,7 @@ export function MemberTimeView() {
             <CalendarClockIcon className="size-4 text-muted-foreground" />
             Add time for a member
           </CardTitle>
-          <CardDescription>Choose an active member, then add a start time and an end time or a duration.</CardDescription>
+          <CardDescription>Choose an active member, then add a start time and an end time or a duration. Add days to save that same entry on each one.</CardDescription>
         </CardHeader>
         <CardContent>
           {isPending ? (

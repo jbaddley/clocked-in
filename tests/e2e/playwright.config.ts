@@ -5,20 +5,21 @@ import { config } from "dotenv";
 const root = process.cwd();
 config({ path: path.join(root, ".env") });
 
-const prod = process.env.E2E_ENV?.toUpperCase() === "PROD";
-const baseURL = prod
-  ? process.env.E2E_BASE_URL || "https://clocked-in.baddley.us/"
-  : process.env.E2E_BASE_URL || "http://localhost:3025";
+const e2eEnv = process.env.E2E_ENV?.toUpperCase();
+const remote = e2eEnv === "PROD" || e2eEnv === "STAGING";
+const defaultRemoteUrl =
+  e2eEnv === "STAGING" ? "https://staging.clocked-in.baddley.us/" : "https://clocked-in.baddley.us/";
+const baseURL = remote ? process.env.E2E_BASE_URL || defaultRemoteUrl : process.env.E2E_BASE_URL || "http://localhost:3025";
 
 export default defineConfig({
   testDir: ".",
-  testIgnore: prod
-    ? ["**/caswj-hours.spec.ts", "**/add-person.spec.ts", "**/feedback.spec.ts"]
+  testIgnore: remote
+    ? ["**/caswj-hours.spec.ts", "**/add-person.spec.ts", "**/feedback.spec.ts", "**/multi-day-time.spec.ts"]
     : ["**/cache-bust.spec.ts"],
   fullyParallel: false,
   workers: 1,
-  timeout: prod ? 240_000 : 120_000,
-  expect: { timeout: prod ? 20_000 : 15_000 },
+  timeout: remote ? 240_000 : 120_000,
+  expect: { timeout: remote ? 20_000 : 15_000 },
   globalSetup: "./global-setup.ts",
   reporter: [["list"]],
   use: {
@@ -28,7 +29,7 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer:
-    !prod && process.env.E2E_WEB_SERVER === "1"
+    !remote && process.env.E2E_WEB_SERVER === "1"
       ? {
           command: "npm run dev",
           url: baseURL,

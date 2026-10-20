@@ -381,4 +381,180 @@ describe("time entries", suite, () => {
     assert.equal(fromDuration.json.durationMinutes, 30);
     assert.equal(fromDuration.json.endedAt, "2026-10-14T15:30:00.000Z");
   });
+
+  test("a batch records the same entry on each selected day", async () => {
+    const shared = {
+      mode: "Duration",
+      organizationId: ctx.org.id,
+      projectId: ctx.project.id,
+      taskCategoryId: ctx.category.id,
+      description: "Same shift",
+      tagIds: [ctx.tag.id],
+    };
+    const created = await createJson(ctx.member.accessToken, "/time/batch", {
+      ...shared,
+      entries: [
+        {
+          occurredOn: "2026-10-18",
+          durationMinutes: 60,
+          startedAt: "2026-10-18T15:00:00.000Z",
+          endedAt: "2026-10-18T16:00:00.000Z",
+        },
+        {
+          occurredOn: "2026-10-19",
+          durationMinutes: 60,
+          startedAt: "2026-10-19T15:00:00.000Z",
+          endedAt: "2026-10-19T16:00:00.000Z",
+        },
+      ],
+    });
+    assert.deepEqual(Object.keys(created).sort(), ["items"]);
+    assert.equal(created.items.length, 2);
+    for (const [index, day] of ["2026-10-18", "2026-10-19"].entries()) {
+      assertTimeEntry(created.items[index], {
+        userId: ctx.member.user.id,
+        enteredByUserId: ctx.member.user.id,
+        organizationId: ctx.org.id,
+        projectId: ctx.project.id,
+        taskCategoryId: ctx.category.id,
+        mode: "Duration",
+        durationMinutes: 60,
+        inKindValue: inKind(60),
+      });
+      assert.equal(created.items[index].occurredOn, day);
+      assert.equal(created.items[index].description, "Same shift");
+      assert.deepEqual(created.items[index].tagIds, [ctx.tag.id]);
+      assert.equal(created.items[index].sourceRef, null);
+      assert.equal(created.items[index].startedAt, `${day}T15:00:00.000Z`);
+      assert.equal(created.items[index].endedAt, `${day}T16:00:00.000Z`);
+    }
+
+    const duplicate = await callApi("/time/batch", {
+      method: "POST",
+      token: ctx.member.accessToken,
+      body: {
+        ...shared,
+        entries: [
+          { occurredOn: "2026-10-20", durationMinutes: 60 },
+          { occurredOn: "2026-10-20", durationMinutes: 60 },
+        ],
+      },
+    });
+    const mismatch = await callApi("/time/batch", {
+      method: "POST",
+      token: ctx.member.accessToken,
+      body: {
+        ...shared,
+        entries: [
+          { occurredOn: "2026-10-20", durationMinutes: 60 },
+          { occurredOn: "2026-10-21", durationMinutes: 30 },
+        ],
+      },
+    });
+    const sourced = await callApi("/time/batch", {
+      method: "POST",
+      token: ctx.member.accessToken,
+      body: {
+        ...shared,
+        sourceRef: label("batch"),
+        entries: [
+          { occurredOn: "2026-10-20", durationMinutes: 60 },
+          { occurredOn: "2026-10-21", durationMinutes: 60 },
+        ],
+      },
+    });
+    const empty = await callApi("/time/batch", {
+      method: "POST",
+      token: ctx.member.accessToken,
+      body: { ...shared, entries: [] },
+    });
+    const tooMany = await callApi("/time/batch", {
+      method: "POST",
+      token: ctx.member.accessToken,
+      body: {
+        ...shared,
+        entries: Array.from({ length: 32 }, (_, index) => ({
+          occurredOn: `2026-09-${String(index + 1).padStart(2, "0")}`,
+          durationMinutes: 60,
+        })),
+      },
+    });
+    const punch = await callApi("/time/batch", {
+      method: "POST",
+      token: ctx.member.accessToken,
+      body: { ...shared, mode: "Punch", entries: [{ occurredOn: "2026-10-20", durationMinutes: 60 }] },
+    });
+    const listedBefore = await callApi(`/users/${ctx.member.user.id}/time-entries`, {
+      token: ctx.member.accessToken,
+      query: { organizationId: ctx.org.id, from: "2026-10-18", to: "2026-10-21" },
+    });
+    const partial = await callApi("/time/batch", {
+      method: "POST",
+      token: ctx.member.accessToken,
+      body: {
+        ...shared,
+        entries: [
+          {
+            occurredOn: "2026-10-21",
+            durationMinutes: 60,
+            startedAt: "2026-10-21T15:00:00.000Z",
+            endedAt: "2026-10-21T16:00:00.000Z",
+          },
+          {
+            occurredOn: "2026-10-22",
+            durationMinutes: 60,
+            startedAt: "2026-10-22T16:00:00.000Z",
+            endedAt: "2026-10-22T15:00:00.000Z",
+          },
+        ],
+      },
+    });
+    const listedAfter = await callApi(`/users/${ctx.member.user.id}/time-entries`, {
+      token: ctx.member.accessToken,
+      query: { organizationId: ctx.org.id, from: "2026-10-18", to: "2026-10-22" },
+    });
+    assertError(duplicate, 400, "validation_error", "Each day can only be saved once.");
+    assertError(mismatch, 400, "validation_error", "Each day must use the same duration.");
+    assertError(sourced, 400, "validation_error", "sourceRef cannot be set when saving multiple days.");
+    assertError(empty, 400, "validation_error", "entries must include at least one day.");
+    assertError(tooMany, 400, "validation_error", "You can save up to 31 days at once.");
+    assertError(punch, 400, "validation_error", "A batch can only save duration or total time.");
+    assertError(partial, 400, "validation_error", "endedAt must be after startedAt.");
+    assert.equal(
+      listedAfter.json.items.filter((item) => item.description === "Same shift").length,
+      listedBefore.json.items.filter((item) => item.description === "Same shift").length,
+    );
+
+    const unauthenticated = await callApi("/time/batch", { method: "POST", body: {} });
+    assertError(unauthenticated, 401, "unauthorized", "Authentication is required.");
+    const forbidden = await callApi(`/users/${ctx.admin.user.id}/time-entries/batch`, {
+      method: "POST",
+      token: ctx.member.accessToken,
+      body: {
+        ...shared,
+        entries: [
+          { occurredOn: "2026-10-23", durationMinutes: 45 },
+          { occurredOn: "2026-10-24", durationMinutes: 45 },
+        ],
+      },
+    });
+    assertError(forbidden, 403, "forbidden", "Forbidden.");
+    const forMember = await createJson(ctx.admin.accessToken, `/users/${ctx.member.user.id}/time-entries/batch`, {
+      ...shared,
+      description: "Admin batch",
+      entries: [
+        { occurredOn: "2026-10-23", durationMinutes: 45 },
+        { occurredOn: "2026-10-24", durationMinutes: 45 },
+      ],
+    });
+    assert.equal(forMember.items.length, 2);
+    assert.equal(forMember.items[0].userId, ctx.member.user.id);
+    assert.equal(forMember.items[0].enteredByUserId, ctx.admin.user.id);
+    assert.equal(forMember.items[0].durationMinutes, 45);
+    assert.equal(forMember.items[1].durationMinutes, 45);
+    assert.equal(forMember.items[0].occurredOn, "2026-10-23");
+    assert.equal(forMember.items[1].occurredOn, "2026-10-24");
+    assert.equal(forMember.items[0].description, "Admin batch");
+    assert.equal(forMember.items[1].description, "Admin batch");
+  });
 });

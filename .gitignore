@@ -50,3 +50,7 @@ next-env.d.ts
 **/obj/
 
 /src/generated/prisma
+
+# feature workflow (local only)
+.workflows/
+.worktrees/

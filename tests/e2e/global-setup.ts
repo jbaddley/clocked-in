@@ -10,7 +10,8 @@ export default function globalSetup() {
     throw new Error("SEED_SUPERADMIN_PASSWORD is required.");
   }
 
-  if (process.env.E2E_ENV?.toUpperCase() === "PROD" || process.env.E2E_SKIP_SEED === "1") {
+  const e2eEnv = process.env.E2E_ENV?.toUpperCase();
+  if (e2eEnv === "PROD" || e2eEnv === "STAGING" || process.env.E2E_SKIP_SEED === "1") {
     return;
   }
 

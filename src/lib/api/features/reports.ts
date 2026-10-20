@@ -310,8 +310,9 @@ async function forCaller(access: Access, organizationId: string, filter: Filter)
 }
 
 export async function report(access: Access, organizationId: string, params: URLSearchParams) {
+  const parsed = parseFilter(params);
   await access.requireOrganization(organizationId, false);
-  const filter = await forCaller(access, organizationId, parseFilter(params));
+  const filter = await forCaller(access, organizationId, parsed);
   return {
     user: await userRollup(organizationId, filter),
     collective: await collectiveRollup(organizationId, filter),
