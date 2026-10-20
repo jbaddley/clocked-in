@@ -201,9 +201,10 @@ export async function updateUser(access: Access, userId: string, request: Update
       include: accountInclude,
     });
     if (request.password.set) {
+      const now = new Date();
       await tx.refreshToken.updateMany({
-        where: { userId: user.id, revokedAt: null },
-        data: { revokedAt: new Date() },
+        where: { userId: user.id, expiresAt: { gt: now } },
+        data: { revokedAt: now, expiresAt: now },
       });
     }
 

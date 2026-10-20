@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { refresh } from "@/lib/api/features/auth";
 import { accessCookie, refreshCookie, verifyAccessToken } from "@/lib/api/security";
 import { csharpApiUrl, forwardToCsharp, isCsharpApiPath } from "@/lib/server/csharp-api";
-import { eraseSession, writeSession, type IssuedSession } from "@/lib/server/session-cookies";
+import { writeSession, type IssuedSession } from "@/lib/server/session-cookies";
 
 const protectedPrefixes = [
   "/dashboard",
@@ -17,8 +17,9 @@ const protectedPrefixes = [
 ];
 const guestOnly = ["/login", "/signup"];
 
-// Parallel requests often carry the same expired token; share one rotation so the
-// second request does not present an already-revoked refresh token.
+// Parallel requests on one instance share a rotation. Other instances rely on the
+// refresh overlap window. A failed refresh leaves cookies alone so a slower
+// response cannot delete the session a faster response just stored.
 const inflight = new Map<string, { at: number; session: Promise<IssuedSession | null> }>();
 
 function rotate(refreshToken: string) {
@@ -88,12 +89,10 @@ export async function proxy(request: NextRequest) {
   const refreshToken = request.cookies.get(refreshCookie)?.value;
   let signedIn = Boolean(accessToken && (await verifyAccessToken(accessToken)));
   let issued: IssuedSession | null = null;
-  let expired = false;
 
   if (!signedIn && refreshToken) {
     issued = await rotate(refreshToken);
     signedIn = issued !== null;
-    expired = issued === null;
   }
 
   let response: NextResponse;
@@ -115,8 +114,6 @@ export async function proxy(request: NextRequest) {
 
   if (issued) {
     writeSession(response.cookies, issued);
-  } else if (expired) {
-    eraseSession(response.cookies);
   }
 
   if (csharp && isCsharpApiPath(request.nextUrl.pathname, request)) {
@@ -124,8 +121,6 @@ export async function proxy(request: NextRequest) {
     const forwarded = await forwardToCsharp(request, csharp, token);
     if (issued) {
       writeSession(forwarded.cookies, issued);
-    } else if (expired) {
-      eraseSession(forwarded.cookies);
     }
 
     return forwarded;

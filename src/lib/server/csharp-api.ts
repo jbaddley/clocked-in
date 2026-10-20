@@ -28,6 +28,12 @@ export function isCsharpApiPath(pathname: string, request?: NextRequest) {
     return false;
   }
 
+  // The web app reads departments, projects, categories, tags, and rates together.
+  // Keep that on Next so one request is not forwarded as five API calls.
+  if (/^\/organizations\/[^/]+\/lookups$/.test(pathname)) {
+    return false;
+  }
+
   if (request && isHtmlDocument(request) && (pathname === "/feedback" || pathname.startsWith("/feedback/"))) {
     return false;
   }

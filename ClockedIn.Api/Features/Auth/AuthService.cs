@@ -62,12 +62,20 @@ public sealed class AuthService(
         var hash = Codes.Hash(request.RefreshToken);
         var now = time.UtcNow();
         await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
-        var revoked = await db.RefreshTokens
+        var claimed = await db.RefreshTokens
             .Where(token => token.TokenHash == hash && token.RevokedAt == null && token.ExpiresAt > now)
             .ExecuteUpdateAsync(setters => setters.SetProperty(token => token.RevokedAt, now), cancellationToken);
-        if (revoked == 0)
+        if (claimed == 0)
         {
-            throw ApiException.Unauthorized();
+            var existing = await db.RefreshTokens.AsNoTracking()
+                .FirstOrDefaultAsync(token => token.TokenHash == hash, cancellationToken);
+            var reusable = existing is { RevokedAt: DateTime revokedAt }
+                && existing.ExpiresAt > now
+                && now - revokedAt <= Codes.RefreshReuse;
+            if (!reusable)
+            {
+                throw ApiException.Unauthorized();
+            }
         }
 
         var user = await db.UsersWithProfile().FirstAsync(item => item.RefreshTokens.Any(token => token.TokenHash == hash), cancellationToken);
@@ -81,8 +89,12 @@ public sealed class AuthService(
         var hash = Codes.Hash(request.RefreshToken);
         var now = time.UtcNow();
         await db.RefreshTokens
-            .Where(token => token.TokenHash == hash && token.UserId == callerId && token.RevokedAt == null)
-            .ExecuteUpdateAsync(setters => setters.SetProperty(token => token.RevokedAt, now), cancellationToken);
+            .Where(token => token.TokenHash == hash && token.UserId == callerId && token.ExpiresAt > now)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(token => token.RevokedAt, now)
+                    .SetProperty(token => token.ExpiresAt, now),
+                cancellationToken);
     }
 
     public async Task RequestPasswordReset(string? emailValue, CancellationToken cancellationToken)
@@ -176,8 +188,12 @@ public sealed class AuthService(
         user.MustChangePassword = false;
         reset.UsedAt = now;
         await db.RefreshTokens
-            .Where(token => token.UserId == user.Id && token.RevokedAt == null)
-            .ExecuteUpdateAsync(setters => setters.SetProperty(token => token.RevokedAt, now), cancellationToken);
+            .Where(token => token.UserId == user.Id && token.ExpiresAt > now)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(token => token.RevokedAt, now)
+                    .SetProperty(token => token.ExpiresAt, now),
+                cancellationToken);
         await db.SaveOrThrowAsync(cancellationToken);
         await tx.CommitAsync(cancellationToken);
     }

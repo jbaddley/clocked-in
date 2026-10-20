@@ -8,9 +8,7 @@ import { listOrgMemberships } from "@/lib/api/features/memberships";
 import { listOrganizations } from "@/lib/api/features/organizations";
 import { listProjects } from "@/lib/api/features/projects";
 import { report } from "@/lib/api/features/reports";
-import { listHourlyRates } from "@/lib/api/features/hourly-rates";
-import { listTags } from "@/lib/api/features/tags";
-import { listTaskCategories } from "@/lib/api/features/task-categories";
+import { loadLookups } from "@/lib/api/features/lookups";
 import { listTimeEntries } from "@/lib/api/features/time-entries";
 import { organizationCookie } from "@/lib/server/session-cookies";
 import { getAccess, requireAccess } from "@/lib/server/session";
@@ -83,24 +81,9 @@ export const getCurrentOrganization = cache(async () => {
   return organizations.items.find((item) => item.id === stored) ?? organizations.items[0] ?? null;
 });
 
-export const getLookups = cache(async (organizationId: string): Promise<Lookups> => {
-  const access = await requireAccess();
-  const params = searchParamsFor({ limit: 100 });
-  const [departments, projects, categories, tags, hourlyRates] = await Promise.all([
-    listDepartments(access, organizationId, params),
-    listProjects(access, organizationId, params),
-    listTaskCategories(access, organizationId, params),
-    listTags(access, organizationId, params),
-    listHourlyRates(access, organizationId, params),
-  ]);
-  return {
-    departments: departments.items,
-    projects: projects.items,
-    categories: categories.items,
-    tags: tags.items,
-    hourlyRates: hourlyRates.items,
-  };
-});
+export const getLookups = cache(async (organizationId: string): Promise<Lookups> =>
+  loadLookups(await requireAccess(), organizationId),
+);
 
 export const getMembers = cache(async (organizationId: string) => {
   const access = await requireAccess();

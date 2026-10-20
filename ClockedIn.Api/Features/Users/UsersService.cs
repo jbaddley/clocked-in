@@ -128,8 +128,12 @@ public sealed class UsersService(ClockedInDbContext db, Access access, TimeProvi
         {
             var now = time.UtcNow();
             await db.RefreshTokens
-                .Where(token => token.UserId == user.Id && token.RevokedAt == null)
-                .ExecuteUpdateAsync(setters => setters.SetProperty(token => token.RevokedAt, now), cancellationToken);
+                .Where(token => token.UserId == user.Id && token.ExpiresAt > now)
+                .ExecuteUpdateAsync(
+                    setters => setters
+                        .SetProperty(token => token.RevokedAt, now)
+                        .SetProperty(token => token.ExpiresAt, now),
+                    cancellationToken);
         }
 
         await db.SaveOrThrowAsync(cancellationToken);

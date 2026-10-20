@@ -6,6 +6,7 @@ import {
   MessageSquarePlusIcon,
   SettingsIcon,
   TimerIcon,
+  type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { NavLink } from "@/components/shell/nav-link";
@@ -23,7 +24,15 @@ import {
 import { brandAssetSrc, wordmarkSrc } from "@/lib/brand";
 import type { Organization } from "@/lib/types";
 
-const sections = [
+type NavItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  admin?: boolean;
+  superAdmin?: boolean;
+};
+
+const sections: { label: string; links: NavItem[] }[] = [
   {
     label: "Track",
     links: [

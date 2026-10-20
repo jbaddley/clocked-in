@@ -25,6 +25,7 @@ public static class Codes
 {
     public static readonly TimeSpan AccessLifetime = TimeSpan.FromMinutes(15);
     public static readonly TimeSpan RefreshLifetime = TimeSpan.FromDays(30);
+    public static readonly TimeSpan RefreshReuse = TimeSpan.FromMinutes(2);
     public static readonly TimeSpan ResetLifetime = TimeSpan.FromMinutes(15);
     public static readonly TimeSpan ResetCooldown = TimeSpan.FromSeconds(60);
     public static readonly TimeSpan InviteLifetime = TimeSpan.FromDays(7);

@@ -21,6 +21,7 @@ import {
   hashCode,
   hashPassword,
   randomCode,
+  refreshReuseMs,
   refreshTokenMs,
   resetCodeMs,
   resetCooldownMs,
@@ -137,26 +138,33 @@ export async function refresh(request: RefreshTokenRequest) {
   const tokenHash = hashCode(request.refreshToken);
   return transaction(async (tx) => {
     const now = new Date();
-    const revoked = await tx.refreshToken.updateMany({
+    const claimed = await tx.refreshToken.updateMany({
       where: { tokenHash, revokedAt: null, expiresAt: { gt: now } },
       data: { revokedAt: now },
     });
-    if (revoked.count === 0) {
-      unauthorized();
-    }
-
-    const token = await tx.refreshToken.findUniqueOrThrow({
+    const token = await tx.refreshToken.findUnique({
       where: { tokenHash },
       include: { user: { include: accountInclude } },
     });
+    if (!token || token.expiresAt <= now) {
+      unauthorized();
+    }
+
+    const rotatedRecently =
+      token.revokedAt !== null && now.getTime() - token.revokedAt.getTime() <= refreshReuseMs;
+    if (claimed.count === 0 && !rotatedRecently) {
+      unauthorized();
+    }
+
     return issueSession(token.user, tx);
   });
 }
 
 export async function logOut(access: Access, request: RefreshTokenRequest) {
+  const now = new Date();
   await prisma.refreshToken.updateMany({
-    where: { tokenHash: hashCode(request.refreshToken), userId: access.caller.id, revokedAt: null },
-    data: { revokedAt: new Date() },
+    where: { tokenHash: hashCode(request.refreshToken), userId: access.caller.id, expiresAt: { gt: now } },
+    data: { revokedAt: now, expiresAt: now },
   });
   return { ok: true };
 }
@@ -231,7 +239,10 @@ export async function confirmPasswordReset(request: ConfirmPasswordResetRequest)
     const now = new Date();
     await tx.user.update({ where: { id: user.id }, data: { passwordHash, mustChangePassword: false } });
     await tx.passwordResetCode.update({ where: { id: reset.id }, data: { usedAt: now } });
-    await tx.refreshToken.updateMany({ where: { userId: user.id, revokedAt: null }, data: { revokedAt: now } });
+    await tx.refreshToken.updateMany({
+      where: { userId: user.id, expiresAt: { gt: now } },
+      data: { revokedAt: now, expiresAt: now },
+    });
   });
   return { ok: true };
 }

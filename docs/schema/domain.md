@@ -433,8 +433,8 @@ Stores a hash of the refresh token so a backend can end a session. Access tokens
 | id | yes | UUID primary key |
 | userId | yes | Foreign key to User |
 | tokenHash | yes | Unique hash of the refresh token |
-| expiresAt | yes | |
-| revokedAt | no | Set when the session is ended |
+| expiresAt | yes | Rejected after this time. Logout, password change, and password reset pull it forward to now |
+| revokedAt | no | Set when the token is rotated or the session is ended. A rotated token can be presented again for 2 minutes while expiresAt is still in the future |
 
 ### Invitation
 

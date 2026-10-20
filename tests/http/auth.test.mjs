@@ -104,23 +104,27 @@ describe("auth / log in", suite, () => {
 });
 
 describe("auth / refresh", suite, () => {
-  test("rotates the refresh token", async () => {
+  test("rotates the refresh token and keeps overlapping uses signed in", async () => {
     const person = await signUp("refresh");
-    const response = await callApi("/auth/refresh", {
-      method: "POST",
-      body: { refreshToken: person.refreshToken },
-    });
-    assert.equal(response.status, 200);
-    assertSession(response.json, person);
-    assert.notEqual(response.json.refreshToken, person.refreshToken);
+    const [first, second] = await Promise.all([
+      callApi("/auth/refresh", { method: "POST", body: { refreshToken: person.refreshToken } }),
+      callApi("/auth/refresh", { method: "POST", body: { refreshToken: person.refreshToken } }),
+    ]);
+    assert.equal(first.status, 200);
+    assert.equal(second.status, 200);
+    assertSession(first.json, person);
+    assertSession(second.json, person);
+    assert.notEqual(first.json.refreshToken, person.refreshToken);
+    assert.notEqual(second.json.refreshToken, person.refreshToken);
     const reused = await callApi("/auth/refresh", {
       method: "POST",
       body: { refreshToken: person.refreshToken },
     });
-    assertError(reused, 401, "unauthorized", "Authentication is required.");
+    assert.equal(reused.status, 200);
+    assertSession(reused.json, person);
     const again = await callApi("/auth/refresh", {
       method: "POST",
-      body: { refreshToken: response.json.refreshToken },
+      body: { refreshToken: first.json.refreshToken },
     });
     assert.equal(again.status, 200);
   });

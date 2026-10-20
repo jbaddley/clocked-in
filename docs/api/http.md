@@ -56,7 +56,7 @@ Conflict messages:
 
 Access tokens last 15 minutes and are HS256 JWTs. Claims are `sub` (user id), `email`, `username`, and `isSuperAdmin`. Issuer, audience, and signing key come from `JWT_ISSUER`, `JWT_AUDIENCE`, and `JWT_SIGNING_KEY`. Send `Authorization: Bearer <accessToken>`.
 
-Refresh tokens last 30 days. Only their hash is stored. Refresh rotates the refresh token. Logout and password changes revoke refresh tokens.
+Refresh tokens last 30 days. Only their hash is stored. Refresh rotates the refresh token. A second use of that same token within 2 minutes also returns a session, so overlapping requests keep the user signed in. After 2 minutes the old token is rejected. Logout and password changes reject the token immediately.
 
 `POST /auth/user` (201) creates a user and profile and signs them in. `isSuperAdmin` cannot be set here.
 
@@ -81,7 +81,7 @@ Both return:
 
 `expiresAt` is when the access token expires. `user` is the user object below.
 
-`POST /auth/refresh` (200) body `{ "refreshToken": "" }` returns a new pair. Each refresh token works once. When two requests use the same token at the same time, one succeeds and the other returns 401.
+`POST /auth/refresh` (200) body `{ "refreshToken": "" }` returns a new pair. The first use rotates the token. Another use within 2 minutes also returns a new pair. After that, or after logout or a password change, reuse returns 401.
 
 `POST /auth/logout` (200) requires auth. Body `{ "refreshToken": "" }`. Returns `{ "ok": true }`.
 

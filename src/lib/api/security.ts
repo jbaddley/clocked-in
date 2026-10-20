@@ -5,6 +5,9 @@ import { fail } from "@/lib/api/errors";
 
 const accessTokenMs = 15 * 60 * 1000;
 export const refreshTokenMs = 30 * 24 * 60 * 60 * 1000;
+// Parallel requests after the access cookie expires present the same refresh token.
+// The first use rotates it. Later uses inside this window still sign in.
+export const refreshReuseMs = 2 * 60 * 1000;
 export const resetCodeMs = 15 * 60 * 1000;
 export const resetCooldownMs = 60 * 1000;
 export const inviteMs = 7 * 24 * 60 * 60 * 1000;
