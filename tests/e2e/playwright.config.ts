@@ -20,7 +20,7 @@ export default defineConfig({
   testIgnore: prod ? [] : staging ? localSeedOnly : ["**/cache-bust.spec.ts"],
   fullyParallel: false,
   workers: 1,
-  timeout: remote ? 240_000 : 120_000,
+  timeout: remote ? 480_000 : 120_000,
   expect: { timeout: remote ? 20_000 : 15_000 },
   globalSetup: "./global-setup.ts",
   reporter: [["list"]],
