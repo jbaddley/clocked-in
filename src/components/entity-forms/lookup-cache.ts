@@ -1,5 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
-import { lookupsQuery } from "@/lib/queries";
+import { keys } from "@/lib/queries";
 import type { Lookups, Project } from "@/lib/types";
 
 export type NamedEntity = { id: string; name: string };
@@ -17,7 +17,9 @@ export function savedProject(value: unknown): value is Project {
 }
 
 export function rememberLookup(queryClient: QueryClient, organizationId: string, update: (current: Lookups) => Lookups) {
-  queryClient.setQueryData<Lookups>(lookupsQuery(organizationId).queryKey, (current) => (current ? update(current) : current));
+  queryClient.setQueriesData<Lookups>({ queryKey: keys.lookups(organizationId) }, (current) =>
+    current ? update(current) : current,
+  );
 }
 
 export function upsertNamed<T extends { id: string; name: string }>(items: T[], item: T) {

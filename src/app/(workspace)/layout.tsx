@@ -1,12 +1,9 @@
 import { cookies } from "next/headers";
 import { Suspense } from "react";
-import { Hydrate } from "@/components/hydrate";
 import { OrganizationGate } from "@/components/organization-gate";
 import { AppShell, ShellSkeleton } from "@/components/shell/app-shell";
 import { WorkspaceProvider } from "@/hooks/use-workspace";
-import { getQueryClient } from "@/lib/query-client";
 import { getWorkspace } from "@/lib/server/dal";
-import { prefetchOpenPunch } from "@/lib/server/prefetch";
 
 export default function WorkspaceLayout({ children }: LayoutProps<"/">) {
   return (
@@ -17,22 +14,18 @@ export default function WorkspaceLayout({ children }: LayoutProps<"/">) {
 }
 
 async function Workspace({ children }: { children: React.ReactNode }) {
-  const queryClient = getQueryClient();
   const [workspace, store] = await Promise.all([getWorkspace(), cookies()]);
-  await prefetchOpenPunch(queryClient, workspace.viewer.id);
 
   return (
     <WorkspaceProvider value={workspace}>
-      <Hydrate client={queryClient}>
-        <AppShell
-          organization={workspace.organization}
-          isAdmin={workspace.isAdmin}
-          isSuperAdmin={workspace.viewer.isSuperAdmin}
-          sidebarOpen={store.get("sidebar_state")?.value !== "false"}
-        >
-          <OrganizationGate>{children}</OrganizationGate>
-        </AppShell>
-      </Hydrate>
+      <AppShell
+        organization={workspace.organization}
+        isAdmin={workspace.isAdmin}
+        isSuperAdmin={workspace.viewer.isSuperAdmin}
+        sidebarOpen={store.get("sidebar_state")?.value !== "false"}
+      >
+        <OrganizationGate>{children}</OrganizationGate>
+      </AppShell>
     </WorkspaceProvider>
   );
 }

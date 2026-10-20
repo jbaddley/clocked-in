@@ -673,6 +673,67 @@ namespace ClockedIn.Api.Data.Migrations
                     b.ToTable("PasswordResetCode");
                 });
 
+            modelBuilder.Entity("ClockedIn.Api.Entities.PlatformApiKey", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("createdAt")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("createdByUserId");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expiresAt");
+
+                    b.Property<string>("KeyHash")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("keyHash");
+
+                    b.Property<DateTime?>("LastUsedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("lastUsedAt");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Prefix")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("prefix");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revokedAt");
+
+                    b.Property<string>("Scopes")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("scopes");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("KeyHash")
+                        .IsUnique();
+
+                    b.HasIndex("Prefix");
+
+                    b.ToTable("PlatformApiKey");
+                });
+
             modelBuilder.Entity("ClockedIn.Api.Entities.Project", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1678,6 +1739,17 @@ namespace ClockedIn.Api.Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("ClockedIn.Api.Entities.PlatformApiKey", b =>
+                {
+                    b.HasOne("ClockedIn.Api.Entities.User", "CreatedBy")
+                        .WithMany("PlatformApiKeysCreated")
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedBy");
+                });
+
             modelBuilder.Entity("ClockedIn.Api.Entities.Project", b =>
                 {
                     b.HasOne("ClockedIn.Api.Entities.Department", "Department")
@@ -1961,6 +2033,8 @@ namespace ClockedIn.Api.Data.Migrations
                     b.Navigation("OwnedProjects");
 
                     b.Navigation("PasswordResetCodes");
+
+                    b.Navigation("PlatformApiKeysCreated");
 
                     b.Navigation("Profile");
 

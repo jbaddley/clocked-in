@@ -2,7 +2,7 @@
 
 import { LogOutIcon, MailOpenIcon, UserRoundIcon } from "lucide-react";
 import Link from "next/link";
-import { logOutAction } from "@/app/actions/auth";
+import { signOut } from "@/lib/lookup-persistence";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -47,7 +47,7 @@ export function UserMenu() {
           Accept an invite
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" onClick={() => logOutAction()}>
+        <DropdownMenuItem variant="destructive" onClick={() => void signOut()}>
           <LogOutIcon />
           Sign out
         </DropdownMenuItem>

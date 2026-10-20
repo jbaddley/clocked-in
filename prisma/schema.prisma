@@ -28,6 +28,7 @@ model User {
   feedbackActionsTaken       FeedbackAction[]         @relation("FeedbackActionTakenBy")
   invitationsSent            Invitation[]             @relation("InvitationInvitedBy")
   organizationApiKeysCreated OrganizationApiKey[]
+  platformApiKeysCreated     PlatformApiKey[]
   organizationMemberships    OrganizationMembership[]
   passwordResetCodes         PasswordResetCode[]
   ownedProjects              Project[]                @relation("ProjectOwner")
@@ -449,6 +450,23 @@ model OrganizationApiKey {
   @@index([createdByUserId], map: "IX_OrganizationApiKey_createdByUserId")
   @@index([organizationId], map: "IX_OrganizationApiKey_organizationId")
   @@index([prefix], map: "IX_OrganizationApiKey_prefix")
+}
+
+model PlatformApiKey {
+  id              String    @id(map: "PK_PlatformApiKey") @db.Uuid
+  name            String
+  prefix          String
+  keyHash         String    @unique(map: "IX_PlatformApiKey_keyHash")
+  scopes          String
+  createdByUserId String    @db.Uuid
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+  lastUsedAt      DateTime? @db.Timestamptz(6)
+  expiresAt       DateTime? @db.Timestamptz(6)
+  revokedAt       DateTime? @db.Timestamptz(6)
+  createdBy       User      @relation(fields: [createdByUserId], references: [id], onUpdate: NoAction, map: "FK_PlatformApiKey_User_createdByUserId")
+
+  @@index([createdByUserId], map: "IX_PlatformApiKey_createdByUserId")
+  @@index([prefix], map: "IX_PlatformApiKey_prefix")
 }
 
 enum TimeEntryMode {

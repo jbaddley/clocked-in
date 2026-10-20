@@ -42,12 +42,12 @@ public sealed class OrganizationsService(ClockedInDbContext db, Access access, T
     {
         var page = query.Resolve();
         var organizations = db.Organizations.AsNoTracking().Include(organization => organization.Theme).AsQueryable();
-        if (access.IsApiKey)
+        if (access.IsApiKey && !access.IsPlatformKey)
         {
             var allowed = await access.ActiveOrganizationIds(cancellationToken);
             organizations = organizations.Where(organization => allowed.Contains(organization.Id));
         }
-        else if (!access.IsSuperAdmin)
+        else if (!access.IsSuperAdmin && !access.IsPlatformKey)
         {
             var callerId = access.ActorUserId;
             organizations = organizations.Where(organization =>

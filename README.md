@@ -80,7 +80,7 @@ Give the web app a system-assigned managed identity and store secrets in Key Vau
 | --- | --- |
 | `EF_DATABASE_URL` | Postgres URL (`postgres://` or `postgresql://`) |
 | `JWT_SIGNING_KEY`, `JWT_ISSUER`, `JWT_AUDIENCE` | Same values as the Next.js app |
-| `API_KEY_PEPPER` | HMAC pepper for organization API keys (at least 32 characters) |
+| `API_KEY_PEPPER` | HMAC pepper for organization and platform API keys (at least 32 characters) |
 | `APP_URL` | Public site URL used in invite and reset emails |
 | `RESEND_API_KEY`, `EMAIL_FROM` | Outbound mail |
 | `GITHUB_TOKEN`, `GITHUB_REPO` | Optional. Create a GitHub issue for each feedback item (`owner/name`) |
@@ -120,4 +120,4 @@ Vercel sets `NODE_ENV=production` for both Production and Preview, so Next.js wo
 - **Production** — the values from `.env.production`: `APP_ENV=production`, `DATABASE_PROVIDER=postgresql`, `API_TARGET=next`, and the production `postgres://` or `postgresql://` `DATABASE_URL`.
 - **Preview** — the values from `.env.staging`: `APP_ENV=staging`, `DATABASE_PROVIDER=postgresql`, `API_TARGET=next`, and the staging Postgres URL. Preview is staging. A custom environment named `staging` is treated the same way.
 
-Once ClockedIn.Api is the public API and MCP host, set `CSHARP_API_URL` on Vercel to the App Service origin so the Next.js app is a BFF. Keep `JWT_SIGNING_KEY`, `JWT_ISSUER`, and `JWT_AUDIENCE` in sync. Organization API keys live only on ClockedIn.Api.
+Once ClockedIn.Api is the public API and MCP host, set `CSHARP_API_URL` on Vercel to the App Service origin so the Next.js app is a BFF. Keep `JWT_SIGNING_KEY`, `JWT_ISSUER`, and `JWT_AUDIENCE` in sync. Organization and platform API keys live only on ClockedIn.Api.

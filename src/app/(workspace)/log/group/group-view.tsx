@@ -38,14 +38,14 @@ export function GroupTimeView() {
   const { isAdmin, groupDepartments } = useWorkspace();
   const allowed = canLogGroupTime(groupDepartments);
   useClientRedirect(!allowed, "/log/own");
-  const { lookups } = useLookups();
+  const { lookups, isSuccess } = useLookups();
   const queryClient = useQueryClient();
   const { sessions, fetchNextPage, hasNextPage, isFetchingNextPage, isPending } = useGroupSessions();
   const [pendingEdit, setPendingEdit] = useState<GroupSession | null>(null);
   const [pendingDelete, setPendingDelete] = useState<GroupSession | null>(null);
   const departmentIds = groupDepartments === "all" ? undefined : groupDepartments;
-  const missingProject = lookups.projects.length === 0;
-  const missingCategory = lookups.categories.length === 0;
+  const missingProject = isSuccess && lookups.projects.length === 0;
+  const missingCategory = isSuccess && lookups.categories.length === 0;
   const sessionsKey = keys.groupSessions(organization.id);
 
   function canEdit(session: GroupSession) {

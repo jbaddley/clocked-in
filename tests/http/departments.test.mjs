@@ -81,6 +81,19 @@ describe("departments", suite, () => {
     assertError(duplicate, 409, "conflict", "That value is already in use.");
   });
 
+  test("returns departments, projects, categories, tags, and rates together", async () => {
+    const unauthenticated = await callApi(`/organizations/${ctx.org.id}/lookups`);
+    assertError(unauthenticated, 401, "unauthorized", "Authentication is required.");
+    const outsider = await callApi(`/organizations/${ctx.org.id}/lookups`, { token: ctx.outsider.accessToken });
+    assertError(outsider, 403, "forbidden", "Forbidden.");
+    const listed = await callApi(`/organizations/${ctx.org.id}/lookups`, { token: ctx.member.accessToken });
+    assert.equal(listed.status, 200);
+    assert.ok(listed.json.departments.some((item) => item.id === ctx.department.id));
+    for (const key of ["projects", "categories", "tags", "hourlyRates"]) {
+      assert.ok(Array.isArray(listed.json[key]), key);
+    }
+  });
+
   test("delete fails while time entries remain", async () => {
     const department = await createJson(ctx.admin.accessToken, `/organizations/${ctx.org.id}/departments`, {
       name: label("Busy department"),

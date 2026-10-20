@@ -13,12 +13,12 @@ import { SetupAlert } from "../setup-alert";
 export function MemberTimeView() {
   const { viewer, isAdmin } = useWorkspace();
   useClientRedirect(!isAdmin, "/log/own");
-  const { lookups } = useLookups();
+  const { lookups, isSuccess } = useLookups();
   const { members, isPending } = useMembers({ enabled: isAdmin });
   if (!isAdmin) return null;
   const eligible = selectableMembers(members, viewer.id, { excludeSelf: true, activeOnly: true });
-  const missingProject = lookups.projects.length === 0;
-  const missingCategory = lookups.categories.length === 0;
+  const missingProject = isSuccess && lookups.projects.length === 0;
+  const missingCategory = isSuccess && lookups.categories.length === 0;
 
   return (
     <div className="flex flex-col gap-6">

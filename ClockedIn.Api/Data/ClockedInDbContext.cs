@@ -28,6 +28,7 @@ public class ClockedInDbContext(DbContextOptions<ClockedInDbContext> options, Ti
     public DbSet<Feedback> Feedback => Set<Feedback>();
     public DbSet<FeedbackAction> FeedbackActions => Set<FeedbackAction>();
     public DbSet<OrganizationApiKey> OrganizationApiKeys => Set<OrganizationApiKey>();
+    public DbSet<PlatformApiKey> PlatformApiKeys => Set<PlatformApiKey>();
 
     public override int SaveChanges()
     {
@@ -469,6 +470,17 @@ public class ClockedInDbContext(DbContextOptions<ClockedInDbContext> options, Ti
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(key => key.CreatedBy)
                 .WithMany(user => user.OrganizationApiKeysCreated)
+                .HasForeignKey(key => key.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<PlatformApiKey>(entity =>
+        {
+            entity.Property(key => key.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.HasIndex(key => key.Prefix);
+            entity.HasIndex(key => key.KeyHash).IsUnique();
+            entity.HasOne(key => key.CreatedBy)
+                .WithMany(user => user.PlatformApiKeysCreated)
                 .HasForeignKey(key => key.CreatedByUserId)
                 .OnDelete(DeleteBehavior.Restrict);
         });

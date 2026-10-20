@@ -13,8 +13,11 @@ import {
 import { getEntries, getGroupSessions, getInvitations, getLookups, getMembers, getOpenPunch, getReport } from "@/lib/server/dal";
 import type { DateRange } from "@/lib/types";
 
-export function prefetchLookups(client: QueryClient, organizationId: string) {
-  return client.prefetchQuery({ ...lookupsQuery(organizationId), queryFn: () => getLookups(organizationId) });
+export function prefetchLookups(client: QueryClient, organizationId: string, userId: string) {
+  return client.prefetchQuery({
+    ...lookupsQuery(organizationId, userId),
+    queryFn: () => getLookups(organizationId),
+  });
 }
 
 export function prefetchMembers(client: QueryClient, organizationId: string) {

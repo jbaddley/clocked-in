@@ -362,6 +362,18 @@ Scopes:
 
 `PATCH /organizations/{id}/api-keys/{keyId}` updates `name`, `scopes`, or `expiresAt`. `POST .../rotate` issues a new secret and prefix. `DELETE` revokes. Clock-in and clock-out with a key require `userId`.
 
+## Platform API keys
+
+ClockedIn.Api also issues platform keys. Only a SuperAdmin JWT can create, list, rotate, or revoke them. A platform key is not a SuperAdmin user: it can read and administer every organization, but it cannot mint keys, create or delete organizations, list users, or moderate feedback.
+
+Scope:
+
+- `platform:admin` — any organization, with the same write and admin abilities as `org:admin`
+
+`GET/POST /platform/api-keys`. Body `{ "name", "scopes", "expiresAt" }`. `scopes` must be `["platform:admin"]`. Create returns the plaintext `key` once. List omits `key`.
+
+`PATCH /platform/api-keys/{keyId}` updates `name`, `scopes`, or `expiresAt`. `POST .../rotate` issues a new secret and prefix. `DELETE` revokes.
+
 MCP is Streamable HTTP at `/mcp` on ClockedIn.Api and on the Next.js app. Clients send the same Bearer key. Tools wrap the same feature services as REST, with the same names and arguments on both hosts. Auth, signup, password reset, SuperAdmin user list, feedback moderation, and deleting an organization are not exposed.
 
 ```json

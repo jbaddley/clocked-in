@@ -40,31 +40,62 @@ public sealed class ApiKeyAuthenticationHandler(
         }
 
         var now = time.GetUtcNow().UtcDateTime;
-        var keys = await db.OrganizationApiKeys.AsNoTracking()
+        var orgKeys = await db.OrganizationApiKeys.AsNoTracking()
             .Where(item => item.Prefix == prefix && item.RevokedAt == null)
             .ToListAsync(Context.RequestAborted);
-        var match = keys.FirstOrDefault(item => hasher.Matches(raw, item.KeyHash));
-        if (match is null)
+        var orgMatch = orgKeys.FirstOrDefault(item => hasher.Matches(raw, item.KeyHash));
+        if (orgMatch is not null)
+        {
+            return await Succeed(raw, now, orgMatch.Id, orgMatch.OrganizationId, orgMatch.CreatedByUserId, orgMatch.Scopes, orgMatch.ExpiresAt, lastUsed =>
+            {
+                orgMatch.LastUsedAt = lastUsed;
+                db.OrganizationApiKeys.Attach(orgMatch);
+                db.Entry(orgMatch).Property(item => item.LastUsedAt).IsModified = true;
+            });
+        }
+
+        var platformKeys = await db.PlatformApiKeys.AsNoTracking()
+            .Where(item => item.Prefix == prefix && item.RevokedAt == null)
+            .ToListAsync(Context.RequestAborted);
+        var platformMatch = platformKeys.FirstOrDefault(item => hasher.Matches(raw, item.KeyHash));
+        if (platformMatch is not null)
+        {
+            return await Succeed(raw, now, platformMatch.Id, null, platformMatch.CreatedByUserId, platformMatch.Scopes, platformMatch.ExpiresAt, lastUsed =>
+            {
+                platformMatch.LastUsedAt = lastUsed;
+                db.PlatformApiKeys.Attach(platformMatch);
+                db.Entry(platformMatch).Property(item => item.LastUsedAt).IsModified = true;
+            });
+        }
+
+        hasher.VerifyDummy(raw);
+        return AuthenticateResult.Fail("Authentication is required.");
+    }
+
+    private async Task<AuthenticateResult> Succeed(
+        string raw,
+        DateTime now,
+        Guid keyId,
+        Guid? organizationId,
+        Guid createdByUserId,
+        string scopes,
+        DateTime? expiresAt,
+        Action<DateTime> touch)
+    {
+        if (expiresAt is DateTime expired && expired <= now)
         {
             hasher.VerifyDummy(raw);
             return AuthenticateResult.Fail("Authentication is required.");
         }
 
-        if (match.ExpiresAt is DateTime expiresAt && expiresAt <= now)
-        {
-            return AuthenticateResult.Fail("Authentication is required.");
-        }
-
         current.Set(new OrgApiKeyPrincipal
         {
-            Id = match.Id,
-            OrganizationId = match.OrganizationId,
-            CreatedByUserId = match.CreatedByUserId,
-            Scopes = ApiKeyScopeList.Parse(match.Scopes),
+            Id = keyId,
+            OrganizationId = organizationId,
+            CreatedByUserId = createdByUserId,
+            Scopes = ApiKeyScopeList.Parse(scopes),
         });
-        match.LastUsedAt = now;
-        db.OrganizationApiKeys.Attach(match);
-        db.Entry(match).Property(item => item.LastUsedAt).IsModified = true;
+        touch(now);
         try
         {
             await db.SaveChangesAsync(Context.RequestAborted);
@@ -74,13 +105,17 @@ public sealed class ApiKeyAuthenticationHandler(
             Logger.LogWarning(exception, "Could not record API key last-used time.");
         }
 
-        var identity = new ClaimsIdentity(
-            [
-                new Claim("keyId", match.Id.ToString()),
-                new Claim("organizationId", match.OrganizationId.ToString()),
-            ],
-            Scheme.Name);
-        return AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), Scheme.Name));
+        var claims = new List<Claim> { new("keyId", keyId.ToString()) };
+        if (organizationId is Guid orgId)
+        {
+            claims.Add(new Claim("organizationId", orgId.ToString()));
+        }
+        else
+        {
+            claims.Add(new Claim("platform", "true"));
+        }
+
+        return AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(new ClaimsIdentity(claims, Scheme.Name)), Scheme.Name));
     }
 
     protected override async Task HandleChallengeAsync(AuthenticationProperties properties)

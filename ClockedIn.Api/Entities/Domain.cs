@@ -95,6 +95,7 @@ public class User
     public ICollection<Feedback> Feedback { get; set; } = [];
     public ICollection<FeedbackAction> FeedbackActionsTaken { get; set; } = [];
     public ICollection<OrganizationApiKey> OrganizationApiKeysCreated { get; set; } = [];
+    public ICollection<PlatformApiKey> PlatformApiKeysCreated { get; set; } = [];
 }
 
 public class UserProfile
@@ -399,6 +400,22 @@ public class OrganizationApiKey
     public DateTime? RevokedAt { get; set; }
 
     public Organization Organization { get; set; } = null!;
+    public User CreatedBy { get; set; } = null!;
+}
+
+public class PlatformApiKey
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = null!;
+    public string Prefix { get; set; } = null!;
+    public string KeyHash { get; set; } = null!;
+    public string Scopes { get; set; } = null!;
+    public Guid CreatedByUserId { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? LastUsedAt { get; set; }
+    public DateTime? ExpiresAt { get; set; }
+    public DateTime? RevokedAt { get; set; }
+
     public User CreatedBy { get; set; } = null!;
 }
 

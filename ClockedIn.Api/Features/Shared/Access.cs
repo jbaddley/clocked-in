@@ -13,6 +13,8 @@ public sealed class Access(ClockedInDbContext db, CurrentUser current)
 
     public bool IsApiKey => current.IsApiKey;
 
+    public bool IsPlatformKey => current.ApiKey?.IsPlatform == true;
+
     public bool IsSuperAdmin => current.IsSuperAdmin;
 
     public User Caller => current.User;
@@ -23,8 +25,19 @@ public sealed class Access(ClockedInDbContext db, CurrentUser current)
 
     public User RequireHuman() => current.UserOrNull ?? throw ApiException.Forbidden();
 
+    public User RequireSuperAdmin()
+    {
+        var user = RequireHuman();
+        if (!user.IsSuperAdmin)
+        {
+            throw ApiException.Forbidden();
+        }
+
+        return user;
+    }
+
     public bool CanWrite(Guid organizationId) =>
-        current.ApiKey is { } key && key.OrganizationId == organizationId && key.CanWrite;
+        current.ApiKey is { } key && key.CanWrite && (key.IsPlatform || key.OrganizationId == organizationId);
 
     public async Task<Organization> RequireOrganization(Guid organizationId, bool admin, CancellationToken cancellationToken)
     {
@@ -32,7 +45,7 @@ public sealed class Access(ClockedInDbContext db, CurrentUser current)
             .FirstOrDefaultAsync(item => item.Id == organizationId, cancellationToken) ?? throw ApiException.NotFound();
         if (current.ApiKey is { } key)
         {
-            if (key.OrganizationId != organizationId)
+            if (!key.IsPlatform && key.OrganizationId != organizationId)
             {
                 throw ApiException.Forbidden();
             }
@@ -98,7 +111,7 @@ public sealed class Access(ClockedInDbContext db, CurrentUser current)
     {
         if (current.ApiKey is { } key)
         {
-            return key.OrganizationId == organizationId && key.IsAdmin;
+            return key.IsAdmin && (key.IsPlatform || key.OrganizationId == organizationId);
         }
 
         var memberships = await Organizations(cancellationToken);
@@ -158,9 +171,15 @@ public sealed class Access(ClockedInDbContext db, CurrentUser current)
 
         if (current.ApiKey is { } key)
         {
+            if (key.IsPlatform)
+            {
+                return _organizations = await db.Organizations.AsNoTracking()
+                    .ToDictionaryAsync(organization => organization.Id, _ => new CallerOrganization(true, key.IsAdmin, false), cancellationToken);
+            }
+
             return _organizations = new Dictionary<Guid, CallerOrganization>
             {
-                [key.OrganizationId] = new(true, key.IsAdmin, false),
+                [key.OrganizationId!.Value] = new(true, key.IsAdmin, false),
             };
         }
 
@@ -184,8 +203,10 @@ public sealed class Access(ClockedInDbContext db, CurrentUser current)
 
         if (current.ApiKey is { } key)
         {
+            var platform = key.IsPlatform;
+            var organizationId = key.OrganizationId;
             return _departments = await db.Departments.AsNoTracking()
-                .Where(department => department.OrganizationId == key.OrganizationId)
+                .Where(department => platform || department.OrganizationId == organizationId)
                 .Select(department => new CallerDepartment(department.Id, department.OrganizationId, key.CanWrite))
                 .ToListAsync(cancellationToken);
         }

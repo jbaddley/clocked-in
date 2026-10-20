@@ -50,6 +50,10 @@ export function persistedLookupQuery(query: Query) {
 }
 
 export async function signOut() {
-  await lookupPersister.removeClient().catch(() => undefined);
+  try {
+    await lookupPersister.removeClient();
+  } catch {
+    // Ignore a missing or unreadable persisted cache.
+  }
   await logOutAction();
 }

@@ -123,9 +123,8 @@ export function TimeEntryForm({
         ? personId
         : (eligible[0]?.userId ?? "")
       : personId;
-  const [hourlyRateId, setHourlyRateId] = useState(
-    entry?.hourlyRateId ?? defaultVolunteerRateId(lookups.hourlyRates),
-  );
+  const [chosenRateId, setChosenRateId] = useState<string | null>(entry?.hourlyRateId ?? null);
+  const hourlyRateId = chosenRateId ?? defaultVolunteerRateId(lookups.hourlyRates);
   const [occurredOn, setOccurredOn] = useState(entry?.occurredOn ?? today());
   const [extraDates, setExtraDates] = useState<string[]>([]);
   const [hours, setHours] = useState(entry ? hoursFromMinutes(entry.durationMinutes) : "1");
@@ -367,7 +366,7 @@ export function TimeEntryForm({
             </Field>
           ) : null}
           {showRate ? (
-            <HourlyRateSelect value={hourlyRateId} onValueChange={setHourlyRateId} locked={!canSelectRate} />
+            <HourlyRateSelect value={hourlyRateId} onValueChange={setChosenRateId} locked={!canSelectRate} />
           ) : null}
         </div>
       ) : null}

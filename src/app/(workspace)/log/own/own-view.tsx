@@ -21,9 +21,9 @@ import { SetupAlert } from "../setup-alert";
 
 export function OwnTimeView({ range }: { range: DateRange }) {
   const { isAdmin } = useWorkspace();
-  const { lookups } = useLookups();
-  const missingProject = lookups.projects.length === 0;
-  const missingCategory = lookups.categories.length === 0;
+  const { lookups, isSuccess } = useLookups();
+  const missingProject = isSuccess && lookups.projects.length === 0;
+  const missingCategory = isSuccess && lookups.categories.length === 0;
 
   return (
     <div className="flex flex-col gap-6">

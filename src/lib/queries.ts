@@ -2,19 +2,14 @@ import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 import { fetchJson } from "@/lib/fetch-json";
 import type {
   DateRange,
-  Department,
   GroupSession,
-  HourlyRate,
   Lookups,
   Feedback,
   Invitation,
   Membership,
   OrganizationApiKey,
   Paged,
-  Project,
   Report,
-  Tag,
-  TaskCategory,
   Theme,
   TimeEntry,
 } from "@/lib/types";
@@ -48,26 +43,15 @@ export const keys = {
   feedback: (active?: boolean) => (active === undefined ? (["feedback"] as const) : (["feedback", active] as const)),
 };
 
-export function lookupsQuery(organizationId: string) {
+export const lookupStaleTime = 5 * 60 * 1000;
+export const lookupGcTime = 24 * 60 * 60 * 1000;
+
+export function lookupsQuery(organizationId: string, userId: string) {
   return queryOptions({
-    queryKey: keys.lookups(organizationId),
-    queryFn: async ({ signal }): Promise<Lookups> => {
-      const base = `/organizations/${organizationId}`;
-      const [departments, projects, categories, tags, hourlyRates] = await Promise.all([
-        fetchJson<Paged<Department>>(`${base}/departments?limit=100`, signal),
-        fetchJson<Paged<Project>>(`${base}/projects?limit=100`, signal),
-        fetchJson<Paged<TaskCategory>>(`${base}/task-categories?limit=100`, signal),
-        fetchJson<Paged<Tag>>(`${base}/tags?limit=100`, signal),
-        fetchJson<Paged<HourlyRate>>(`${base}/hourly-rates?limit=100`, signal),
-      ]);
-      return {
-        departments: departments.items,
-        projects: projects.items,
-        categories: categories.items,
-        tags: tags.items,
-        hourlyRates: hourlyRates.items,
-      };
-    },
+    queryKey: [...keys.lookups(organizationId), userId] as const,
+    staleTime: lookupStaleTime,
+    gcTime: lookupGcTime,
+    queryFn: ({ signal }) => fetchJson<Lookups>(`/organizations/${organizationId}/lookups`, signal),
   });
 }
 

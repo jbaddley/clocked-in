@@ -82,9 +82,8 @@ export function GroupSessionForm({
   const [end, setEnd] = useState(session ? localTime(session.endedAt, "12:00") : "12:00");
   const [participants, setParticipants] = useState(session ? String(session.participantCount) : "1");
   const [notes, setNotes] = useState(session?.description ?? "");
-  const [hourlyRateId, setHourlyRateId] = useState(
-    session?.hourlyRateId ?? defaultVolunteerRateId(lookups.hourlyRates),
-  );
+  const [chosenRateId, setChosenRateId] = useState<string | null>(session?.hourlyRateId ?? null);
+  const hourlyRateId = chosenRateId ?? defaultVolunteerRateId(lookups.hourlyRates);
   const [error, setError] = useState("");
 
   const create = useActionMutation((next: NewGroupSession) => createGroupSessionAction(next), {
@@ -197,7 +196,7 @@ export function GroupSessionForm({
         </Field>
         <PlacementFields state={placement} departmentIds={departmentIds} embedded />
       </div>
-      <HourlyRateSelect value={hourlyRateId} onValueChange={setHourlyRateId} />
+      <HourlyRateSelect value={hourlyRateId} onValueChange={setChosenRateId} />
       <Field label="Notes" htmlFor={`${idPrefix}-notes`}>
         <Textarea
           id={`${idPrefix}-notes`}

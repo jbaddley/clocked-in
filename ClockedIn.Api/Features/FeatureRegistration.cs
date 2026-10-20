@@ -40,6 +40,7 @@ public static class FeatureRegistration
         services.AddScoped<ThemesService>();
         services.AddScoped<FeedbackService>();
         services.AddScoped<OrganizationApiKeysService>();
+        services.AddScoped<PlatformApiKeysService>();
         return services;
     }
 
@@ -61,6 +62,7 @@ public static class FeatureRegistration
         app.MapThemesEndpoints();
         app.MapFeedbackEndpoints();
         app.MapOrganizationApiKeysEndpoints();
+        app.MapPlatformApiKeysEndpoints();
         return app;
     }
 }

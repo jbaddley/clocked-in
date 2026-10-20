@@ -2,15 +2,16 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { useOrganization } from "@/hooks/use-workspace";
+import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
 import { lookupsQuery } from "@/lib/queries";
 import type { Lookups } from "@/lib/types";
 
 const empty: Lookups = { departments: [], projects: [], categories: [], tags: [], hourlyRates: [] };
 
 export function useLookups() {
+  const { viewer } = useWorkspace();
   const organization = useOrganization();
-  const query = useQuery(lookupsQuery(organization.id));
+  const query = useQuery(lookupsQuery(organization.id, viewer.id));
   const lookups = query.data ?? empty;
   const names = useMemo(
     () => ({

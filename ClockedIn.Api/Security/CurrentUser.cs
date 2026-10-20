@@ -6,13 +6,19 @@ namespace ClockedIn.Api.Security;
 public sealed class OrgApiKeyPrincipal
 {
     public required Guid Id { get; init; }
-    public required Guid OrganizationId { get; init; }
+    public Guid? OrganizationId { get; init; }
     public required Guid CreatedByUserId { get; init; }
     public required IReadOnlyList<string> Scopes { get; init; }
 
-    public bool IsAdmin => Scopes.Contains(ApiKeyScope.Admin, StringComparer.Ordinal);
-    public bool CanWrite => IsAdmin || Scopes.Contains(ApiKeyScope.Write, StringComparer.Ordinal);
-    public bool CanRead => CanWrite || Scopes.Contains(ApiKeyScope.Read, StringComparer.Ordinal);
+    public bool IsPlatform => OrganizationId is null;
+
+    public bool IsAdmin => IsPlatform
+        ? Scopes.Contains(ApiKeyScope.PlatformAdmin, StringComparer.Ordinal)
+        : Scopes.Contains(ApiKeyScope.Admin, StringComparer.Ordinal);
+
+    public bool CanWrite => IsAdmin || (!IsPlatform && Scopes.Contains(ApiKeyScope.Write, StringComparer.Ordinal));
+
+    public bool CanRead => CanWrite || (!IsPlatform && Scopes.Contains(ApiKeyScope.Read, StringComparer.Ordinal));
 }
 
 public static class ApiKeyScope
@@ -20,8 +26,11 @@ public static class ApiKeyScope
     public const string Read = "org:read";
     public const string Write = "org:write";
     public const string Admin = "org:admin";
+    public const string PlatformAdmin = "platform:admin";
 
     public static readonly string[] Known = [Read, Write, Admin];
+
+    public static readonly string[] Platform = [PlatformAdmin];
 }
 
 public sealed class CurrentUser

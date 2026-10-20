@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { logOutAction } from "@/app/actions/auth";
+import { signOut } from "@/lib/lookup-persistence";
 import { changePasswordAction } from "@/app/actions/profile";
 import { Field, FormMessage } from "@/components/field";
 import { SubmitButton } from "@/components/submit-button";
@@ -40,7 +40,7 @@ export function ChangePasswordForm({ next }: { next: string }) {
       </Field>
       <FormMessage result={result} />
       <SubmitButton className="h-10 w-full">Save and continue</SubmitButton>
-      <Button type="submit" formAction={logOutAction} variant="ghost" className="h-10 w-full">
+      <Button type="button" variant="ghost" className="h-10 w-full" onClick={() => void signOut()}>
         Sign out
       </Button>
     </form>

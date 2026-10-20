@@ -16,6 +16,7 @@ const prefixes = [
   "/collective-time-entries",
   "/invitations",
   "/feedback",
+  "/platform",
 ];
 
 export function csharpApiUrl() {
