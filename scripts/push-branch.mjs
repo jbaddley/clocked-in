@@ -107,6 +107,10 @@ if (current !== branch) {
   });
 }
 
+if (hasRemote) {
+  git(["pull", "--rebase", "--autostash", "origin", branch], { inherit: true });
+}
+
 if (from) {
   git(["fetch", "origin", from], { inherit: true });
   const source = refExists(`refs/remotes/origin/${from}`) ? `origin/${from}` : from;

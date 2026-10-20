@@ -1,3 +1,4 @@
+import type { listApiKeys } from "@/lib/api/features/api-keys";
 import type { listCollective } from "@/lib/api/features/collective";
 import type { listFeedback } from "@/lib/api/features/feedback";
 import type { listDepartments } from "@/lib/api/features/departments";
@@ -20,6 +21,7 @@ export type { OrganizationPreferences } from "@/lib/api/features/organizations";
 export type Theme = Organization["theme"];
 export type Membership = Items<typeof listOrgMemberships>[number];
 export type Invitation = Items<typeof listOrganizationInvitations>[number];
+export type OrganizationApiKey = Items<typeof listApiKeys>[number];
 export type Department = Items<typeof listDepartments>[number];
 export type Project = Items<typeof listProjects>[number];
 export type TaskCategory = Items<typeof listTaskCategories>[number];

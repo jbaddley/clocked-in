@@ -9,6 +9,7 @@ import type {
   Feedback,
   Invitation,
   Membership,
+  OrganizationApiKey,
   Paged,
   Project,
   Report,
@@ -35,6 +36,7 @@ export const keys = {
   lookups: (organizationId: string) => ["org", organizationId, "lookups"] as const,
   members: (organizationId: string) => ["org", organizationId, "members"] as const,
   invitations: (organizationId: string) => ["org", organizationId, "invitations"] as const,
+  apiKeys: (organizationId: string) => ["org", organizationId, "api-keys"] as const,
   entries: (organizationId: string, userId: string, range: DateRange) =>
     ["org", organizationId, "entries", userId, range.from ?? "", range.to ?? ""] as const,
   groupSessions: (organizationId: string) => ["org", organizationId, "group-sessions"] as const,
@@ -74,6 +76,14 @@ export function membersQuery(organizationId: string) {
     queryKey: keys.members(organizationId),
     queryFn: async ({ signal }) =>
       (await fetchJson<Paged<Membership>>(`/organizations/${organizationId}/memberships?limit=100`, signal)).items,
+  });
+}
+
+export function apiKeysQuery(organizationId: string) {
+  return queryOptions({
+    queryKey: keys.apiKeys(organizationId),
+    queryFn: async ({ signal }) =>
+      (await fetchJson<Paged<OrganizationApiKey>>(`/organizations/${organizationId}/api-keys?limit=100`, signal)).items,
   });
 }
 
