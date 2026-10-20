@@ -1,8 +1,8 @@
 /**
- * Multi-day time entry against the local seed. Remote runs skip this file.
+ * Multi-day time entry. Runs locally and on staging. Production stays on the read-only crawl.
  */
 import { expect, test, type APIRequestContext } from "@playwright/test";
-import { caswjOrganization, deleteE2eEntries, loginAsAdmin, loginBearer } from "./helpers";
+import { deleteE2eEntries, loginAsAdmin, loginBearer, sessionOrganization } from "./helpers";
 
 test.afterEach(async ({ request }) => {
   await deleteE2eEntries(request);
@@ -11,7 +11,7 @@ test.afterEach(async ({ request }) => {
 
 async function deleteRecentE2eEntries(request: APIRequestContext) {
   const session = await loginBearer(request);
-  const organization = await caswjOrganization(request, session.accessToken);
+  const organization = await sessionOrganization(request, session.accessToken);
   const today = new Date();
   const from = localDate(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 3));
   const headers = { authorization: `Bearer ${session.accessToken}` };
