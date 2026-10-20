@@ -44,7 +44,7 @@ function FeedbackForm({
   const pathname = usePathname();
   const [type, setType] = useState("Bug");
   const [priority, setPriority] = useState("Medium");
-  const [area, setArea] = useState(() => feedbackAreaForPath(pathname));
+  const [area, setArea] = useState<string>(() => feedbackAreaForPath(pathname));
   const create = useActionMutation((formData: FormData) => createFeedbackAction(formData), {
     invalidate: [keys.feedback()],
     onSuccess: onCreated,

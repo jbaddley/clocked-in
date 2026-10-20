@@ -1,20 +1,13 @@
 import type { Metadata } from "next";
-<<<<<<< Updated upstream
-=======
 import { Suspense } from "react";
 import { Hydrate } from "@/components/hydrate";
 import { getQueryClient } from "@/lib/query-client";
 import { getWorkspace } from "@/lib/server/dal";
 import { prefetchEntries, prefetchLookups } from "@/lib/server/prefetch";
->>>>>>> Stashed changes
 import { OwnTimeView } from "./own-view";
 
 export const metadata: Metadata = { title: "Log time" };
 
-<<<<<<< Updated upstream
-export default function OwnTimePage() {
-  return <OwnTimeView />;
-=======
 type Search = { from?: string; to?: string };
 
 const dateOnly = /^\d{4}-\d{2}-\d{2}$/;
@@ -46,5 +39,4 @@ async function OwnTime({ searchParams }: { searchParams: Promise<Search> }) {
       <OwnTimeView range={range} />
     </Hydrate>
   );
->>>>>>> Stashed changes
 }
