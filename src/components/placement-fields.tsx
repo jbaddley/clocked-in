@@ -35,11 +35,12 @@ export function PlacementFields({
   const { isAdmin } = useWorkspace();
   const copy = useLabels();
   const [creating, setCreating] = useState<Creating>(null);
-  const span = compact ? "sm:col-span-3" : "md:col-span-3";
+  const span = compact ? "sm:col-span-4" : "md:col-span-4";
+  const projectSpan = compact ? "sm:col-span-2" : "md:col-span-2";
 
   return (
     <>
-      <div className={cn("grid gap-4", compact ? "sm:grid-cols-3" : "md:grid-cols-3")}>
+      <div className={cn("grid gap-4", compact ? "sm:grid-cols-4" : "md:grid-cols-4")}>
         <EntitySelect
           label={copy.project}
           value={value.projectId}
@@ -47,6 +48,7 @@ export function PlacementFields({
           options={lookups.projects.map((item) => ({ value: item.id, label: item.title }))}
           createLabel={`Add a ${copy.project.toLowerCase()}`}
           onCreate={() => setCreating("project")}
+          className={projectSpan}
         />
         <EntitySelect
           label={copy.taskCategory}
