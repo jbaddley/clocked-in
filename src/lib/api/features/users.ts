@@ -236,7 +236,9 @@ export async function deleteUser(access: Access, userId: string) {
     const referenced =
       (await tx.userTimeEntry.count({ where: { OR: [{ userId }, { enteredByUserId: userId }] } })) > 0 ||
       (await tx.collectiveTimeEntry.count({ where: { recordedByUserId: userId } })) > 0 ||
-      (await tx.project.count({ where: { ownerUserId: userId } })) > 0;
+      (await tx.project.count({ where: { ownerUserId: userId } })) > 0 ||
+      (await tx.feedback.count({ where: { userId } })) > 0 ||
+      (await tx.feedbackAction.count({ where: { takenByUserId: userId } })) > 0;
     if (referenced) {
       conflict("Delete the time entries first.");
     }

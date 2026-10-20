@@ -68,8 +68,9 @@ public sealed class ReportsService(ClockedInDbContext db, Access access)
 {
     public async Task<ReportDto> Report(Guid organizationId, ReportFilter query, CancellationToken cancellationToken)
     {
+        var parsed = Filter.Parse(query);
         await access.RequireOrganization(organizationId, false, cancellationToken);
-        var filter = await ForCaller(organizationId, Filter.Parse(query), cancellationToken);
+        var filter = await ForCaller(organizationId, parsed, cancellationToken);
         var entries = UserEntries(organizationId, filter);
         var organization = await db.Organizations.AsNoTracking().FirstAsync(item => item.Id == organizationId, cancellationToken);
         var byPerson = await Buckets(
@@ -137,8 +138,9 @@ public sealed class ReportsService(ClockedInDbContext db, Access access)
 
     public async Task<PushStreamHttpResult> Csv(Guid organizationId, ReportFilter query, CancellationToken cancellationToken)
     {
+        var parsed = Filter.Parse(query);
         var organization = await access.RequireOrganization(organizationId, false, cancellationToken);
-        var filter = await ForCaller(organizationId, Filter.Parse(query), cancellationToken);
+        var filter = await ForCaller(organizationId, parsed, cancellationToken);
         var copy = EntityCopy.From(organization.Preferences);
         var header = string.Join(',', new[]
         {
@@ -421,7 +423,7 @@ public sealed class ReportsService(ClockedInDbContext db, Access access)
 
     private async Task<Filter> ForCaller(Guid organizationId, Filter filter, CancellationToken cancellationToken)
     {
-        if (access.Caller.IsSuperAdmin || await access.IsOrgAdmin(organizationId, cancellationToken))
+        if (access.IsSuperAdmin || access.IsApiKey || await access.IsOrgAdmin(organizationId, cancellationToken))
         {
             return filter;
         }
@@ -431,12 +433,12 @@ public sealed class ReportsService(ClockedInDbContext db, Access access)
             return filter;
         }
 
-        if (filter.UserId is Guid userId && userId != access.Caller.Id)
+        if (filter.UserId is Guid userId && userId != access.ActorUserId)
         {
             throw ApiException.Forbidden();
         }
 
-        return filter with { UserId = access.Caller.Id };
+        return filter with { UserId = access.ActorUserId };
     }
 
     private sealed record Filter(Guid? DepartmentId, Guid? TaskCategoryId, Guid? ProjectId, Guid? UserId, DateOnly? From, DateOnly? To)

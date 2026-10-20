@@ -15,9 +15,12 @@ public sealed class TimeEntriesService(ClockedInDbContext db, Access access, Ent
         var departmentId = Fields.QueryGuid(filter.DepartmentId, "departmentId");
         var from = Fields.QueryDate(filter.From, "from");
         var to = Fields.QueryDate(filter.To, "to");
-        var caller = access.Caller;
         List<Guid>? visible = null;
-        if (caller.Id != userId && !caller.IsSuperAdmin)
+        if (access.IsApiKey)
+        {
+            visible = await access.ActiveOrganizationIds(cancellationToken);
+        }
+        else if (access.ActorUserId != userId && !access.IsSuperAdmin)
         {
             var shared = await access.SharedOrganizationIds(userId, cancellationToken);
             var readable = await access.OrganizationsWhereCallerCanReadOthers(cancellationToken);
@@ -98,11 +101,11 @@ public sealed class TimeEntriesService(ClockedInDbContext db, Access access, Ent
     }
 
     public async Task<TimeEntryDto> Get(Guid entryId, CancellationToken cancellationToken) =>
-        TimeEntryDto.From(await Owned(entryId, cancellationToken));
+        TimeEntryDto.From(await Owned(entryId, false, cancellationToken));
 
     public async Task<TimeEntryDto> Update(Guid entryId, UpdateTimeEntryRequest request, CancellationToken cancellationToken)
     {
-        var existing = await Owned(entryId, cancellationToken);
+        var existing = await Owned(entryId, true, cancellationToken);
         var organizationId = request.OrganizationId.Or(existing.OrganizationId);
         var departmentId = request.DepartmentId.Or(existing.DepartmentId);
         var projectId = request.ProjectId.Or(existing.ProjectId);
@@ -202,31 +205,34 @@ public sealed class TimeEntriesService(ClockedInDbContext db, Access access, Ent
 
     public async Task Delete(Guid entryId, CancellationToken cancellationToken)
     {
-        db.UserTimeEntries.Remove(await Owned(entryId, cancellationToken));
+        db.UserTimeEntries.Remove(await Owned(entryId, true, cancellationToken));
         await db.SaveOrThrowAsync(cancellationToken);
     }
 
     public async Task<TimeEntryDto> ClockIn(ClockInRequest request, CancellationToken cancellationToken)
     {
-        var caller = access.Caller;
+        var userId = request.UserId
+            ?? (access.IsApiKey ? throw ApiException.Validation("userId is required.") : access.ActorUserId);
+        var user = await db.UsersWithProfile().FirstOrDefaultAsync(item => item.Id == userId, cancellationToken)
+            ?? throw ApiException.NotFound();
         var placement = request.Placement;
-        await rules.AssertCanWriteUserEntry(caller.Id, placement.OrganizationId, placement.DepartmentId, cancellationToken);
-        await rules.AssertLogTarget(caller.Id, placement.OrganizationId, placement.DepartmentId, cancellationToken);
-        await rules.AssertProject(caller.Id, placement.OrganizationId, placement.DepartmentId, placement.ProjectId, cancellationToken);
+        await rules.AssertCanWriteUserEntry(userId, placement.OrganizationId, placement.DepartmentId, cancellationToken);
+        await rules.AssertLogTarget(userId, placement.OrganizationId, placement.DepartmentId, cancellationToken);
+        await rules.AssertProject(userId, placement.OrganizationId, placement.DepartmentId, placement.ProjectId, cancellationToken);
         await rules.AssertTaskCategory(placement.OrganizationId, placement.TaskCategoryId, cancellationToken);
         var tags = await rules.Tags(placement.OrganizationId, placement.TagIds, cancellationToken);
-        var (hourlyRateId, hourlyRate) = await rules.ResolveHourlyRate(caller.Id, placement.OrganizationId, request.HourlyRateId, cancellationToken);
+        var (hourlyRateId, hourlyRate) = await rules.ResolveHourlyRate(userId, placement.OrganizationId, request.HourlyRateId, cancellationToken);
         var startedAt = time.UtcNowToSecond();
         await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
-        await db.LockUserAsync(caller.Id, cancellationToken);
-        if (await HasOpenPunch(caller.Id, cancellationToken))
+        await db.LockUserAsync(userId, cancellationToken);
+        if (await HasOpenPunch(userId, cancellationToken))
         {
             throw ApiException.Conflict("You already have an open punch.");
         }
 
-        var entry = NewEntry(caller.Id, placement, TimeEntryMode.Punch, hourlyRateId, hourlyRate, tags);
+        var entry = NewEntry(userId, placement, TimeEntryMode.Punch, hourlyRateId, hourlyRate, tags);
         entry.StartedAt = startedAt;
-        entry.OccurredOn = Fields.LocalDate(startedAt, TimeZoneOf(caller));
+        entry.OccurredOn = Fields.LocalDate(startedAt, TimeZoneOf(user));
         db.UserTimeEntries.Add(entry);
         await db.SaveOrThrowAsync(cancellationToken);
         await tx.CommitAsync(cancellationToken);
@@ -235,15 +241,18 @@ public sealed class TimeEntriesService(ClockedInDbContext db, Access access, Ent
 
     public async Task<TimeEntryDto> ClockOut(ClockOutRequest request, CancellationToken cancellationToken)
     {
-        var callerId = access.Caller.Id;
+        var userId = request.UserId
+            ?? (access.IsApiKey ? throw ApiException.Validation("userId is required.") : access.ActorUserId);
         await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
-        await db.LockUserAsync(callerId, cancellationToken);
+        await db.LockUserAsync(userId, cancellationToken);
         var open = await db.UserTimeEntries.Include(entry => entry.Tags)
-            .FirstOrDefaultAsync(entry => entry.UserId == callerId && entry.Mode == TimeEntryMode.Punch && entry.EndedAt == null, cancellationToken);
+            .FirstOrDefaultAsync(entry => entry.UserId == userId && entry.Mode == TimeEntryMode.Punch && entry.EndedAt == null, cancellationToken);
         if (open?.StartedAt is not DateTime startedAt)
         {
             throw ApiException.Conflict("No open punch.");
         }
+
+        await rules.AssertCanWriteUserEntry(userId, open.OrganizationId, open.DepartmentId, cancellationToken);
 
         var endedAt = time.UtcNowToSecond();
         if (endedAt <= startedAt)
@@ -282,7 +291,7 @@ public sealed class TimeEntriesService(ClockedInDbContext db, Access access, Ent
     {
         Id = Guid.NewGuid(),
         UserId = userId,
-        EnteredByUserId = access.Caller.Id,
+        EnteredByUserId = access.ActorUserId,
         OrganizationId = placement.OrganizationId,
         DepartmentId = placement.DepartmentId,
         ProjectId = placement.ProjectId,
@@ -301,19 +310,24 @@ public sealed class TimeEntriesService(ClockedInDbContext db, Access access, Ent
             entry => entry.UserId == userId && entry.Mode == TimeEntryMode.Punch && entry.EndedAt == null,
             cancellationToken);
 
-    private async Task<UserTimeEntry> Owned(Guid entryId, CancellationToken cancellationToken)
+    private async Task<UserTimeEntry> Owned(Guid entryId, bool write, CancellationToken cancellationToken)
     {
-        var caller = access.Caller;
         var entry = await db.UserTimeEntries.Include(item => item.Tags).FirstOrDefaultAsync(item => item.Id == entryId, cancellationToken)
             ?? throw ApiException.NotFound();
-        if (!caller.IsSuperAdmin && entry.UserId != caller.Id && await access.IsOrgVolunteer(entry.OrganizationId, cancellationToken))
+        if (access.IsApiKey)
+        {
+            await access.RequireOrganization(entry.OrganizationId, write, cancellationToken);
+            return entry;
+        }
+
+        if (!access.IsSuperAdmin && entry.UserId != access.ActorUserId && await access.IsOrgVolunteer(entry.OrganizationId, cancellationToken))
         {
             throw ApiException.Forbidden();
         }
 
-        if (entry.UserId == caller.Id
-            || entry.EnteredByUserId == caller.Id
-            || caller.IsSuperAdmin
+        if (entry.UserId == access.ActorUserId
+            || entry.EnteredByUserId == access.ActorUserId
+            || access.IsSuperAdmin
             || await access.IsOrgAdmin(entry.OrganizationId, cancellationToken)
             || (entry.DepartmentId is Guid departmentId && await access.IsDepartmentAdmin(departmentId, cancellationToken)))
         {

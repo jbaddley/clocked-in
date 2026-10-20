@@ -138,7 +138,11 @@ describe("organizations", suite, () => {
     assert.equal(updated.json.theme.name, createdTheme.name);
     assert.equal(updated.json.wordmarkUrl, "https://example.com/wordmark.svg");
     assert.equal(updated.json.wordmarkOnLightUrl, "https://example.com/wordmark-on-light.svg");
-    assert.deepEqual(updated.json.preferences, { allowTimeEntryEditing: false, entityLabels: labels });
+    assert.deepEqual(updated.json.preferences, {
+      allowTimeEntryEditing: false,
+      entityLabels: labels,
+      feedbackNotifyUserIds: [],
+    });
 
     const globals = await callApi(`/organizations/${ctx.org.id}/themes`, { token: ctx.member.accessToken });
     assert.equal(globals.status, 200);

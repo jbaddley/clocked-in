@@ -2,6 +2,7 @@ import { AppSidebar } from "@/components/shell/app-sidebar";
 import { OrgFavicon } from "@/components/shell/org-favicon";
 import { HeaderTitle } from "@/components/shell/page-title";
 import { OrgSwitcher } from "@/components/shell/org-switcher";
+import { FeedbackButton } from "@/components/shell/feedback-button";
 import { TimerChip } from "@/components/shell/timer-chip";
 import { UserMenu } from "@/components/shell/user-menu";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -12,11 +13,13 @@ import type { Organization } from "@/lib/types";
 export function AppShell({
   organization,
   isAdmin,
+  isSuperAdmin,
   sidebarOpen,
   children,
 }: {
   organization: Organization | null;
   isAdmin: boolean;
+  isSuperAdmin: boolean;
   sidebarOpen: boolean;
   children: React.ReactNode;
 }) {
@@ -26,7 +29,7 @@ export function AppShell({
     <SidebarProvider defaultOpen={sidebarOpen} className="h-svh overflow-hidden">
       {css ? <style>{css}</style> : null}
       <OrgFavicon href={icon} />
-      <AppSidebar organization={organization} isAdmin={isAdmin} />
+      <AppSidebar organization={organization} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} />
       <SidebarInset className="min-h-0 min-w-0 overflow-hidden bg-muted/40">
         <header className="sticky top-0 z-20 shrink-0 bg-background/90 backdrop-blur">
           <div className="flex h-16 items-center gap-2 px-3 md:px-4 lg:px-6">
@@ -37,6 +40,7 @@ export function AppShell({
             <HeaderTitle />
             <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
               <TimerChip />
+              <FeedbackButton />
               <UserMenu />
             </div>
           </div>

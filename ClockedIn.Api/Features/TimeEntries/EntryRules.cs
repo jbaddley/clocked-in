@@ -10,14 +10,23 @@ public sealed class EntryRules(ClockedInDbContext db, Access access)
 {
     public async Task AssertCanWriteUserEntry(Guid userId, Guid organizationId, Guid? departmentId, CancellationToken cancellationToken)
     {
-        var caller = access.Caller;
-        if (!caller.IsSuperAdmin && caller.Id != userId && await access.IsOrgVolunteer(organizationId, cancellationToken))
+        if (access.IsApiKey)
+        {
+            if (!access.CanWrite(organizationId))
+            {
+                throw ApiException.Forbidden();
+            }
+
+            return;
+        }
+
+        if (!access.IsSuperAdmin && access.ActorUserId != userId && await access.IsOrgVolunteer(organizationId, cancellationToken))
         {
             throw ApiException.Forbidden();
         }
 
-        if (caller.Id == userId
-            || caller.IsSuperAdmin
+        if (access.ActorUserId == userId
+            || access.IsSuperAdmin
             || await access.IsOrgAdmin(organizationId, cancellationToken)
             || (departmentId is Guid id && await access.IsDepartmentAdmin(id, cancellationToken)))
         {
@@ -30,7 +39,7 @@ public sealed class EntryRules(ClockedInDbContext db, Access access)
     public async Task AssertLogTarget(Guid userId, Guid organizationId, Guid? departmentId, CancellationToken cancellationToken)
     {
         await AssertPlacement(organizationId, departmentId, cancellationToken);
-        if (access.Caller.IsSuperAdmin)
+        if (access.IsSuperAdmin)
         {
             return;
         }
@@ -47,7 +56,8 @@ public sealed class EntryRules(ClockedInDbContext db, Access access)
     public async Task AssertCollectiveWrite(Guid organizationId, Guid? departmentId, CancellationToken cancellationToken)
     {
         await AssertPlacement(organizationId, departmentId, cancellationToken);
-        if (access.Caller.IsSuperAdmin
+        if (access.IsSuperAdmin
+            || access.CanWrite(organizationId)
             || await access.IsOrgAdmin(organizationId, cancellationToken)
             || (departmentId is Guid id && await access.IsDepartmentAdmin(id, cancellationToken)))
         {
@@ -77,9 +87,10 @@ public sealed class EntryRules(ClockedInDbContext db, Access access)
         }
 
         if (project.AccessType == AccessType.Private
-            && !access.Caller.IsSuperAdmin
+            && !access.IsSuperAdmin
             && project.OwnerUserId != workerId
             && project.Editors.All(editor => editor.Id != workerId)
+            && !access.CanWrite(organizationId)
             && !await access.IsOrgAdmin(organizationId, cancellationToken))
         {
             throw ApiException.Forbidden();
@@ -120,7 +131,7 @@ public sealed class EntryRules(ClockedInDbContext db, Access access)
         Guid? hourlyRateId,
         CancellationToken cancellationToken)
     {
-        var lockToDefault = access.Caller.Id == userId && await access.IsOrgVolunteer(organizationId, cancellationToken);
+        var lockToDefault = !access.IsApiKey && access.ActorUserId == userId && await access.IsOrgVolunteer(organizationId, cancellationToken);
         if (lockToDefault || hourlyRateId is null)
         {
             return await DefaultVolunteerRate(organizationId, cancellationToken);

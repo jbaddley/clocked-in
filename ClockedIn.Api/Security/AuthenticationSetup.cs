@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using ClockedIn.Api.Configuration;
 using ClockedIn.Api.Data;
 using ClockedIn.Api.Http;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -10,6 +11,7 @@ namespace ClockedIn.Api.Security;
 
 public static class AuthenticationSetup
 {
+    public const string Scheme = "Smart";
     private const string FailureMessageKey = "auth.failure";
     private const string UnknownUserMessage = "This token is not valid for this server.";
 
@@ -17,7 +19,33 @@ public static class AuthenticationSetup
     {
         services.AddScoped<CurrentUser>();
         services.AddSingleton<TokenIssuer>();
-        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
+        services.AddSingleton<ApiKeyHasher>();
+        services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = Scheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
+            .AddPolicyScheme(Scheme, "JWT or API key", options =>
+            {
+                options.ForwardDefaultSelector = context =>
+                {
+                    var authorization = context.Request.Headers.Authorization.ToString();
+                    if (authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+                        && ApiKeyHasher.LooksLike(authorization["Bearer ".Length..].Trim()))
+                    {
+                        return ApiKeyDefaults.AuthenticationScheme;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(context.Request.Headers[ApiKeyAuthenticationHandler.HeaderName]))
+                    {
+                        return ApiKeyDefaults.AuthenticationScheme;
+                    }
+
+                    return JwtBearerDefaults.AuthenticationScheme;
+                };
+            })
+            .AddJwtBearer()
+            .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(ApiKeyDefaults.AuthenticationScheme, _ => { });
         services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
             .Configure<IOptions<JwtOptions>>((bearer, jwt) =>
             {

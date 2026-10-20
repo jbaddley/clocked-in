@@ -8,7 +8,11 @@ export class HttpError extends Error {
 }
 
 export async function fetchJson<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(path, { credentials: "same-origin", signal });
+  const response = await fetch(path, {
+    credentials: "same-origin",
+    signal,
+    headers: { accept: "application/json" },
+  });
   const text = await response.text();
   const body = text ? JSON.parse(text) : null;
   if (response.status === 401 && typeof window !== "undefined") {

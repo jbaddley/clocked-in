@@ -139,7 +139,7 @@ public sealed class CollectiveService(ClockedInDbContext db, Access access, Entr
             }
         }
 
-        var organizationIds = !access.Caller.IsSuperAdmin && organizationId is null
+        var organizationIds = !access.IsSuperAdmin && organizationId is null
             ? await access.ActiveOrganizationIds(cancellationToken)
             : null;
         var entries = await db.CollectiveTimeEntries.AsNoTracking().Include(entry => entry.Tags)
@@ -155,7 +155,7 @@ public sealed class CollectiveService(ClockedInDbContext db, Access access, Entr
 
     public async Task<CollectiveEntryDto> Create(CreateCollectiveRequest request, CancellationToken cancellationToken)
     {
-        var callerId = access.Caller.Id;
+        var callerId = access.ActorUserId;
         await rules.AssertCollectiveWrite(request.OrganizationId, request.DepartmentId, cancellationToken);
         await rules.AssertProject(callerId, request.OrganizationId, request.DepartmentId, request.ProjectId, cancellationToken);
         await rules.AssertTaskCategory(request.OrganizationId, request.TaskCategoryId, cancellationToken);
@@ -207,14 +207,14 @@ public sealed class CollectiveService(ClockedInDbContext db, Access access, Entr
         var participantCount = request.ParticipantCount.Or(existing.ParticipantCount);
         CollectiveRules.AssertSpan(startedAt, endedAt, participantCount);
         await rules.AssertCollectiveWrite(existing.OrganizationId, departmentId, cancellationToken);
-        await rules.AssertProject(access.Caller.Id, existing.OrganizationId, departmentId, projectId, cancellationToken);
+        await rules.AssertProject(access.ActorUserId, existing.OrganizationId, departmentId, projectId, cancellationToken);
         await rules.AssertTaskCategory(existing.OrganizationId, taskCategoryId, cancellationToken);
         existing.DepartmentId = departmentId;
         existing.ProjectId = projectId;
         existing.TaskCategoryId = taskCategoryId;
         if (request.HourlyRateId.HasValue)
         {
-            var resolved = await rules.ResolveHourlyRate(access.Caller.Id, existing.OrganizationId, request.HourlyRateId.Value, cancellationToken);
+            var resolved = await rules.ResolveHourlyRate(access.ActorUserId, existing.OrganizationId, request.HourlyRateId.Value, cancellationToken);
             existing.HourlyRateId = resolved.Id;
             existing.HourlyRate = resolved.Rate;
         }

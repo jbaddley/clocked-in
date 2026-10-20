@@ -179,6 +179,147 @@ public static class Fields
             _ => throw ApiException.Validation("accessType must be Public, Private, or Department."),
         };
 
+    public static FeedbackType NormalizeFeedbackType(string value) =>
+        value.Trim() switch
+        {
+            "Bug" => FeedbackType.Bug,
+            "Feature" => FeedbackType.Feature,
+            _ => throw ApiException.Validation("type must be Bug or Feature."),
+        };
+
+    public static FeedbackPriority NormalizeFeedbackPriority(string value) =>
+        value.Trim() switch
+        {
+            "Urgent" => FeedbackPriority.Urgent,
+            "High" => FeedbackPriority.High,
+            "Medium" => FeedbackPriority.Medium,
+            "Low" => FeedbackPriority.Low,
+            _ => throw ApiException.Validation("priority must be Urgent, High, Medium, or Low."),
+        };
+
+    public static FeedbackArea NormalizeFeedbackArea(string value) =>
+        value.Trim() switch
+        {
+            "Dashboard" => FeedbackArea.Dashboard,
+            "LogTime" => FeedbackArea.LogTime,
+            "Entries" => FeedbackArea.Entries,
+            "Reports" => FeedbackArea.Reports,
+            "Settings" => FeedbackArea.Settings,
+            "Other" => FeedbackArea.Other,
+            _ => throw ApiException.Validation("area must be Dashboard, LogTime, Entries, Reports, Settings, or Other."),
+        };
+
+    public static FeedbackStatus NormalizeFeedbackStatus(string value) =>
+        value.Trim() switch
+        {
+            "Pending" => FeedbackStatus.Pending,
+            "Acknowledged" => FeedbackStatus.Acknowledged,
+            "Planned" => FeedbackStatus.Planned,
+            "InProgress" => FeedbackStatus.InProgress,
+            "Resolved" => FeedbackStatus.Resolved,
+            "Cancelled" => FeedbackStatus.Cancelled,
+            "CouldNotReproduce" => FeedbackStatus.CouldNotReproduce,
+            "Archived" => FeedbackStatus.Archived,
+            _ => throw ApiException.Validation("status must be Pending, Acknowledged, Planned, InProgress, Resolved, Cancelled, CouldNotReproduce, or Archived."),
+        };
+
+    public static string FeedbackTitle(string value)
+    {
+        var trimmed = value.Trim();
+        if (trimmed.Length is < 1 or > 120)
+        {
+            throw ApiException.Validation("title must be 1 to 120 characters.");
+        }
+
+        return trimmed;
+    }
+
+    public static string RequiredLongText(JsonObject body, string key, int max)
+    {
+        var trimmed = RequiredString(body, key).Trim();
+        if (trimmed.Length < 1 || trimmed.Length > max)
+        {
+            throw ApiException.Validation($"{key} must be 1 to {max} characters.");
+        }
+
+        return trimmed;
+    }
+
+    public static List<string> ScreenshotUrls(JsonObject body)
+    {
+        if (!Has(body, "screenshotUrls"))
+        {
+            return [];
+        }
+
+        if (body["screenshotUrls"] is not JsonArray array)
+        {
+            throw ApiException.Validation("screenshotUrls must be an array of URLs.");
+        }
+
+        if (array.Count > 5)
+        {
+            throw ApiException.Validation("screenshotUrls must have 5 or fewer URLs.");
+        }
+
+        var urls = new List<string>();
+        foreach (var item in array)
+        {
+            if (item is not JsonValue value || !value.TryGetValue<string>(out var text))
+            {
+                throw ApiException.Validation("screenshotUrls must be an array of URLs.");
+            }
+
+            var url = text.Trim();
+            if (url.Length is < 1 or > 2000)
+            {
+                throw ApiException.Validation("screenshotUrls must be an array of URLs.");
+            }
+
+            urls.Add(url);
+        }
+
+        return urls;
+    }
+
+    public static string? TicketUrl(JsonObject body)
+    {
+        if (!Has(body, "ticketUrl") || body["ticketUrl"] is null)
+        {
+            return null;
+        }
+
+        var value = RequiredString(body, "ticketUrl").Trim();
+        if (value.Length == 0)
+        {
+            return null;
+        }
+
+        if (value.Length > 2000
+            || !Uri.TryCreate(value, UriKind.Absolute, out var uri)
+            || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        {
+            throw ApiException.Validation("ticketUrl must be a URL.");
+        }
+
+        return value;
+    }
+
+    public static bool? QueryBool(string? text, string key)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return null;
+        }
+
+        return text switch
+        {
+            "true" => true,
+            "false" => false,
+            _ => throw ApiException.Validation($"{key} must be true or false."),
+        };
+    }
+
     public static RoleCode NormalizeRole(string value) =>
         value.Trim().ToUpperInvariant() switch
         {

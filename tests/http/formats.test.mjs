@@ -51,15 +51,15 @@ describe("formats / reports and csv", suite, () => {
     assert.equal(response.status, 200);
     const lines = response.text.split("\n");
     assert.equal(lines.length, 3);
-    const stamp = /,Ada Lovelace,\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z,/;
+    const stamp = /,Ada Lovelace,\d{1,2}\/\d{1,2}\/\d{4},/;
     const duration = lines[1].replace(stamp, ",Ada Lovelace,STAMP,");
     const total = lines[2].replace(stamp, ",Ada Lovelace,STAMP,");
     const fixed = `${ctx.project.title},Ada Lovelace,${ctx.org.name},${ctx.category.name}`;
     assert.equal(
       duration,
-      `2026-09-01,${fixed},Start / End Time,2026-09-01T10:00:00.000Z,2026-09-01T10:20:00.000Z,0.33333,40.00,13.33,"${ctx.upper.name}, ${ctx.lower.name}",Ada Lovelace,STAMP,Plain`,
+      `9/1/2026,${fixed},Start / End Time,10:00 AM,10:20 AM,0:20,0.33333,Volunteer,40.00,13.33,"${ctx.upper.name}, ${ctx.lower.name}",Ada Lovelace,STAMP,,Plain,`,
     );
-    assert.equal(total, `2026-09-02,${fixed},Total Hours,,,1.5,40.00,60.00,,Ada Lovelace,STAMP,`);
+    assert.equal(total, `9/2/2026,${fixed},Total Hours,,,1:30,1.5,Volunteer,40.00,60.00,,Ada Lovelace,STAMP,,,`);
   });
 
   test("collective minutes round half up and in-kind is exact", async () => {

@@ -11,6 +11,7 @@ public sealed class OrganizationsService(ClockedInDbContext db, Access access, T
 {
     public async Task<OrganizationDto> Create(NameRequest request, CancellationToken cancellationToken)
     {
+        var caller = access.RequireHuman();
         var organization = new Organization
         {
             Id = Guid.NewGuid(),
@@ -25,7 +26,7 @@ public sealed class OrganizationsService(ClockedInDbContext db, Access access, T
         db.OrganizationMemberships.Add(new OrganizationMembership
         {
             Id = Guid.NewGuid(),
-            UserId = access.Caller.Id,
+            UserId = caller.Id,
             OrganizationId = organization.Id,
             RoleId = Role.AdminId,
             RateType = organization.DefaultRateType,
@@ -41,9 +42,14 @@ public sealed class OrganizationsService(ClockedInDbContext db, Access access, T
     {
         var page = query.Resolve();
         var organizations = db.Organizations.AsNoTracking().Include(organization => organization.Theme).AsQueryable();
-        if (!access.Caller.IsSuperAdmin)
+        if (access.IsApiKey)
         {
-            var callerId = access.Caller.Id;
+            var allowed = await access.ActiveOrganizationIds(cancellationToken);
+            organizations = organizations.Where(organization => allowed.Contains(organization.Id));
+        }
+        else if (!access.IsSuperAdmin)
+        {
+            var callerId = access.ActorUserId;
             organizations = organizations.Where(organization =>
                 organization.Memberships.Any(membership => membership.UserId == callerId && membership.IsActive));
         }
@@ -64,7 +70,7 @@ public sealed class OrganizationsService(ClockedInDbContext db, Access access, T
 
     public async Task<OrganizationDto> Update(Guid organizationId, UpdateOrganizationRequest request, CancellationToken cancellationToken)
     {
-        var organization = await access.RequireOrganization(organizationId, true, cancellationToken);
+        var organization = await access.RequireOrganizationAdmin(organizationId, cancellationToken);
         organization.Name = request.Name.Or(organization.Name);
         organization.RateSourceYear = request.RateSourceYear.Or(organization.RateSourceYear);
         organization.DefaultRateType = request.DefaultRateType.Or(organization.DefaultRateType);
@@ -90,8 +96,11 @@ public sealed class OrganizationsService(ClockedInDbContext db, Access access, T
         }
         if (request.Preferences.HasValue)
         {
-            organization.Preferences.AllowTimeEntryEditing = request.Preferences.Value.AllowTimeEntryEditing;
-            organization.Preferences.EntityLabels = request.Preferences.Value.EntityLabels.ToEntity();
+            var preferences = request.Preferences.Value;
+            organization.Preferences.AllowTimeEntryEditing = preferences.AllowTimeEntryEditing;
+            organization.Preferences.EntityLabels = preferences.EntityLabels.ToEntity();
+            await AssertNotifyUsers(organizationId, preferences.FeedbackNotifyUserIds, cancellationToken);
+            organization.Preferences.FeedbackNotifyUserIds = preferences.FeedbackNotifyUserIds.ToList();
         }
 
         if (request.ThemeId.HasValue)
@@ -106,7 +115,8 @@ public sealed class OrganizationsService(ClockedInDbContext db, Access access, T
 
     public async Task Delete(Guid organizationId, CancellationToken cancellationToken)
     {
-        var organization = await access.RequireOrganization(organizationId, true, cancellationToken);
+        access.RequireHuman();
+        var organization = await access.RequireOrganizationAdmin(organizationId, cancellationToken);
         if (await db.UserTimeEntries.AnyAsync(entry => entry.OrganizationId == organizationId, cancellationToken)
             || await db.CollectiveTimeEntries.AnyAsync(entry => entry.OrganizationId == organizationId, cancellationToken))
         {
@@ -124,6 +134,24 @@ public sealed class OrganizationsService(ClockedInDbContext db, Access access, T
             cancellationToken) ?? throw ApiException.NotFound();
         organization.ThemeId = theme.Id;
         organization.Theme = theme;
+    }
+
+    public async Task AssertNotifyUsers(Guid organizationId, IReadOnlyList<Guid> userIds, CancellationToken cancellationToken)
+    {
+        var unique = userIds.Distinct().ToList();
+        if (unique.Count == 0)
+        {
+            return;
+        }
+
+        var active = await db.OrganizationMemberships.AsNoTracking()
+            .Where(membership => membership.OrganizationId == organizationId && membership.IsActive && unique.Contains(membership.UserId))
+            .Select(membership => membership.UserId)
+            .ToListAsync(cancellationToken);
+        if (active.Count != unique.Count)
+        {
+            throw ApiException.Validation("feedbackNotifyUserIds must be active users in this organization.");
+        }
     }
 
     private async Task<decimal> DefaultVolunteerRate(Guid organizationId, CancellationToken cancellationToken)

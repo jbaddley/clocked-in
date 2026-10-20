@@ -25,6 +25,9 @@ public class ClockedInDbContext(DbContextOptions<ClockedInDbContext> options, Ti
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Invitation> Invitations => Set<Invitation>();
     public DbSet<PasswordResetCode> PasswordResetCodes => Set<PasswordResetCode>();
+    public DbSet<Feedback> Feedback => Set<Feedback>();
+    public DbSet<FeedbackAction> FeedbackActions => Set<FeedbackAction>();
+    public DbSet<OrganizationApiKey> OrganizationApiKeys => Set<OrganizationApiKey>();
 
     public override int SaveChanges()
     {
@@ -96,6 +99,7 @@ public class ClockedInDbContext(DbContextOptions<ClockedInDbContext> options, Ti
             {
                 owned.ToJson("preferences");
                 owned.OwnsOne(preferences => preferences.EntityLabels);
+                owned.PrimitiveCollection(preferences => preferences.FeedbackNotifyUserIds);
             });
             entity.ToTable(table => table.HasCheckConstraint(
                 "Organization_rate_check",
@@ -453,6 +457,21 @@ public class ClockedInDbContext(DbContextOptions<ClockedInDbContext> options, Ti
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        modelBuilder.Entity<OrganizationApiKey>(entity =>
+        {
+            entity.Property(key => key.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.HasIndex(key => key.Prefix);
+            entity.HasIndex(key => key.KeyHash).IsUnique();
+            entity.HasOne(key => key.Organization)
+                .WithMany(organization => organization.ApiKeys)
+                .HasForeignKey(key => key.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(key => key.CreatedBy)
+                .WithMany(user => user.OrganizationApiKeysCreated)
+                .HasForeignKey(key => key.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
         modelBuilder.Entity<Invitation>(entity =>
         {
             entity.Property(invitation => invitation.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
@@ -496,6 +515,63 @@ public class ClockedInDbContext(DbContextOptions<ClockedInDbContext> options, Ti
                 .WithMany(user => user.PasswordResetCodes)
                 .HasForeignKey(code => code.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Feedback>(entity =>
+        {
+            entity.Property(feedback => feedback.Type).HasConversion<string>();
+            entity.Property(feedback => feedback.Priority).HasConversion<string>();
+            entity.Property(feedback => feedback.Area).HasConversion<string>();
+            entity.Property(feedback => feedback.Status)
+                .HasConversion<string>()
+                .HasDefaultValue(FeedbackStatus.Pending);
+            entity.Property(feedback => feedback.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.PrimitiveCollection(feedback => feedback.ScreenshotUrls).HasColumnType("jsonb");
+            entity.HasIndex(feedback => feedback.Status);
+            entity.HasIndex(feedback => feedback.CreatedAt);
+            entity.HasIndex(feedback => feedback.UserId);
+            entity.HasOne(feedback => feedback.User)
+                .WithMany(user => user.Feedback)
+                .HasForeignKey(feedback => feedback.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(feedback => feedback.Organization)
+                .WithMany(organization => organization.Feedback)
+                .HasForeignKey(feedback => feedback.OrganizationId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.ToTable(table => table.HasCheckConstraint(
+                "Feedback_values_check",
+                """
+                "type" IN ('Bug', 'Feature')
+                AND "priority" IN ('Urgent', 'High', 'Medium', 'Low')
+                AND "area" IN ('Dashboard', 'LogTime', 'Entries', 'Reports', 'Settings', 'Other')
+                AND "status" IN ('Pending', 'Acknowledged', 'Planned', 'InProgress', 'Resolved', 'Cancelled', 'CouldNotReproduce', 'Archived')
+                AND char_length("title") BETWEEN 1 AND 120
+                AND char_length("description") BETWEEN 1 AND 4000
+                AND left("screenshotUrls"::text, 1) = '['
+                AND ("githubIssueNumber" IS NULL OR "githubIssueNumber" > 0)
+                """));
+        });
+
+        modelBuilder.Entity<FeedbackAction>(entity =>
+        {
+            entity.Property(action => action.PreviousStatus).HasConversion<string>();
+            entity.Property(action => action.UpdatedStatus).HasConversion<string>();
+            entity.HasIndex(action => action.FeedbackId);
+            entity.HasOne(action => action.Feedback)
+                .WithMany(feedback => feedback.Actions)
+                .HasForeignKey(action => action.FeedbackId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(action => action.TakenBy)
+                .WithMany(user => user.FeedbackActionsTaken)
+                .HasForeignKey(action => action.TakenByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.ToTable(table => table.HasCheckConstraint(
+                "FeedbackAction_values_check",
+                """
+                "previousStatus" IN ('Pending', 'Acknowledged', 'Planned', 'InProgress', 'Resolved', 'Cancelled', 'CouldNotReproduce', 'Archived')
+                AND "updatedStatus" IN ('Pending', 'Acknowledged', 'Planned', 'InProgress', 'Resolved', 'Cancelled', 'CouldNotReproduce', 'Archived')
+                AND char_length("description") BETWEEN 1 AND 2000
+                """));
         });
 
         UseDomainColumnNames(modelBuilder);

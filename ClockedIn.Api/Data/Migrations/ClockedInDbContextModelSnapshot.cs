@@ -169,6 +169,142 @@ namespace ClockedIn.Api.Data.Migrations
                     b.ToTable("DepartmentMembership");
                 });
 
+            modelBuilder.Entity("ClockedIn.Api.Entities.Feedback", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Area")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("area");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("createdAt")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<int?>("GithubIssueNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("githubIssueNumber");
+
+                    b.Property<Guid?>("OrganizationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("organizationId");
+
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("priority");
+
+                    b.PrimitiveCollection<string>("ScreenshotUrls")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("screenshotUrls");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("Pending")
+                        .HasColumnName("status");
+
+                    b.Property<string>("TicketUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("ticketUrl");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("title");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("type");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updatedAt");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("userId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Feedback", t =>
+                        {
+                            t.HasCheckConstraint("Feedback_values_check", "\"type\" IN ('Bug', 'Feature')\r\nAND \"priority\" IN ('Urgent', 'High', 'Medium', 'Low')\r\nAND \"area\" IN ('Dashboard', 'LogTime', 'Entries', 'Reports', 'Settings', 'Other')\r\nAND \"status\" IN ('Pending', 'Acknowledged', 'Planned', 'InProgress', 'Resolved', 'Cancelled', 'CouldNotReproduce', 'Archived')\r\nAND char_length(\"title\") BETWEEN 1 AND 120\r\nAND char_length(\"description\") BETWEEN 1 AND 4000\r\nAND left(\"screenshotUrls\"::text, 1) = '['\r\nAND (\"githubIssueNumber\" IS NULL OR \"githubIssueNumber\" > 0)");
+                        });
+                });
+
+            modelBuilder.Entity("ClockedIn.Api.Entities.FeedbackAction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<Guid>("FeedbackId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("feedbackId");
+
+                    b.Property<string>("PreviousStatus")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("previousStatus");
+
+                    b.Property<Guid>("TakenByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("takenByUserId");
+
+                    b.Property<string>("TicketUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("ticketUrl");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updatedAt");
+
+                    b.Property<string>("UpdatedStatus")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("updatedStatus");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FeedbackId");
+
+                    b.HasIndex("TakenByUserId");
+
+                    b.ToTable("FeedbackAction", t =>
+                        {
+                            t.HasCheckConstraint("FeedbackAction_values_check", "\"previousStatus\" IN ('Pending', 'Acknowledged', 'Planned', 'InProgress', 'Resolved', 'Cancelled', 'CouldNotReproduce', 'Archived')\r\nAND \"updatedStatus\" IN ('Pending', 'Acknowledged', 'Planned', 'InProgress', 'Resolved', 'Cancelled', 'CouldNotReproduce', 'Archived')\r\nAND char_length(\"description\") BETWEEN 1 AND 2000");
+                        });
+                });
+
             modelBuilder.Entity("ClockedIn.Api.Entities.HourlyRate", b =>
                 {
                     b.Property<Guid>("Id")
@@ -360,6 +496,73 @@ namespace ClockedIn.Api.Data.Migrations
                         {
                             t.HasCheckConstraint("Organization_rate_check", "\"defaultRateType\" IN ('Volunteer', 'Professional')");
                         });
+                });
+
+            modelBuilder.Entity("ClockedIn.Api.Entities.OrganizationApiKey", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("createdAt")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("createdByUserId");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expiresAt");
+
+                    b.Property<string>("KeyHash")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("keyHash");
+
+                    b.Property<DateTime?>("LastUsedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("lastUsedAt");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("organizationId");
+
+                    b.Property<string>("Prefix")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("prefix");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revokedAt");
+
+                    b.Property<string>("Scopes")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("scopes");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("KeyHash")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("Prefix");
+
+                    b.ToTable("OrganizationApiKey");
                 });
 
             modelBuilder.Entity("ClockedIn.Api.Entities.OrganizationMembership", b =>
@@ -1257,6 +1460,43 @@ namespace ClockedIn.Api.Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("ClockedIn.Api.Entities.Feedback", b =>
+                {
+                    b.HasOne("ClockedIn.Api.Entities.Organization", "Organization")
+                        .WithMany("Feedback")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ClockedIn.Api.Entities.User", "User")
+                        .WithMany("Feedback")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Organization");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ClockedIn.Api.Entities.FeedbackAction", b =>
+                {
+                    b.HasOne("ClockedIn.Api.Entities.Feedback", "Feedback")
+                        .WithMany("Actions")
+                        .HasForeignKey("FeedbackId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ClockedIn.Api.Entities.User", "TakenBy")
+                        .WithMany("FeedbackActionsTaken")
+                        .HasForeignKey("TakenByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Feedback");
+
+                    b.Navigation("TakenBy");
+                });
+
             modelBuilder.Entity("ClockedIn.Api.Entities.HourlyRate", b =>
                 {
                     b.HasOne("ClockedIn.Api.Entities.Organization", "Organization")
@@ -1317,6 +1557,10 @@ namespace ClockedIn.Api.Data.Migrations
                             b1.Property<bool>("AllowTimeEntryEditing")
                                 .HasJsonPropertyName("allowTimeEntryEditing");
 
+                            b1.PrimitiveCollection<string>("FeedbackNotifyUserIds")
+                                .IsRequired()
+                                .HasJsonPropertyName("feedbackNotifyUserIds");
+
                             b1.HasKey("OrganizationId");
 
                             b1.ToTable("Organization");
@@ -1364,6 +1608,25 @@ namespace ClockedIn.Api.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Theme");
+                });
+
+            modelBuilder.Entity("ClockedIn.Api.Entities.OrganizationApiKey", b =>
+                {
+                    b.HasOne("ClockedIn.Api.Entities.User", "CreatedBy")
+                        .WithMany("OrganizationApiKeysCreated")
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ClockedIn.Api.Entities.Organization", "Organization")
+                        .WithMany("ApiKeys")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("Organization");
                 });
 
             modelBuilder.Entity("ClockedIn.Api.Entities.OrganizationMembership", b =>
@@ -1608,6 +1871,11 @@ namespace ClockedIn.Api.Data.Migrations
                     b.Navigation("TimeEntries");
                 });
 
+            modelBuilder.Entity("ClockedIn.Api.Entities.Feedback", b =>
+                {
+                    b.Navigation("Actions");
+                });
+
             modelBuilder.Entity("ClockedIn.Api.Entities.HourlyRate", b =>
                 {
                     b.Navigation("CollectiveTimeEntries");
@@ -1617,9 +1885,13 @@ namespace ClockedIn.Api.Data.Migrations
 
             modelBuilder.Entity("ClockedIn.Api.Entities.Organization", b =>
                 {
+                    b.Navigation("ApiKeys");
+
                     b.Navigation("CollectiveTimeEntries");
 
                     b.Navigation("Departments");
+
+                    b.Navigation("Feedback");
 
                     b.Navigation("HourlyRates");
 
@@ -1672,7 +1944,13 @@ namespace ClockedIn.Api.Data.Migrations
 
                     b.Navigation("DepartmentMemberships");
 
+                    b.Navigation("Feedback");
+
+                    b.Navigation("FeedbackActionsTaken");
+
                     b.Navigation("InvitationsSent");
+
+                    b.Navigation("OrganizationApiKeysCreated");
 
                     b.Navigation("OrganizationMemberships");
 

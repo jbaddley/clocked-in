@@ -24,3 +24,14 @@ public sealed record ReportFilter(
     string? UserId,
     string? From,
     string? To);
+
+public sealed record FeedbackFilter(
+    string? Limit,
+    string? Offset,
+    string? Active,
+    string? Type,
+    string? Priority,
+    string? Area,
+    string? Status,
+    string? Sort,
+    string? Order);

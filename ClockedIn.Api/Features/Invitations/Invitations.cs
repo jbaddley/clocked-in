@@ -69,21 +69,21 @@ public sealed class InvitationsService(
 {
     public async Task<InvitationDto> CreateForOrganization(Guid organizationId, CreateInvitationRequest request, CancellationToken cancellationToken)
     {
-        var organization = await access.RequireOrganization(organizationId, true, cancellationToken);
+        var organization = await access.RequireOrganizationAdmin(organizationId, cancellationToken);
         return await Create(organization.Id, null, InviteTarget(organization), request, cancellationToken);
     }
 
     public async Task<InvitationDto> CreateForDepartment(Guid departmentId, CreateInvitationRequest request, CancellationToken cancellationToken)
     {
         var department = await access.RequireDepartmentManager(departmentId, cancellationToken);
-        var organization = await access.RequireOrganization(department.OrganizationId, true, cancellationToken);
+        var organization = await access.RequireOrganizationAdmin(department.OrganizationId, cancellationToken);
         return await Create(department.OrganizationId, department.Id, InviteTarget(organization, department.Name), request, cancellationToken);
     }
 
     public async Task<ListResponse<InvitationDto>> ListForOrganization(Guid organizationId, PageQuery query, CancellationToken cancellationToken)
     {
         var page = query.Resolve();
-        await access.RequireOrganization(organizationId, true, cancellationToken);
+        await access.RequireOrganizationAdmin(organizationId, cancellationToken);
         return await List(invitation => invitation.OrganizationId == organizationId && invitation.DepartmentId == null, page, cancellationToken);
     }
 
@@ -96,7 +96,7 @@ public sealed class InvitationsService(
 
     public async Task<InvitationDto> RevokeForOrganization(Guid organizationId, Guid invitationId, CancellationToken cancellationToken)
     {
-        await access.RequireOrganization(organizationId, true, cancellationToken);
+        await access.RequireOrganizationAdmin(organizationId, cancellationToken);
         return await Revoke(
             invitation => invitation.Id == invitationId && invitation.OrganizationId == organizationId && invitation.DepartmentId == null,
             cancellationToken);
@@ -110,7 +110,7 @@ public sealed class InvitationsService(
 
     public async Task<AcceptedInvitationDto> Accept(AcceptInvitationRequest request, CancellationToken cancellationToken)
     {
-        var caller = access.Caller;
+        var caller = access.RequireHuman();
         var hash = Codes.Hash(request.Code);
         var now = time.UtcNow();
         var invitation = await db.Invitations.Include(item => item.Role).FirstOrDefaultAsync(item => item.CodeHash == hash, cancellationToken);
@@ -231,7 +231,7 @@ public sealed class InvitationsService(
             DepartmentId = departmentId,
             RoleId = Role.IdOf(request.Role),
             CodeHash = Codes.Hash(code),
-            InvitedByUserId = access.Caller.Id,
+            InvitedByUserId = access.ActorUserId,
             ExpiresAt = now.Add(Codes.InviteLifetime),
             CreatedAt = now,
         };

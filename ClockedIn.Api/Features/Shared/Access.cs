@@ -11,12 +11,40 @@ public sealed class Access(ClockedInDbContext db, CurrentUser current)
     private Dictionary<Guid, CallerOrganization>? _organizations;
     private List<CallerDepartment>? _departments;
 
+    public bool IsApiKey => current.IsApiKey;
+
+    public bool IsSuperAdmin => current.IsSuperAdmin;
+
     public User Caller => current.User;
+
+    public Guid ActorUserId => current.UserOrNull?.Id
+        ?? current.ApiKey?.CreatedByUserId
+        ?? throw ApiException.Unauthorized();
+
+    public User RequireHuman() => current.UserOrNull ?? throw ApiException.Forbidden();
+
+    public bool CanWrite(Guid organizationId) =>
+        current.ApiKey is { } key && key.OrganizationId == organizationId && key.CanWrite;
 
     public async Task<Organization> RequireOrganization(Guid organizationId, bool admin, CancellationToken cancellationToken)
     {
         var organization = await db.Organizations.Include(item => item.Theme)
             .FirstOrDefaultAsync(item => item.Id == organizationId, cancellationToken) ?? throw ApiException.NotFound();
+        if (current.ApiKey is { } key)
+        {
+            if (key.OrganizationId != organizationId)
+            {
+                throw ApiException.Forbidden();
+            }
+
+            if (admin ? !key.CanWrite : !key.CanRead)
+            {
+                throw ApiException.Forbidden();
+            }
+
+            return organization;
+        }
+
         if (Caller.IsSuperAdmin)
         {
             return organization;
@@ -26,6 +54,17 @@ public sealed class Access(ClockedInDbContext db, CurrentUser current)
         if (!memberships.TryGetValue(organizationId, out var membership)
             || !membership.IsActive
             || (admin && !membership.IsAdmin))
+        {
+            throw ApiException.Forbidden();
+        }
+
+        return organization;
+    }
+
+    public async Task<Organization> RequireOrganizationAdmin(Guid organizationId, CancellationToken cancellationToken)
+    {
+        var organization = await RequireOrganization(organizationId, true, cancellationToken);
+        if (current.ApiKey is { } key && !key.IsAdmin)
         {
             throw ApiException.Forbidden();
         }
@@ -45,7 +84,7 @@ public sealed class Access(ClockedInDbContext db, CurrentUser current)
     {
         var department = await db.Departments.FirstOrDefaultAsync(item => item.Id == departmentId, cancellationToken)
             ?? throw ApiException.NotFound();
-        if (!Caller.IsSuperAdmin
+        if (!IsSuperAdmin
             && !await IsOrgAdmin(department.OrganizationId, cancellationToken)
             && !await IsDepartmentAdmin(departmentId, cancellationToken))
         {
@@ -57,12 +96,22 @@ public sealed class Access(ClockedInDbContext db, CurrentUser current)
 
     public async Task<bool> IsOrgAdmin(Guid organizationId, CancellationToken cancellationToken)
     {
+        if (current.ApiKey is { } key)
+        {
+            return key.OrganizationId == organizationId && key.IsAdmin;
+        }
+
         var memberships = await Organizations(cancellationToken);
         return memberships.TryGetValue(organizationId, out var membership) && membership.IsActive && membership.IsAdmin;
     }
 
     public async Task<bool> IsOrgVolunteer(Guid organizationId, CancellationToken cancellationToken)
     {
+        if (current.ApiKey is not null)
+        {
+            return false;
+        }
+
         var memberships = await Organizations(cancellationToken);
         return memberships.TryGetValue(organizationId, out var membership) && membership.IsActive && membership.IsVolunteer;
     }
@@ -100,8 +149,22 @@ public sealed class Access(ClockedInDbContext db, CurrentUser current)
             .ToListAsync(cancellationToken);
     }
 
-    private async Task<Dictionary<Guid, CallerOrganization>> Organizations(CancellationToken cancellationToken) =>
-        _organizations ??= await db.OrganizationMemberships.AsNoTracking()
+    private async Task<Dictionary<Guid, CallerOrganization>> Organizations(CancellationToken cancellationToken)
+    {
+        if (_organizations is not null)
+        {
+            return _organizations;
+        }
+
+        if (current.ApiKey is { } key)
+        {
+            return _organizations = new Dictionary<Guid, CallerOrganization>
+            {
+                [key.OrganizationId] = new(true, key.IsAdmin, false),
+            };
+        }
+
+        return _organizations = await db.OrganizationMemberships.AsNoTracking()
             .Where(membership => membership.UserId == Caller.Id)
             .ToDictionaryAsync(
                 membership => membership.OrganizationId,
@@ -110,15 +173,31 @@ public sealed class Access(ClockedInDbContext db, CurrentUser current)
                     membership.RoleId == Role.AdminId,
                     membership.RoleId == Role.VolunteerId),
                 cancellationToken);
+    }
 
-    private async Task<List<CallerDepartment>> Departments(CancellationToken cancellationToken) =>
-        _departments ??= await db.DepartmentMemberships.AsNoTracking()
+    private async Task<List<CallerDepartment>> Departments(CancellationToken cancellationToken)
+    {
+        if (_departments is not null)
+        {
+            return _departments;
+        }
+
+        if (current.ApiKey is { } key)
+        {
+            return _departments = await db.Departments.AsNoTracking()
+                .Where(department => department.OrganizationId == key.OrganizationId)
+                .Select(department => new CallerDepartment(department.Id, department.OrganizationId, key.CanWrite))
+                .ToListAsync(cancellationToken);
+        }
+
+        return _departments = await db.DepartmentMemberships.AsNoTracking()
             .Where(membership => membership.UserId == Caller.Id)
             .Select(membership => new CallerDepartment(
                 membership.DepartmentId,
                 membership.Department.OrganizationId,
                 membership.RoleId == Role.AdminId))
             .ToListAsync(cancellationToken);
+    }
 
     private sealed record CallerOrganization(bool IsActive, bool IsAdmin, bool IsVolunteer);
 

@@ -12,16 +12,16 @@ public sealed class ProjectsService(ClockedInDbContext db, Access access)
     {
         var page = query.Resolve();
         await access.RequireOrganization(organizationId, false, cancellationToken);
-        var caller = access.Caller;
         var projects = db.Projects.AsNoTracking().Include(project => project.Editors)
             .Where(project => project.OrganizationId == organizationId);
-        if (!caller.IsSuperAdmin && !await access.IsOrgAdmin(organizationId, cancellationToken))
+        if (!access.IsApiKey && !access.IsSuperAdmin && !await access.IsOrgAdmin(organizationId, cancellationToken))
         {
+            var callerId = access.ActorUserId;
             var departmentIds = await access.DepartmentIds(cancellationToken);
             projects = projects.Where(project =>
                 project.AccessType == AccessType.Public
-                || project.OwnerUserId == caller.Id
-                || project.Editors.Any(editor => editor.Id == caller.Id)
+                || project.OwnerUserId == callerId
+                || project.Editors.Any(editor => editor.Id == callerId)
                 || (project.AccessType == AccessType.Department
                     && project.DepartmentId != null
                     && departmentIds.Contains(project.DepartmentId.Value)));
@@ -37,10 +37,10 @@ public sealed class ProjectsService(ClockedInDbContext db, Access access)
 
     public async Task<ProjectDto> Create(Guid organizationId, CreateProjectRequest request, CancellationToken cancellationToken)
     {
-        await access.RequireOrganization(organizationId, false, cancellationToken);
+        await access.RequireOrganization(organizationId, access.IsApiKey, cancellationToken);
         await AssertAccessWrite(organizationId, request.AccessType, request.DepartmentId, cancellationToken);
         AssertDates(request.AccessType, request.DepartmentId, request.StartDate, request.EndDate);
-        var callerId = access.Caller.Id;
+        var callerId = access.ActorUserId;
         var editors = await Editors(organizationId, callerId, request.EditorIds, cancellationToken);
         var project = new Project
         {
@@ -126,12 +126,12 @@ public sealed class ProjectsService(ClockedInDbContext db, Access access)
     private async Task RequireRead(Project project, CancellationToken cancellationToken)
     {
         await access.RequireOrganization(project.OrganizationId, false, cancellationToken);
-        var caller = access.Caller;
-        if (caller.IsSuperAdmin
+        if (access.IsApiKey
+            || access.IsSuperAdmin
             || await access.IsOrgAdmin(project.OrganizationId, cancellationToken)
             || project.AccessType == AccessType.Public
-            || project.OwnerUserId == caller.Id
-            || project.Editors.Any(editor => editor.Id == caller.Id))
+            || project.OwnerUserId == access.ActorUserId
+            || project.Editors.Any(editor => editor.Id == access.ActorUserId))
         {
             return;
         }
@@ -148,11 +148,20 @@ public sealed class ProjectsService(ClockedInDbContext db, Access access)
 
     private async Task AssertManage(Project project, CancellationToken cancellationToken)
     {
-        var caller = access.Caller;
-        if (caller.IsSuperAdmin
+        if (access.IsApiKey)
+        {
+            if (!access.CanWrite(project.OrganizationId))
+            {
+                throw ApiException.Forbidden();
+            }
+
+            return;
+        }
+
+        if (access.IsSuperAdmin
             || await access.IsOrgAdmin(project.OrganizationId, cancellationToken)
-            || project.OwnerUserId == caller.Id
-            || project.Editors.Any(editor => editor.Id == caller.Id))
+            || project.OwnerUserId == access.ActorUserId
+            || project.Editors.Any(editor => editor.Id == access.ActorUserId))
         {
             return;
         }
@@ -191,7 +200,8 @@ public sealed class ProjectsService(ClockedInDbContext db, Access access)
             throw ApiException.Validation("departmentId does not belong to this organization.");
         }
 
-        if (!access.Caller.IsSuperAdmin
+        if (!access.IsSuperAdmin
+            && !access.CanWrite(organizationId)
             && !await access.IsOrgAdmin(organizationId, cancellationToken)
             && !await access.IsDepartmentAdmin(id, cancellationToken))
         {

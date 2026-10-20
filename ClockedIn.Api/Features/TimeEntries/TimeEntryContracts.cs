@@ -223,24 +223,26 @@ public sealed record LogTotalRequest(CreateTimeEntryRequest Entry)
         new(CreateTimeEntryRequest.Parse(await Body.Read(context), TimeEntryMode.Total));
 }
 
-public sealed record ClockInRequest(EntryPlacement Placement, Guid? HourlyRateId)
+public sealed record ClockInRequest(EntryPlacement Placement, Guid? HourlyRateId, Guid? UserId)
 {
     public static async ValueTask<ClockInRequest?> BindAsync(HttpContext context)
     {
         var body = await Body.Read(context);
         var hourlyRateId = Fields.Has(body, "hourlyRateId") ? Fields.OptionalGuid(body, "hourlyRateId") : null;
-        return new ClockInRequest(EntryPlacement.Parse(body), hourlyRateId);
+        var userId = Fields.Has(body, "userId") ? Fields.OptionalGuid(body, "userId") : null;
+        return new ClockInRequest(EntryPlacement.Parse(body), hourlyRateId, userId);
     }
 }
 
-public sealed record ClockOutRequest(Optional<string?> Description, Optional<List<Guid>> TagIds)
+public sealed record ClockOutRequest(Optional<string?> Description, Optional<List<Guid>> TagIds, Guid? UserId)
 {
     public static async ValueTask<ClockOutRequest?> BindAsync(HttpContext context)
     {
         var body = await Body.Read(context);
         return new ClockOutRequest(
             Optional.Read(body, "description", (b, k) => Fields.Description(Fields.OptionalString(b, k))),
-            Optional.Read(body, "tagIds", (b, k) => Fields.Ids(b, k, optional: false)));
+            Optional.Read(body, "tagIds", (b, k) => Fields.Ids(b, k, optional: false)),
+            Fields.Has(body, "userId") ? Fields.OptionalGuid(body, "userId") : null);
     }
 }
 
@@ -254,17 +256,15 @@ public sealed record UpdateTimeEntryRequest(
     Optional<List<Guid>> TagIds,
     TimeFields Times)
 {
-    public static async ValueTask<UpdateTimeEntryRequest?> BindAsync(HttpContext context)
-    {
-        var body = await Body.Read(context);
-        return new UpdateTimeEntryRequest(
-            Optional.Read(body, "organizationId", Fields.RequiredGuid),
-            Optional.Read(body, "departmentId", Fields.OptionalGuid),
-            Optional.Read(body, "projectId", Fields.RequiredGuid),
-            Optional.Read(body, "taskCategoryId", Fields.RequiredGuid),
-            Optional.Read(body, "hourlyRateId", Fields.OptionalGuid),
-            Optional.Read(body, "description", (b, k) => Fields.Description(Fields.OptionalString(b, k))),
-            Optional.Read(body, "tagIds", (b, k) => Fields.Ids(b, k, optional: false)),
-            TimeFields.Parse(body));
-    }
+    public static async ValueTask<UpdateTimeEntryRequest?> BindAsync(HttpContext context) => Parse(await Body.Read(context));
+
+    public static UpdateTimeEntryRequest Parse(JsonObject body) => new(
+        Optional.Read(body, "organizationId", Fields.RequiredGuid),
+        Optional.Read(body, "departmentId", Fields.OptionalGuid),
+        Optional.Read(body, "projectId", Fields.RequiredGuid),
+        Optional.Read(body, "taskCategoryId", Fields.RequiredGuid),
+        Optional.Read(body, "hourlyRateId", Fields.OptionalGuid),
+        Optional.Read(body, "description", (b, k) => Fields.Description(Fields.OptionalString(b, k))),
+        Optional.Read(body, "tagIds", (b, k) => Fields.Ids(b, k, optional: false)),
+        TimeFields.Parse(body));
 }

@@ -1,22 +1,24 @@
 import { Prisma } from "@/generated/prisma/client";
 import { Access } from "@/lib/api/access";
-import { guard, transaction } from "@/lib/api/db";
+import { guard, transaction, type Db } from "@/lib/api/db";
 import { conflict, notFound, validation } from "@/lib/api/errors";
+import { parseGuid } from "@/lib/api/guid";
 import {
-  Body,
-  has,
-  list,
-  normalizeRateType,
-  optional,
-  Optional,
-  page,
-  RateType,
-  requireBool,
-  requireDecimal,
-  requireInt,
-  requireName,
-  requireString,
-  roundMoney,
+    Body,
+    has,
+    ids,
+    list,
+    normalizeRateType,
+    optional,
+    Optional,
+    page,
+    RateType,
+    requireBool,
+    requireDecimal,
+    requireInt,
+    requireName,
+    requireString,
+    roundMoney,
 } from "@/lib/api/json";
 import { defaultVolunteerRate } from "@/lib/api/features/hourly-rates";
 import { roleId } from "@/lib/api/features/memberships";
@@ -27,6 +29,7 @@ import { prisma } from "@/lib/prisma";
 export type OrganizationPreferences = {
   allowTimeEntryEditing: boolean;
   entityLabels: EntityLabels;
+  feedbackNotifyUserIds: string[];
 };
 
 const themeInclude = { theme: true } as const;
@@ -37,7 +40,7 @@ function labelValue(value: unknown, fallback: string) {
 
 export function readPreferences(value: Prisma.JsonValue | null | undefined): OrganizationPreferences {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return { allowTimeEntryEditing: false, entityLabels: defaultEntityLabels };
+    return { allowTimeEntryEditing: false, entityLabels: defaultEntityLabels, feedbackNotifyUserIds: [] };
   }
 
   const record = value as Record<string, unknown>;
@@ -51,7 +54,18 @@ export function readPreferences(value: Prisma.JsonValue | null | undefined): Org
       department: labelValue(source.department, defaultEntityLabels.department),
       taskCategory: labelValue(source.taskCategory, defaultEntityLabels.taskCategory),
     },
+    feedbackNotifyUserIds: readNotifyUserIds(record.feedbackNotifyUserIds),
   };
+}
+
+function readNotifyUserIds(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => (typeof item === "string" ? parseGuid(item) : null))
+    .filter((item): item is string => item !== null);
 }
 
 function preferenceRecord(value: Prisma.JsonValue | null | undefined): Record<string, Prisma.InputJsonValue> {
@@ -94,6 +108,9 @@ function parsePreferences(value: unknown): OrganizationPreferences {
   return {
     allowTimeEntryEditing: requireBool(body, "allowTimeEntryEditing"),
     entityLabels: has(body, "entityLabels") ? parseEntityLabels(body.entityLabels) : defaultEntityLabels,
+    feedbackNotifyUserIds: has(body, "feedbackNotifyUserIds")
+      ? [...new Set(ids(body, "feedbackNotifyUserIds", false))]
+      : [],
   };
 }
 
@@ -259,11 +276,16 @@ export async function updateOrganization(access: Access, organizationId: string,
       }
     }
 
+    if (request.preferences.set) {
+      await assertNotifyUsers(tx, organizationId, request.preferences.value.feedbackNotifyUserIds);
+    }
+
     const nextPreferences = request.preferences.set
       ? {
           ...preferenceRecord(current.preferences),
           allowTimeEntryEditing: request.preferences.value.allowTimeEntryEditing,
           entityLabels: request.preferences.value.entityLabels,
+          feedbackNotifyUserIds: request.preferences.value.feedbackNotifyUserIds,
         }
       : undefined;
     await tx.organization.update({
@@ -301,6 +323,20 @@ export async function updateOrganization(access: Access, organizationId: string,
     return tx.organization.findUniqueOrThrow({ where: { id: organizationId }, include: themeInclude });
   });
   return organizationJson(organization, (await defaultVolunteerRate(organizationId)).rate);
+}
+
+async function assertNotifyUsers(db: Db, organizationId: string, userIds: string[]) {
+  const unique = [...new Set(userIds)];
+  if (unique.length === 0) {
+    return;
+  }
+
+  const active = await db.organizationMembership.count({
+    where: { organizationId, isActive: true, userId: { in: unique } },
+  });
+  if (active !== unique.length) {
+    validation("feedbackNotifyUserIds must be active users in this organization.");
+  }
 }
 
 export async function deleteOrganization(access: Access, organizationId: string) {

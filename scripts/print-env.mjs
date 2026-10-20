@@ -9,6 +9,7 @@ console.log(
       API_TARGET: process.env.API_TARGET ?? null,
       DATABASE_URL: scheme,
       API_BASE_URL: process.env.API_BASE_URL ? "set" : "unset",
+      CSHARP_API_URL: process.env.CSHARP_API_URL ? "set" : "unset",
       VERCEL_ENV: process.env.VERCEL_ENV ?? null,
       VERCEL_TARGET_ENV: process.env.VERCEL_TARGET_ENV ?? null,
     },

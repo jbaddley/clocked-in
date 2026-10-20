@@ -1,4 +1,5 @@
 import type { listCollective } from "@/lib/api/features/collective";
+import type { listFeedback } from "@/lib/api/features/feedback";
 import type { listDepartments } from "@/lib/api/features/departments";
 import type { listHourlyRates } from "@/lib/api/features/hourly-rates";
 import type { listOrganizationInvitations } from "@/lib/api/features/invitations";
@@ -30,6 +31,7 @@ export type GroupDepartments = "all" | string[];
 export type Report = Awaited<ReturnType<typeof report>>;
 export type ReportSide = Report["user"] | Report["collective"];
 export type ReportGroup = Report["user"]["byDepartment"][number];
+export type Feedback = Items<typeof listFeedback>[number];
 
 export type Lookups = {
   departments: Department[];

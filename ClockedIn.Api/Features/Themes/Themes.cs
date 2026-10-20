@@ -42,7 +42,7 @@ public sealed class ThemesService(ClockedInDbContext db, Access access)
 
     public async Task<ThemeDto> Create(Guid organizationId, ThemeWriteRequest request, CancellationToken cancellationToken)
     {
-        await access.RequireOrganization(organizationId, true, cancellationToken);
+        await access.RequireOrganizationAdmin(organizationId, cancellationToken);
         var theme = new Theme { Id = Guid.NewGuid(), OrganizationId = organizationId };
         request.ApplyTo(theme);
         db.Themes.Add(theme);
@@ -52,7 +52,7 @@ public sealed class ThemesService(ClockedInDbContext db, Access access)
 
     public async Task<ThemeDto> Update(Guid organizationId, Guid themeId, ThemeWriteRequest request, CancellationToken cancellationToken)
     {
-        await access.RequireOrganization(organizationId, true, cancellationToken);
+        await access.RequireOrganizationAdmin(organizationId, cancellationToken);
         var theme = await db.Themes.FirstOrDefaultAsync(
             item => item.Id == themeId && item.OrganizationId == organizationId,
             cancellationToken) ?? throw ApiException.NotFound();
@@ -63,7 +63,7 @@ public sealed class ThemesService(ClockedInDbContext db, Access access)
 
     public async Task Delete(Guid organizationId, Guid themeId, CancellationToken cancellationToken)
     {
-        var organization = await access.RequireOrganization(organizationId, true, cancellationToken);
+        var organization = await access.RequireOrganizationAdmin(organizationId, cancellationToken);
         var theme = await db.Themes.FirstOrDefaultAsync(
             item => item.Id == themeId && item.OrganizationId == organizationId,
             cancellationToken) ?? throw ApiException.NotFound();

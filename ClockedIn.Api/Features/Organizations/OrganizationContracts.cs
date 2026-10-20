@@ -54,10 +54,16 @@ public sealed record EntityLabelsDto(string Organization, string Project, string
     }
 }
 
-public sealed record OrganizationPreferencesDto(bool AllowTimeEntryEditing, EntityLabelsDto EntityLabels)
+public sealed record OrganizationPreferencesDto(
+    bool AllowTimeEntryEditing,
+    EntityLabelsDto EntityLabels,
+    IReadOnlyList<Guid> FeedbackNotifyUserIds)
 {
     public static OrganizationPreferencesDto From(OrganizationPreferences? preferences) =>
-        new(preferences?.AllowTimeEntryEditing ?? false, EntityLabelsDto.From(preferences?.EntityLabels));
+        new(
+            preferences?.AllowTimeEntryEditing ?? false,
+            EntityLabelsDto.From(preferences?.EntityLabels),
+            preferences?.FeedbackNotifyUserIds ?? []);
 
     public static OrganizationPreferencesDto Parse(JsonNode? node)
     {
@@ -70,7 +76,10 @@ public sealed record OrganizationPreferencesDto(bool AllowTimeEntryEditing, Enti
             Fields.RequiredBool(body, "allowTimeEntryEditing"),
             Fields.Has(body, "entityLabels")
                 ? EntityLabelsDto.Parse(body["entityLabels"])
-                : EntityLabelsDto.From(null));
+                : EntityLabelsDto.From(null),
+            Fields.Has(body, "feedbackNotifyUserIds")
+                ? Fields.Ids(body, "feedbackNotifyUserIds", optional: false).Distinct().ToList()
+                : []);
     }
 }
 

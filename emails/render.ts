@@ -3,6 +3,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { render } from "@react-email/render";
 import { createElement } from "react";
+import FeedbackCompletedEmail, { feedbackCompleted } from "./feedback-completed";
+import FeedbackNotifyEmail, { feedbackNotify } from "./feedback-notify";
+import FeedbackReceivedEmail, { feedbackReceived } from "./feedback-received";
 import InvitationEmail, { invitation } from "./invitation";
 import PasswordResetEmail, { passwordReset } from "./password-reset";
 
@@ -23,6 +26,36 @@ const templates = [
       url: "{{url}}",
     }),
   },
+  {
+    ...feedbackReceived,
+    element: createElement(FeedbackReceivedEmail, {
+      firstName: "{{firstName}}",
+      title: "{{title}}",
+      typeLabel: "{{typeLabel}}",
+    }),
+  },
+  {
+    ...feedbackNotify,
+    element: createElement(FeedbackNotifyEmail, {
+      submitterName: "{{submitterName}}",
+      typeLabel: "{{typeLabel}}",
+      priorityLabel: "{{priorityLabel}}",
+      areaLabel: "{{areaLabel}}",
+      title: "{{title}}",
+      description: "{{description}}",
+      url: "{{url}}",
+    }),
+  },
+  {
+    ...feedbackCompleted,
+    element: createElement(FeedbackCompletedEmail, {
+      firstName: "{{firstName}}",
+      title: "{{title}}",
+      typeLabel: "{{typeLabel}}",
+      outcome: "{{outcome}}",
+      note: "{{note}}",
+    }),
+  },
 ];
 
 async function main() {
@@ -38,7 +71,7 @@ async function main() {
       }
     }
 
-    if (!codeLine.test(text)) {
+    if (template.variables.includes("code") && !codeLine.test(text)) {
       throw new Error(`Template ${template.id} plain text does not keep the code line.\n${text}`);
     }
 

@@ -1,0 +1,39 @@
+name: Deploy API
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ClockedIn.Api/**
+      - emails/dist/**
+      - .github/workflows/deploy-api.yml
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: App Service
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Apply EF migrations
+        env:
+          EF_DATABASE_URL: ${{ secrets.EF_DATABASE_URL }}
+        run: |
+          dotnet tool update --global dotnet-ef --version 10.*
+          dotnet ef database update --project ClockedIn.Api
+
+      - name: Publish
+        run: dotnet publish ClockedIn.Api -c Release -o ./publish
+
+      - name: Deploy
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ./publish

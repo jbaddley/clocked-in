@@ -313,6 +313,29 @@ export type RoleCode = "MEMBER" | "VOLUNTEER" | "ADMIN";
 export type RateType = "Volunteer" | "Professional";
 export type AccessType = "Public" | "Private" | "Department";
 export type ProjectType = "Project" | "Event";
+export type FeedbackType = "Bug" | "Feature";
+export type FeedbackPriority = "Urgent" | "High" | "Medium" | "Low";
+export type FeedbackArea = "Dashboard" | "LogTime" | "Entries" | "Reports" | "Settings" | "Other";
+export type FeedbackStatus =
+  | "Pending"
+  | "Acknowledged"
+  | "Planned"
+  | "InProgress"
+  | "Resolved"
+  | "Cancelled"
+  | "CouldNotReproduce"
+  | "Archived";
+
+export const activeFeedbackStatuses: FeedbackStatus[] = ["Pending", "Acknowledged", "Planned", "InProgress"];
+export const completedFeedbackStatuses: FeedbackStatus[] = ["Resolved", "Cancelled", "CouldNotReproduce"];
+
+export function isActiveFeedback(status: FeedbackStatus) {
+  return activeFeedbackStatuses.includes(status);
+}
+
+export function isCompletedFeedback(status: FeedbackStatus) {
+  return completedFeedbackStatuses.includes(status);
+}
 
 export function normalizeRole(value: string): RoleCode {
   const role = value.trim().toUpperCase();
@@ -348,6 +371,141 @@ export function normalizeAccessType(value: string): AccessType {
   }
 
   return accessType;
+}
+
+export function normalizeFeedbackType(value: string): FeedbackType {
+  const type = value.trim();
+  if (type !== "Bug" && type !== "Feature") {
+    validation("type must be Bug or Feature.");
+  }
+
+  return type;
+}
+
+export function normalizeFeedbackPriority(value: string): FeedbackPriority {
+  const priority = value.trim();
+  if (priority !== "Urgent" && priority !== "High" && priority !== "Medium" && priority !== "Low") {
+    validation("priority must be Urgent, High, Medium, or Low.");
+  }
+
+  return priority;
+}
+
+export function normalizeFeedbackArea(value: string): FeedbackArea {
+  const area = value.trim();
+  if (
+    area !== "Dashboard" &&
+    area !== "LogTime" &&
+    area !== "Entries" &&
+    area !== "Reports" &&
+    area !== "Settings" &&
+    area !== "Other"
+  ) {
+    validation("area must be Dashboard, LogTime, Entries, Reports, Settings, or Other.");
+  }
+
+  return area;
+}
+
+export function normalizeFeedbackStatus(value: string): FeedbackStatus {
+  const status = value.trim();
+  if (
+    status !== "Pending" &&
+    status !== "Acknowledged" &&
+    status !== "Planned" &&
+    status !== "InProgress" &&
+    status !== "Resolved" &&
+    status !== "Cancelled" &&
+    status !== "CouldNotReproduce" &&
+    status !== "Archived"
+  ) {
+    validation(
+      "status must be Pending, Acknowledged, Planned, InProgress, Resolved, Cancelled, CouldNotReproduce, or Archived.",
+    );
+  }
+
+  return status;
+}
+
+export function queryBool(params: URLSearchParams, key: string) {
+  const value = queryValue(params, key);
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value !== "true" && value !== "false") {
+    validation(`${key} must be true or false.`);
+  }
+
+  return value === "true";
+}
+
+export function screenshotUrls(body: Body) {
+  if (!has(body, "screenshotUrls")) {
+    return [];
+  }
+
+  const value = body.screenshotUrls;
+  if (!Array.isArray(value)) {
+    validation("screenshotUrls must be an array of URLs.");
+  }
+
+  if (value.length > 5) {
+    validation("screenshotUrls must have 5 or fewer URLs.");
+  }
+
+  return value.map((item) => {
+    if (typeof item !== "string") {
+      validation("screenshotUrls must be an array of URLs.");
+    }
+
+    const url = item.trim();
+    if (url.length < 1 || url.length > 2000) {
+      validation("screenshotUrls must be an array of URLs.");
+    }
+
+    return url;
+  });
+}
+
+export function ticketUrl(body: Body) {
+  if (!has(body, "ticketUrl") || body.ticketUrl === null) {
+    return null;
+  }
+
+  const value = requireString(body, "ticketUrl").trim();
+  if (value.length === 0) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(value);
+    if ((parsed.protocol !== "http:" && parsed.protocol !== "https:") || value.length > 2000) {
+      validation("ticketUrl must be a URL.");
+    }
+  } catch {
+    validation("ticketUrl must be a URL.");
+  }
+
+  return value;
+}
+
+export function requiredLongText(body: Body, key: string, max: number) {
+  const trimmed = requireString(body, key).trim();
+  if (trimmed.length < 1 || trimmed.length > max) {
+    validation(`${key} must be 1 to ${max} characters.`);
+  }
+
+  return trimmed;
+}
+
+export function feedbackTitle(value: string) {
+  const trimmed = value.trim();
+  if (trimmed.length < 1 || trimmed.length > 120) {
+    validation("title must be 1 to 120 characters.");
+  }
+
+  return trimmed;
 }
 
 export function personName(value: string, key: string) {

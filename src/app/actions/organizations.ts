@@ -56,6 +56,10 @@ export async function updateOrganizationSettingsAction(
         department: text(formData, "labelDepartment"),
         taskCategory: text(formData, "labelTaskCategory"),
       },
+      feedbackNotifyUserIds: text(formData, "feedbackNotifyUserIds")
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean),
     };
     await updateOrganization(
       access,

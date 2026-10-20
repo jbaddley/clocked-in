@@ -6,6 +6,7 @@ import type {
   GroupSession,
   HourlyRate,
   Lookups,
+  Feedback,
   Invitation,
   Membership,
   Paged,
@@ -41,6 +42,7 @@ export const keys = {
     ["org", organizationId, "report", range.from ?? "", range.to ?? ""] as const,
   themes: (organizationId: string) => ["org", organizationId, "themes"] as const,
   openPunch: (userId: string) => ["user", userId, "open-punch"] as const,
+  feedback: (active?: boolean) => (active === undefined ? (["feedback"] as const) : (["feedback", active] as const)),
 };
 
 export function lookupsQuery(organizationId: string) {
@@ -131,6 +133,14 @@ export function openPunchQuery(userId: string) {
       const recent = await fetchJson<Paged<TimeEntry>>(`/users/${userId}/time-entries?limit=20`, signal);
       return recent.items.find((entry) => entry.mode === "Punch" && !entry.endedAt) ?? null;
     },
+  });
+}
+
+export function feedbackQuery(active: boolean) {
+  return queryOptions({
+    queryKey: keys.feedback(active),
+    queryFn: ({ signal }) =>
+      fetchJson<Paged<Feedback>>(`/feedback${query({ active: String(active), limit: 100 })}`, signal),
   });
 }
 

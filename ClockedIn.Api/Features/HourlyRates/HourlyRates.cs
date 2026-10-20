@@ -126,7 +126,7 @@ public sealed class HourlyRatesService(ClockedInDbContext db, Access access)
 
     public async Task<HourlyRateDto> Create(Guid organizationId, CreateHourlyRateRequest request, CancellationToken cancellationToken)
     {
-        await access.RequireOrganization(organizationId, true, cancellationToken);
+        await access.RequireOrganizationAdmin(organizationId, cancellationToken);
         await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
         if (request.IsDefault)
         {
@@ -215,7 +215,7 @@ public sealed class HourlyRatesService(ClockedInDbContext db, Access access)
     {
         var rate = await db.HourlyRates.FirstOrDefaultAsync(item => item.Id == rateId, cancellationToken)
             ?? throw ApiException.NotFound();
-        await access.RequireOrganization(rate.OrganizationId, true, cancellationToken);
+        await access.RequireOrganizationAdmin(rate.OrganizationId, cancellationToken);
         return rate;
     }
 }

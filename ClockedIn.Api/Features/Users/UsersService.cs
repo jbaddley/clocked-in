@@ -11,7 +11,7 @@ public sealed class UsersService(ClockedInDbContext db, Access access, TimeProvi
     public async Task<ListResponse<UserDto>> List(PageQuery query, CancellationToken cancellationToken)
     {
         var page = query.Resolve();
-        if (!access.Caller.IsSuperAdmin)
+        if (!access.IsSuperAdmin)
         {
             throw ApiException.Forbidden();
         }
@@ -26,10 +26,9 @@ public sealed class UsersService(ClockedInDbContext db, Access access, TimeProvi
 
     public async Task<UserDto> Get(Guid userId, CancellationToken cancellationToken)
     {
-        var caller = access.Caller;
         var user = await db.UsersWithProfile().AsNoTracking().FirstOrDefaultAsync(item => item.Id == userId, cancellationToken)
             ?? throw ApiException.NotFound();
-        if (caller.IsSuperAdmin || caller.Id == user.Id)
+        if (access.IsSuperAdmin || access.ActorUserId == user.Id)
         {
             return UserDto.From(user);
         }
@@ -51,7 +50,7 @@ public sealed class UsersService(ClockedInDbContext db, Access access, TimeProvi
 
     public async Task<UserDto> Update(Guid userId, UpdateUserRequest request, bool fromMe, CancellationToken cancellationToken)
     {
-        var caller = access.Caller;
+        var caller = access.RequireHuman();
         var user = await db.UsersWithProfile().FirstOrDefaultAsync(item => item.Id == userId, cancellationToken)
             ?? throw ApiException.NotFound();
         if (user.Profile is null)
@@ -140,7 +139,7 @@ public sealed class UsersService(ClockedInDbContext db, Access access, TimeProvi
 
     public async Task Delete(Guid userId, CancellationToken cancellationToken)
     {
-        var caller = access.Caller;
+        var caller = access.RequireHuman();
         var user = await db.Users.FirstOrDefaultAsync(item => item.Id == userId, cancellationToken) ?? throw ApiException.NotFound();
         if (caller.Id != user.Id && !caller.IsSuperAdmin)
         {
@@ -156,7 +155,9 @@ public sealed class UsersService(ClockedInDbContext db, Access access, TimeProvi
 
         var referenced = await db.UserTimeEntries.AnyAsync(entry => entry.UserId == userId || entry.EnteredByUserId == userId, cancellationToken)
             || await db.CollectiveTimeEntries.AnyAsync(entry => entry.RecordedByUserId == userId, cancellationToken)
-            || await db.Projects.AnyAsync(project => project.OwnerUserId == userId, cancellationToken);
+            || await db.Projects.AnyAsync(project => project.OwnerUserId == userId, cancellationToken)
+            || await db.Feedback.AnyAsync(item => item.UserId == userId, cancellationToken)
+            || await db.FeedbackActions.AnyAsync(item => item.TakenByUserId == userId, cancellationToken);
         if (referenced)
         {
             throw ApiException.Conflict("Delete the time entries first.");

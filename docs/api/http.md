@@ -348,6 +348,33 @@ Rows are user entries sorted by `occurredOn` and then `createdAt`. Cell formats 
 
 A cell that starts with `=`, `+`, `-`, `@`, a tab, or a carriage return gets a leading `'`. A cell containing `"`, `,`, a newline, or a carriage return is wrapped in double quotes, with each `"` doubled.
 
+## Organization API keys
+
+ClockedIn.Api accepts organization API keys on REST and on `POST /mcp`. Keys do not work on the Next.js API unless `CSHARP_API_URL` is set and Next proxies to ClockedIn.Api. A key is shown once at create or rotate: `cki_live_<prefix>_<secret>` in production, `cki_test_…` otherwise. Send `Authorization: Bearer <key>` or `X-Api-Key: <key>`. Only the HMAC hash is stored. Key create, list, rotate, and revoke require a human organization admin JWT. A key cannot mint other keys.
+
+Scopes:
+
+- `org:read` — get and list the organization and its catalogs, members, projects, time, reports
+- `org:write` — time, projects, tags, task categories, departments, collective time
+- `org:admin` — memberships, invitations, rates, themes, organization settings. Not organization delete.
+
+`GET/POST /organizations/{id}/api-keys`. Body `{ "name", "scopes", "expiresAt" }`. `name` is 1 to 80 characters. `scopes` is a non-empty array of the values above. `expiresAt` is optional. Create returns the plaintext `key` once. List omits `key`.
+
+`PATCH /organizations/{id}/api-keys/{keyId}` updates `name`, `scopes`, or `expiresAt`. `POST .../rotate` issues a new secret and prefix. `DELETE` revokes. Clock-in and clock-out with a key require `userId`.
+
+MCP is Streamable HTTP at `/mcp`. Clients send the same Bearer key. Tools wrap the same feature services as REST. Auth, signup, password reset, SuperAdmin user list, feedback moderation, and deleting an organization are not exposed.
+
+```json
+{
+  "mcpServers": {
+    "clocked-in": {
+      "url": "https://<app>.azurewebsites.net/mcp",
+      "headers": { "Authorization": "Bearer cki_live_…" }
+    }
+  }
+}
+```
+
 ## Authorization summary
 
 SuperAdmin is a user flag, not a membership role. A SuperAdmin can read and write every entity. The first SuperAdmin is set in SQL: `UPDATE "User" SET "isSuperAdmin" = true WHERE "email" = '...'`.

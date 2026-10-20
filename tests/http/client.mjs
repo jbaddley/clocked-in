@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import pg from "pg";
-import { apiBaseUrl, databaseUrl, mailSinkUrl } from "./fixture.mjs";
+import { apiBaseUrl, databaseUrl, githubSinkUrl, mailSinkUrl } from "./fixture.mjs";
 
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -197,6 +197,7 @@ export function defaultPreferences(overrides = {}) {
   return {
     allowTimeEntryEditing: false,
     entityLabels: defaultEntityLabels,
+    feedbackNotifyUserIds: [],
     ...overrides,
   };
 }
@@ -518,6 +519,68 @@ export function themeBody(overrides = {}) {
     divergingPalette: ["#8B3A2A", "#C17B4A", "#E8C9A8", "#F7F4EE", "#A8C4D4", "#2A6F97", "#001836"],
     ...overrides,
   };
+}
+
+export async function waitForEmails(email, count = 1) {
+  const deadline = Date.now() + 8000;
+  let messages = [];
+  while (Date.now() < deadline) {
+    const response = await fetch(`${mailSinkUrl}/emails?to=${encodeURIComponent(email)}`);
+    if (response.ok) {
+      messages = await response.json();
+      if (messages.length >= count) {
+        return messages;
+      }
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  throw new Error(
+    `Expected ${count} email(s) for ${email}. Start tests/http/mail-sink.mjs and point RESEND_API_URL at ${mailSinkUrl}/emails. Got ${messages.length}.`,
+  );
+}
+
+export async function waitForMatchingEmails(email, pattern, minCount = 1) {
+  const deadline = Date.now() + 8000;
+  let messages = [];
+  while (Date.now() < deadline) {
+    const response = await fetch(`${mailSinkUrl}/emails?to=${encodeURIComponent(email)}`);
+    if (response.ok) {
+      messages = await response.json();
+      const matches = messages.filter((message) => pattern.test(message.subject) || pattern.test(message.text ?? ""));
+      if (matches.length >= minCount) {
+        return matches;
+      }
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  throw new Error(
+    `Expected ${minCount} email(s) matching ${pattern} for ${email}. Start tests/http/mail-sink.mjs and point RESEND_API_URL at ${mailSinkUrl}/emails. Got ${messages.length}.`,
+  );
+}
+
+export async function waitForGithubIssue(title) {
+  const deadline = Date.now() + 8000;
+  let issues = [];
+  while (Date.now() < deadline) {
+    const response = await fetch(`${githubSinkUrl}/issues`);
+    if (response.ok) {
+      issues = await response.json();
+      const match = issues.find((issue) => issue.title === title);
+      if (match) {
+        return match;
+      }
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  throw new Error(
+    `Expected a GitHub issue titled ${title}. Start tests/http/github-sink.mjs and point GITHUB_API_URL at ${githubSinkUrl}. Got ${issues.length}.`,
+  );
 }
 
 export async function waitForCode(email) {

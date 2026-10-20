@@ -10,29 +10,32 @@ datasource db {
 }
 
 model User {
-  id                      String                   @id(map: "PK_User") @default(uuid()) @db.Uuid
+  id                         String                   @id(map: "PK_User") @default(uuid()) @db.Uuid
   /// Stored lowercase. The initial migration rejects any other casing.
-  username                String                   @unique(map: "IX_User_username")
+  username                   String                   @unique(map: "IX_User_username")
   /// Stored lowercase. The initial migration rejects any other casing.
-  email                   String                   @unique(map: "IX_User_email")
-  passwordHash            String
-  createdAt               DateTime                 @default(now()) @db.Timestamptz(6)
-  updatedAt               DateTime                 @updatedAt @db.Timestamptz(6)
+  email                      String                   @unique(map: "IX_User_email")
+  passwordHash               String
+  createdAt                  DateTime                 @default(now()) @db.Timestamptz(6)
+  updatedAt                  DateTime                 @updatedAt @db.Timestamptz(6)
   /// User-level flag. Not a membership role.
-  isSuperAdmin            Boolean                  @default(false)
+  isSuperAdmin               Boolean                  @default(false)
   /// When true, the user must set a new password before using the app.
-  mustChangePassword      Boolean                  @default(false)
-  collectiveTimeEntries   CollectiveTimeEntry[]    @relation("CollectiveTimeEntryRecordedBy")
-  departmentMemberships   DepartmentMembership[]
-  invitationsSent         Invitation[]             @relation("InvitationInvitedBy")
-  organizationMemberships OrganizationMembership[]
-  passwordResetCodes      PasswordResetCode[]
-  ownedProjects           Project[]                @relation("ProjectOwner")
-  editableProjects        ProjectEditor[]
-  refreshTokens           RefreshToken[]
-  profile                 UserProfile?
-  timeEntriesEntered      UserTimeEntry[]          @relation("UserTimeEntryEnteredBy")
-  timeEntries             UserTimeEntry[]          @relation("UserTimeEntryHoursFor")
+  mustChangePassword         Boolean                  @default(false)
+  collectiveTimeEntries      CollectiveTimeEntry[]    @relation("CollectiveTimeEntryRecordedBy")
+  departmentMemberships      DepartmentMembership[]
+  feedback                   Feedback[]
+  feedbackActionsTaken       FeedbackAction[]         @relation("FeedbackActionTakenBy")
+  invitationsSent            Invitation[]             @relation("InvitationInvitedBy")
+  organizationApiKeysCreated OrganizationApiKey[]
+  organizationMemberships    OrganizationMembership[]
+  passwordResetCodes         PasswordResetCode[]
+  ownedProjects              Project[]                @relation("ProjectOwner")
+  editableProjects           ProjectEditor[]
+  refreshTokens              RefreshToken[]
+  profile                    UserProfile?
+  timeEntriesEntered         UserTimeEntry[]          @relation("UserTimeEntryEnteredBy")
+  timeEntries                UserTimeEntry[]          @relation("UserTimeEntryHoursFor")
 }
 
 model UserProfile {
@@ -75,9 +78,11 @@ model Organization {
   wordmarkOnLightUrl    String?
   collectiveTimeEntries CollectiveTimeEntry[]
   departments           Department[]
+  feedback              Feedback[]
   hourlyRates           HourlyRate[]
   invitations           Invitation[]
   theme                 Theme                    @relation("OrganizationTheme", fields: [themeId], references: [id], onUpdate: NoAction, map: "FK_Organization_Theme_themeId")
+  apiKeys               OrganizationApiKey[]
   memberships           OrganizationMembership[]
   projects              Project[]
   tags                  Tag[]
@@ -171,11 +176,11 @@ model Project {
   description           String?
   /// Public, Private, Organization, or Department.
   accessType            String
-  /// Project or Event.
-  projectType           String                @default("Project")
   startDate             DateTime?             @db.Date
   endDate               DateTime?             @db.Date
   isActive              Boolean               @default(true)
+  /// Project or Event.
+  projectType           String                @default("Project")
   collectiveTimeEntries CollectiveTimeEntry[]
   department            Department?           @relation(fields: [departmentId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_Project_Department_departmentId")
   organization          Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_Project_Organization_organizationId")
@@ -379,6 +384,69 @@ model Theme {
   organization          Organization?  @relation("OrganizationThemes", fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_Theme_Organization_organizationId")
 
   @@unique([organizationId, name], map: "Theme_organization_name_key", where: raw("(\"organizationId\" IS NOT NULL)"))
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model Feedback {
+  id                String           @id(map: "PK_Feedback") @default(uuid()) @db.Uuid
+  userId            String           @db.Uuid
+  organizationId    String?          @db.Uuid
+  type              String
+  priority          String
+  area              String
+  title             String
+  description       String
+  screenshotUrls    Json
+  status            String           @default("Pending")
+  createdAt         DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime         @db.Timestamptz(6)
+  githubIssueNumber Int?
+  ticketUrl         String?
+  organization      Organization?    @relation(fields: [organizationId], references: [id], onUpdate: NoAction, map: "FK_Feedback_Organization_organizationId")
+  user              User             @relation(fields: [userId], references: [id], onUpdate: NoAction, map: "FK_Feedback_User_userId")
+  actions           FeedbackAction[]
+
+  @@index([createdAt], map: "IX_Feedback_createdAt")
+  @@index([organizationId], map: "IX_Feedback_organizationId")
+  @@index([status], map: "IX_Feedback_status")
+  @@index([userId], map: "IX_Feedback_userId")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model FeedbackAction {
+  id             String   @id(map: "PK_FeedbackAction") @default(uuid()) @db.Uuid
+  feedbackId     String   @db.Uuid
+  previousStatus String
+  updatedStatus  String
+  updatedAt      DateTime @db.Timestamptz(6)
+  description    String
+  takenByUserId  String   @db.Uuid
+  ticketUrl      String?
+  feedback       Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_FeedbackAction_Feedback_feedbackId")
+  takenBy        User     @relation("FeedbackActionTakenBy", fields: [takenByUserId], references: [id], onUpdate: NoAction, map: "FK_FeedbackAction_User_takenByUserId")
+
+  @@index([feedbackId], map: "IX_FeedbackAction_feedbackId")
+  @@index([takenByUserId], map: "IX_FeedbackAction_takenByUserId")
+}
+
+model OrganizationApiKey {
+  id              String       @id(map: "PK_OrganizationApiKey") @db.Uuid
+  organizationId  String       @db.Uuid
+  name            String
+  prefix          String
+  keyHash         String       @unique(map: "IX_OrganizationApiKey_keyHash")
+  scopes          String
+  createdByUserId String       @db.Uuid
+  createdAt       DateTime     @default(now()) @db.Timestamptz(6)
+  lastUsedAt      DateTime?    @db.Timestamptz(6)
+  expiresAt       DateTime?    @db.Timestamptz(6)
+  revokedAt       DateTime?    @db.Timestamptz(6)
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_OrganizationApiKey_Organization_organizationId")
+  createdBy       User         @relation(fields: [createdByUserId], references: [id], onUpdate: NoAction, map: "FK_OrganizationApiKey_User_createdByUserId")
+
+  @@index([createdByUserId], map: "IX_OrganizationApiKey_createdByUserId")
+  @@index([organizationId], map: "IX_OrganizationApiKey_organizationId")
+  @@index([prefix], map: "IX_OrganizationApiKey_prefix")
 }
 
 enum TimeEntryMode {

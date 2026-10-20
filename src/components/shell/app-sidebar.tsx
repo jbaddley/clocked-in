@@ -1,4 +1,12 @@
-import { BarChart3Icon, ClockIcon, LayoutDashboardIcon, ListChecksIcon, SettingsIcon, TimerIcon } from "lucide-react";
+import {
+  BarChart3Icon,
+  ClockIcon,
+  LayoutDashboardIcon,
+  ListChecksIcon,
+  MessageSquarePlusIcon,
+  SettingsIcon,
+  TimerIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { NavLink } from "@/components/shell/nav-link";
 import { SidebarToggle } from "@/components/shell/sidebar-toggle";
@@ -26,9 +34,22 @@ const sections = [
   },
   { label: "Analyze", links: [{ href: "/reports", label: "Reports", icon: BarChart3Icon }] },
   { label: "Manage", admin: true, links: [{ href: "/settings", label: "Settings", icon: SettingsIcon }] },
+  {
+    label: "Product",
+    superAdmin: true,
+    links: [{ href: "/feedback", label: "Feedback", icon: MessageSquarePlusIcon }],
+  },
 ];
 
-export function AppSidebar({ organization, isAdmin }: { organization: Organization | null; isAdmin: boolean }) {
+export function AppSidebar({
+  organization,
+  isAdmin,
+  isSuperAdmin,
+}: {
+  organization: Organization | null;
+  isAdmin: boolean;
+  isSuperAdmin: boolean;
+}) {
   const markUrl = brandAssetSrc("mark", organization?.markUrl ?? null);
   const wordmarkUrl = wordmarkSrc(organization, "dark");
   return (
@@ -60,7 +81,7 @@ export function AppSidebar({ organization, isAdmin }: { organization: Organizati
       </SidebarHeader>
       <SidebarContent className="py-2">
         {sections
-          .filter((section) => !section.admin || isAdmin)
+          .filter((section) => (!section.admin || isAdmin) && (!section.superAdmin || isSuperAdmin))
           .map((section) => (
             <SidebarGroup key={section.label}>
               <SidebarGroupLabel className="text-[0.68rem] tracking-widest text-sidebar-foreground/60 uppercase">

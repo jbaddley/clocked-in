@@ -34,6 +34,42 @@ public enum RoleCode
     ADMIN,
 }
 
+public enum FeedbackType
+{
+    Bug,
+    Feature,
+}
+
+public enum FeedbackPriority
+{
+    Urgent,
+    High,
+    Medium,
+    Low,
+}
+
+public enum FeedbackArea
+{
+    Dashboard,
+    LogTime,
+    Entries,
+    Reports,
+    Settings,
+    Other,
+}
+
+public enum FeedbackStatus
+{
+    Pending,
+    Acknowledged,
+    Planned,
+    InProgress,
+    Resolved,
+    Cancelled,
+    CouldNotReproduce,
+    Archived,
+}
+
 public class User
 {
     public Guid Id { get; set; }
@@ -56,6 +92,9 @@ public class User
     public ICollection<CollectiveTimeEntry> CollectiveTimeEntries { get; set; } = [];
     public ICollection<Invitation> InvitationsSent { get; set; } = [];
     public ICollection<PasswordResetCode> PasswordResetCodes { get; set; } = [];
+    public ICollection<Feedback> Feedback { get; set; } = [];
+    public ICollection<FeedbackAction> FeedbackActionsTaken { get; set; } = [];
+    public ICollection<OrganizationApiKey> OrganizationApiKeysCreated { get; set; } = [];
 }
 
 public class UserProfile
@@ -108,6 +147,7 @@ public class OrganizationPreferences
 {
     public bool AllowTimeEntryEditing { get; set; }
     public EntityLabels EntityLabels { get; set; } = new();
+    public List<Guid> FeedbackNotifyUserIds { get; set; } = [];
 }
 
 public class Organization
@@ -134,6 +174,8 @@ public class Organization
     public ICollection<UserTimeEntry> TimeEntries { get; set; } = [];
     public ICollection<CollectiveTimeEntry> CollectiveTimeEntries { get; set; } = [];
     public ICollection<Invitation> Invitations { get; set; } = [];
+    public ICollection<Feedback> Feedback { get; set; } = [];
+    public ICollection<OrganizationApiKey> ApiKeys { get; set; } = [];
 }
 
 public class HourlyRate
@@ -341,6 +383,24 @@ public class RefreshToken
     public User User { get; set; } = null!;
 }
 
+public class OrganizationApiKey
+{
+    public Guid Id { get; set; }
+    public Guid OrganizationId { get; set; }
+    public string Name { get; set; } = null!;
+    public string Prefix { get; set; } = null!;
+    public string KeyHash { get; set; } = null!;
+    public string Scopes { get; set; } = null!;
+    public Guid CreatedByUserId { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? LastUsedAt { get; set; }
+    public DateTime? ExpiresAt { get; set; }
+    public DateTime? RevokedAt { get; set; }
+
+    public Organization Organization { get; set; } = null!;
+    public User CreatedBy { get; set; } = null!;
+}
+
 public class Invitation
 {
     public Guid Id { get; set; }
@@ -371,4 +431,60 @@ public class PasswordResetCode
     public DateTime CreatedAt { get; set; }
 
     public User User { get; set; } = null!;
+}
+
+public class Feedback
+{
+    public static readonly FeedbackStatus[] ActiveStatuses =
+    [
+        FeedbackStatus.Pending,
+        FeedbackStatus.Acknowledged,
+        FeedbackStatus.Planned,
+        FeedbackStatus.InProgress,
+    ];
+
+    public static readonly FeedbackStatus[] CompletedStatuses =
+    [
+        FeedbackStatus.Resolved,
+        FeedbackStatus.Cancelled,
+        FeedbackStatus.CouldNotReproduce,
+    ];
+
+    public static bool IsActive(FeedbackStatus status) => ActiveStatuses.Contains(status);
+
+    public static bool IsCompleted(FeedbackStatus status) => CompletedStatuses.Contains(status);
+
+    public Guid Id { get; set; }
+    public Guid UserId { get; set; }
+    public Guid? OrganizationId { get; set; }
+    public FeedbackType Type { get; set; }
+    public FeedbackPriority Priority { get; set; }
+    public FeedbackArea Area { get; set; }
+    public string Title { get; set; } = null!;
+    public string Description { get; set; } = null!;
+    public List<string> ScreenshotUrls { get; set; } = [];
+    public FeedbackStatus Status { get; set; } = FeedbackStatus.Pending;
+    public int? GithubIssueNumber { get; set; }
+    public string? TicketUrl { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+
+    public User User { get; set; } = null!;
+    public Organization? Organization { get; set; }
+    public ICollection<FeedbackAction> Actions { get; set; } = [];
+}
+
+public class FeedbackAction
+{
+    public Guid Id { get; set; }
+    public Guid FeedbackId { get; set; }
+    public FeedbackStatus PreviousStatus { get; set; }
+    public FeedbackStatus UpdatedStatus { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public string Description { get; set; } = null!;
+    public Guid TakenByUserId { get; set; }
+    public string? TicketUrl { get; set; }
+
+    public Feedback Feedback { get; set; } = null!;
+    public User TakenBy { get; set; } = null!;
 }

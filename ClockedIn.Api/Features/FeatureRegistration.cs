@@ -1,6 +1,8 @@
+using ClockedIn.Api.Features.ApiKeys;
 using ClockedIn.Api.Features.Auth;
 using ClockedIn.Api.Features.Collective;
 using ClockedIn.Api.Features.Departments;
+using ClockedIn.Api.Features.Feedback;
 using ClockedIn.Api.Features.HourlyRates;
 using ClockedIn.Api.Features.Invitations;
 using ClockedIn.Api.Features.Memberships;
@@ -36,6 +38,8 @@ public static class FeatureRegistration
         services.AddScoped<CollectiveService>();
         services.AddScoped<ReportsService>();
         services.AddScoped<ThemesService>();
+        services.AddScoped<FeedbackService>();
+        services.AddScoped<OrganizationApiKeysService>();
         return services;
     }
 
@@ -55,6 +59,8 @@ public static class FeatureRegistration
         app.MapTimeEntriesEndpoints();
         app.MapCollectiveEndpoints();
         app.MapThemesEndpoints();
+        app.MapFeedbackEndpoints();
+        app.MapOrganizationApiKeysEndpoints();
         return app;
     }
 }

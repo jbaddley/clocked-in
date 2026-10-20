@@ -38,7 +38,7 @@ public sealed class MembershipsService(ClockedInDbContext db, Access access, Tim
 
     public async Task<MembershipDto> CreateOrganization(Guid organizationId, CreateOrgMembershipRequest request, CancellationToken cancellationToken)
     {
-        await access.RequireOrganization(organizationId, true, cancellationToken);
+        await access.RequireOrganizationAdmin(organizationId, cancellationToken);
         await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
         await db.LockOrganizationAsync(organizationId, cancellationToken);
         var existing = await db.UsersWithProfile().FirstOrDefaultAsync(user => user.Email == request.Email, cancellationToken);
@@ -116,7 +116,7 @@ public sealed class MembershipsService(ClockedInDbContext db, Access access, Tim
         UpdateOrgMembershipRequest request,
         CancellationToken cancellationToken)
     {
-        await access.RequireOrganization(organizationId, true, cancellationToken);
+        await access.RequireOrganizationAdmin(organizationId, cancellationToken);
         await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
         await db.LockOrganizationAsync(organizationId, cancellationToken);
         var membership = await db.OrganizationMemberships.Include(item => item.User).ThenInclude(user => user.Profile)
@@ -199,11 +199,10 @@ public sealed class MembershipsService(ClockedInDbContext db, Access access, Tim
 
     public async Task DeleteOrganization(Guid organizationId, Guid membershipId, CancellationToken cancellationToken)
     {
-        var caller = access.Caller;
         var membership = await db.OrganizationMemberships
             .FirstOrDefaultAsync(item => item.Id == membershipId && item.OrganizationId == organizationId, cancellationToken)
             ?? throw ApiException.NotFound();
-        if (!caller.IsSuperAdmin && caller.Id != membership.UserId && !await access.IsOrgAdmin(organizationId, cancellationToken))
+        if (!access.IsSuperAdmin && access.ActorUserId != membership.UserId && !await access.IsOrgAdmin(organizationId, cancellationToken))
         {
             throw ApiException.Forbidden();
         }
@@ -259,12 +258,11 @@ public sealed class MembershipsService(ClockedInDbContext db, Access access, Tim
 
     public async Task DeleteDepartment(Guid departmentId, Guid membershipId, CancellationToken cancellationToken)
     {
-        var caller = access.Caller;
         var membership = await db.DepartmentMemberships.Include(item => item.Department)
             .FirstOrDefaultAsync(item => item.Id == membershipId && item.DepartmentId == departmentId, cancellationToken)
             ?? throw ApiException.NotFound();
-        var allowed = caller.IsSuperAdmin
-            || caller.Id == membership.UserId
+        var allowed = access.IsSuperAdmin
+            || access.ActorUserId == membership.UserId
             || await access.IsOrgAdmin(membership.Department.OrganizationId, cancellationToken)
             || await access.IsDepartmentAdmin(departmentId, cancellationToken);
         if (!allowed)
