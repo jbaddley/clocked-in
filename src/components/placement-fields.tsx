@@ -3,7 +3,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { XIcon } from "lucide-react";
 import { useRef, useState } from "react";
-import { cn } from "cn";
 import { createLookupAction } from "@/app/actions/lookups";
 import { EntitySelect } from "@/components/entity-forms/entity-select";
 import { CreateDepartmentDialog, CreateTaskCategoryDialog } from "@/components/entity-forms/name-entity-form";
@@ -19,14 +18,21 @@ import { keys } from "@/lib/queries";
 type Creating = "project" | "category" | "department" | null;
 type TagOption = { id: string; name: string };
 
+/** Date / start / end, plus a narrow fourth column, sharing tracks with placement fields. */
+export const alignedEntryGridClass =
+  "grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_4.5rem]";
+
 export function PlacementFields({
   state,
-  compact = false,
   departmentIds,
+  embedded = false,
 }: {
   state: PlacementState;
+  /** Accepted so existing timer usage stays valid. Layout no longer changes with it. */
   compact?: boolean;
   departmentIds?: string[];
+  /** Join a parent `alignedEntryGridClass` so these columns line up with date, start, and end. */
+  embedded?: boolean;
 }) {
   const { lookups, value, set } = state;
   const departments = departmentIds
@@ -35,12 +41,17 @@ export function PlacementFields({
   const { isAdmin } = useWorkspace();
   const copy = useLabels();
   const [creating, setCreating] = useState<Creating>(null);
-  const span = compact ? "sm:col-span-4" : "md:col-span-4";
-  const projectSpan = compact ? "sm:col-span-2" : "md:col-span-2";
+  const tagClass = embedded ? "col-span-full" : "sm:col-span-3";
 
   return (
     <>
-      <div className={cn("grid gap-4", compact ? "sm:grid-cols-4" : "md:grid-cols-4")}>
+      <div
+        className={
+          embedded
+            ? "contents"
+            : "grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]"
+        }
+      >
         <EntitySelect
           label={copy.project}
           value={value.projectId}
@@ -48,7 +59,6 @@ export function PlacementFields({
           options={lookups.projects.map((item) => ({ value: item.id, label: item.title }))}
           createLabel={`Add a ${copy.project.toLowerCase()}`}
           onCreate={() => setCreating("project")}
-          className={projectSpan}
         />
         <EntitySelect
           label={copy.taskCategory}
@@ -74,7 +84,7 @@ export function PlacementFields({
           onCreate={departmentIds ? undefined : () => setCreating("department")}
         />
         {lookups.tags.length || isAdmin ? (
-          <Field label="Tags" className={span}>
+          <Field label="Tags" className={tagClass}>
             <TagInput tags={lookups.tags} selected={value.tagIds} onChange={(tagIds) => set({ tagIds })} canCreate={isAdmin} />
           </Field>
         ) : null}

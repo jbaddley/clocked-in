@@ -13,7 +13,7 @@ import { useLookups } from "@/hooks/use-lookups";
 import { EntityFormDialog } from "@/components/entity-forms/entity-form-dialog";
 import { Field } from "@/components/field";
 import { PersonSelect, selectableMembers } from "@/components/person-select";
-import { PlacementFields } from "@/components/placement-fields";
+import { alignedEntryGridClass, PlacementFields } from "@/components/placement-fields";
 import { SubmitButton } from "@/components/submit-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -301,9 +301,9 @@ export function TimeEntryForm({
           ) : null}
         </div>
       ) : null}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-[minmax(9.5rem,1.35fr)_minmax(7.75rem,1fr)_minmax(7.75rem,1fr)_4.5rem]">
+      <div className={alignedEntryGridClass}>
         {punch && !canEditTimes ? (
-          <p className="text-sm text-muted-foreground sm:col-span-4">
+          <p className="col-span-full text-sm text-muted-foreground">
             Timer times cannot be changed here. Update the project, category, and notes, or stop the timer.
           </p>
         ) : total ? (
@@ -320,7 +320,7 @@ export function TimeEntryForm({
                 className="h-10"
               />
             </Field>
-            <Field label="Duration" htmlFor={`${idPrefix}-hours`} error={error || null}>
+            <Field label="Duration" htmlFor={`${idPrefix}-hours`} error={error || null} className="sm:col-start-4">
               <Input
                 id={`${idPrefix}-hours`}
                 type="number"
@@ -415,12 +415,12 @@ export function TimeEntryForm({
             </Field>
           </>
         )}
+        {endsNextDay ? <p className="col-span-full text-sm text-muted-foreground">Ends the next day.</p> : null}
+        {!canEditTimes && !punch ? (
+          <p className="col-span-full text-sm text-muted-foreground">Times stay as saved until an admin allows time entry editing.</p>
+        ) : null}
+        <PlacementFields state={placement} embedded />
       </div>
-      {endsNextDay ? <p className="text-sm text-muted-foreground">Ends the next day.</p> : null}
-      {!canEditTimes && !punch ? (
-        <p className="text-sm text-muted-foreground">Times stay as saved until an admin allows time entry editing.</p>
-      ) : null}
-      <PlacementFields state={placement} />
       <Field label="Notes" htmlFor={`${idPrefix}-notes`}>
         <Textarea
           id={`${idPrefix}-notes`}

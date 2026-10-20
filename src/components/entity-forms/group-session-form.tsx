@@ -9,7 +9,7 @@ import {
 } from "@/app/actions/collective";
 import { EntityFormDialog } from "@/components/entity-forms/entity-form-dialog";
 import { Field } from "@/components/field";
-import { PlacementFields } from "@/components/placement-fields";
+import { alignedEntryGridClass, PlacementFields } from "@/components/placement-fields";
 import { SubmitButton } from "@/components/submit-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -145,7 +145,7 @@ export function GroupSessionForm({
         create.mutate(next);
       }}
     >
-      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
+      <div className={alignedEntryGridClass}>
         <Field label="Date" htmlFor={`${idPrefix}-date`}>
           <Input
             id={`${idPrefix}-date`}
@@ -195,9 +195,9 @@ export function GroupSessionForm({
             className="h-9"
           />
         </Field>
+        <PlacementFields state={placement} departmentIds={departmentIds} embedded />
       </div>
       <HourlyRateSelect value={hourlyRateId} onValueChange={setHourlyRateId} />
-      <PlacementFields state={placement} departmentIds={departmentIds} />
       <Field label="Notes" htmlFor={`${idPrefix}-notes`}>
         <Textarea
           id={`${idPrefix}-notes`}
