@@ -1,4 +1,5 @@
 import { BarChart3Icon, HandCoinsIcon, TimerIcon } from "lucide-react";
+import { Suspense } from "react";
 import { brandCss } from "@/lib/brand";
 import { getAuthBrand } from "@/lib/server/auth-brand";
 import { AuthBrand } from "./auth-brand";
@@ -9,7 +10,15 @@ const highlights = [
   { icon: BarChart3Icon, title: "Reports that travel", text: "Break down hours by project, person, and team." },
 ];
 
-export default async function AuthLayout({ children }: LayoutProps<"/">) {
+export default function AuthLayout({ children }: LayoutProps<"/">) {
+  return (
+    <Suspense fallback={<AuthShellSkeleton />}>
+      <AuthShell>{children}</AuthShell>
+    </Suspense>
+  );
+}
+
+async function AuthShell({ children }: { children: React.ReactNode }) {
   const organization = await getAuthBrand();
   const css = brandCss(organization?.theme ?? null);
 
@@ -41,6 +50,22 @@ export default async function AuthLayout({ children }: LayoutProps<"/">) {
           <AuthBrand organization={organization} surface="light" />
         </div>
         <div className="w-full max-w-md">{children}</div>
+      </main>
+    </div>
+  );
+}
+
+function AuthShellSkeleton() {
+  return (
+    <div className="grid min-h-svh lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+      <aside className="brand-hero-navy relative hidden overflow-hidden lg:block" />
+      <main className="brand-hero-white flex flex-col items-center justify-center px-4 py-10 sm:px-8">
+        <div className="w-full max-w-md animate-pulse rounded-xl border bg-card p-6 shadow-sm">
+          <div className="h-7 w-48 rounded-md bg-muted" />
+          <div className="mt-3 h-4 w-full rounded-md bg-muted" />
+          <div className="mt-6 h-10 w-full rounded-md bg-muted" />
+          <div className="mt-4 h-10 w-full rounded-md bg-muted" />
+        </div>
       </main>
     </div>
   );
