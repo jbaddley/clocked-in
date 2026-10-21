@@ -23,7 +23,8 @@ function blobAccess(): "public" | "private" {
     return configured;
   }
 
-  // Production's store is public. Local and staging stores are private.
+  // Production's store is public. The local token's store is private.
+  // Vercel staging sets BLOB_ACCESS=public; its connected store is public.
   return process.env.VERCEL_ENV === "production" ? "public" : "private";
 }
 
