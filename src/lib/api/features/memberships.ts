@@ -420,27 +420,56 @@ export async function updateOrgMembership(
   });
 }
 
+export function parseDeleteOrgMemberships(body: Body) {
+  return ids(body, "membershipIds", false);
+}
+
 export async function deleteOrgMembership(access: Access, organizationId: string, membershipId: string) {
-  const membership = await prisma.organizationMembership.findFirst({ where: { id: membershipId, organizationId } });
-  if (!membership) {
-    notFound();
+  await deleteOrgMemberships(access, organizationId, [membershipId]);
+}
+
+export async function deleteOrgMemberships(access: Access, organizationId: string, membershipIds: string[]) {
+  const idsToDelete = [...new Set(membershipIds)];
+  if (idsToDelete.length === 0) {
+    validation("membershipIds must include at least one id.");
   }
 
-  if (!access.isSuperAdmin && access.actorUserId !== membership.userId && !(await access.isOrgAdmin(organizationId))) {
-    forbidden();
+  if (idsToDelete.length > 100) {
+    validation("membershipIds must include at most 100 ids.");
   }
 
+  const orgAdmin = access.isSuperAdmin || (await access.isOrgAdmin(organizationId));
   await transaction(async (tx) => {
     await lockOrganization(tx, organizationId);
-    const isAdmin = await tx.organizationMembership.count({ where: { id: membership.id, role: { code: "ADMIN" } } });
-    if (isAdmin > 0) {
-      await assertAnotherAdmin(tx, organizationId, membership.id);
+    const memberships = await tx.organizationMembership.findMany({
+      where: { organizationId, id: { in: idsToDelete } },
+      select: { id: true, userId: true, role: { select: { code: true } } },
+    });
+    if (memberships.length !== idsToDelete.length) {
+      notFound();
     }
 
+    if (!orgAdmin && memberships.some((membership) => membership.userId !== access.actorUserId)) {
+      forbidden();
+    }
+
+    const removingAdmins = memberships.filter((membership) => membership.role.code === "ADMIN").length;
+    if (removingAdmins > 0) {
+      const admins = await tx.organizationMembership.count({
+        where: { organizationId, role: { code: "ADMIN" } },
+      });
+      if (admins - removingAdmins < 1) {
+        conflict("The last organization admin cannot be removed.");
+      }
+    }
+
+    const userIds = memberships.map((membership) => membership.userId);
     await tx.departmentMembership.deleteMany({
-      where: { userId: membership.userId, department: { organizationId } },
+      where: { userId: { in: userIds }, department: { organizationId } },
     });
-    await tx.organizationMembership.delete({ where: { id: membership.id } });
+    await tx.organizationMembership.deleteMany({
+      where: { organizationId, id: { in: idsToDelete } },
+    });
   });
 }
 

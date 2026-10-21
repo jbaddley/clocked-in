@@ -22,6 +22,11 @@ public static class MembershipsEndpoints
             await service.DeleteOrganization(id, membershipId, ct);
             return TypedResults.NoContent();
         });
+        organization.MapDelete("", async Task<NoContent> (Guid id, DeleteOrgMembershipsRequest request, MembershipsService service, CancellationToken ct) =>
+        {
+            await service.DeleteOrganizations(id, request.MembershipIds, ct);
+            return TypedResults.NoContent();
+        });
 
         var department = app.MapGroup("/departments/{id:guid}/memberships").RequireAuthorization();
         department.MapGet("", async Task<Ok<ListResponse<MembershipDto>>> (Guid id, [AsParameters] PageQuery query, MembershipsService service, CancellationToken ct) =>

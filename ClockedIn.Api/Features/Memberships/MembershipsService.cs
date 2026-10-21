@@ -197,28 +197,58 @@ public sealed class MembershipsService(ClockedInDbContext db, Access access, Tim
         return await MapOrganization(membership.Id, cancellationToken);
     }
 
-    public async Task DeleteOrganization(Guid organizationId, Guid membershipId, CancellationToken cancellationToken)
+    public Task DeleteOrganization(Guid organizationId, Guid membershipId, CancellationToken cancellationToken) =>
+        DeleteOrganizations(organizationId, [membershipId], cancellationToken);
+
+    public async Task DeleteOrganizations(Guid organizationId, IReadOnlyList<Guid> membershipIds, CancellationToken cancellationToken)
     {
-        var membership = await db.OrganizationMemberships
-            .FirstOrDefaultAsync(item => item.Id == membershipId && item.OrganizationId == organizationId, cancellationToken)
-            ?? throw ApiException.NotFound();
-        if (!access.IsSuperAdmin && access.ActorUserId != membership.UserId && !await access.IsOrgAdmin(organizationId, cancellationToken))
+        var ids = membershipIds.Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            throw ApiException.Validation("membershipIds must include at least one id.");
+        }
+
+        if (ids.Count > 100)
+        {
+            throw ApiException.Validation("membershipIds must include at most 100 ids.");
+        }
+
+        var orgAdmin = access.IsSuperAdmin || await access.IsOrgAdmin(organizationId, cancellationToken);
+        await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
+        await db.LockOrganizationAsync(organizationId, cancellationToken);
+        var memberships = await db.OrganizationMemberships.AsNoTracking()
+            .Where(item => item.OrganizationId == organizationId && ids.Contains(item.Id))
+            .Select(item => new { item.Id, item.UserId, item.RoleId })
+            .ToListAsync(cancellationToken);
+        if (memberships.Count != ids.Count)
+        {
+            throw ApiException.NotFound();
+        }
+
+        if (!orgAdmin && memberships.Any(item => item.UserId != access.ActorUserId))
         {
             throw ApiException.Forbidden();
         }
 
-        await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
-        await db.LockOrganizationAsync(organizationId, cancellationToken);
-        if (await db.OrganizationMemberships.AnyAsync(item => item.Id == membership.Id && item.RoleId == Role.AdminId, cancellationToken))
+        var removingAdmins = memberships.Count(item => item.RoleId == Role.AdminId);
+        if (removingAdmins > 0)
         {
-            await AssertAnotherAdmin(organizationId, membership.Id, cancellationToken);
+            var admins = await db.OrganizationMemberships.CountAsync(
+                item => item.OrganizationId == organizationId && item.RoleId == Role.AdminId,
+                cancellationToken);
+            if (admins - removingAdmins < 1)
+            {
+                throw ApiException.Conflict("The last organization admin cannot be removed.");
+            }
         }
 
+        var userIds = memberships.Select(item => item.UserId).ToList();
         await db.DepartmentMemberships
-            .Where(item => item.UserId == membership.UserId && item.Department.OrganizationId == organizationId)
+            .Where(item => userIds.Contains(item.UserId) && item.Department.OrganizationId == organizationId)
             .ExecuteDeleteAsync(cancellationToken);
-        db.OrganizationMemberships.Remove(membership);
-        await db.SaveOrThrowAsync(cancellationToken);
+        await db.OrganizationMemberships
+            .Where(item => item.OrganizationId == organizationId && ids.Contains(item.Id))
+            .ExecuteDeleteAsync(cancellationToken);
         await tx.CommitAsync(cancellationToken);
     }
 

@@ -75,18 +75,10 @@ function personName(member: Membership) {
   return full || member.user.username;
 }
 
-function removalDescription(people: Membership[], organizationName: string) {
-  const names = people.map(personName);
-  const who =
-    names.length === 0
-      ? "These people"
-      : names.length === 1
-        ? names[0]
-        : names.length === 2
-          ? `${names[0]} and ${names[1]}`
-          : `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
-  const history = names.length === 1 ? "Their account and time history stay." : "Their accounts and time history stay.";
-  return `${who} will lose access to ${organizationName}. ${history}`;
+function removalDescription(count: number, organizationName: string) {
+  const people = count === 1 ? "1 person" : `${count} people`;
+  const history = count === 1 ? "Their account and time history stay." : "Their accounts and time history stay.";
+  return `${people} will lose access to ${organizationName}. ${history}`;
 }
 
 function departmentNames(member: Membership, departments: { id: string; name: string }[]) {
@@ -497,7 +489,7 @@ export function MembersView() {
           <AlertDialogHeader>
             <AlertDialogTitle>Remove from organization?</AlertDialogTitle>
             <AlertDialogDescription>
-              {pendingRemoval ? removalDescription(pendingRemoval, organization.name) : null}
+              {pendingRemoval ? removalDescription(pendingRemoval.length, organization.name) : null}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

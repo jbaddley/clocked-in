@@ -20,6 +20,7 @@ const toolNames = [
   "delete_department",
   "delete_hourly_rate",
   "delete_membership",
+  "delete_memberships",
   "delete_project",
   "delete_tag",
   "delete_task_category",

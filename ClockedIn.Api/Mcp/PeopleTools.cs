@@ -29,6 +29,14 @@ public sealed class PeopleTools(MembershipsService memberships, InvitationsServi
             return "deleted";
         });
 
+    [McpServerTool, Description("Remove organization memberships. membershipIds is 1 to 100 organization membership ids.")]
+    public Task<string> DeleteMemberships(Guid organizationId, Guid[] membershipIds, CancellationToken cancellationToken) =>
+        McpCall.Run(async () =>
+        {
+            await memberships.DeleteOrganizations(organizationId, membershipIds, cancellationToken);
+            return "deleted";
+        });
+
     [McpServerTool, Description("List pending organization invitations.")]
     public Task<ListResponse<InvitationDto>> ListInvitations(Guid organizationId, int? limit, int? offset, CancellationToken cancellationToken) =>
         McpCall.Run(() => invitations.ListForOrganization(organizationId, new PageQuery(limit?.ToString(), offset?.ToString()), cancellationToken));

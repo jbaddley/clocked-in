@@ -175,6 +175,14 @@ public sealed record UpdateOrgMembershipRequest(
     }
 }
 
+public sealed record DeleteOrgMembershipsRequest(List<Guid> MembershipIds)
+{
+    public static async ValueTask<DeleteOrgMembershipsRequest?> BindAsync(HttpContext context) => Parse(await Body.Read(context));
+
+    public static DeleteOrgMembershipsRequest Parse(JsonObject body) =>
+        new(Fields.Ids(body, "membershipIds", optional: false));
+}
+
 public sealed record UpdateDepartmentMembershipRequest(RoleCode Role)
 {
     public static async ValueTask<UpdateDepartmentMembershipRequest?> BindAsync(HttpContext context) =>

@@ -119,11 +119,8 @@ export function AppSidebar({
             </SidebarGroup>
           ))}
       </SidebarContent>
-      <SidebarFooter className='flex-row items-center gap-2'>
+      <SidebarFooter>
         <SidebarToggle />
-        <p className='min-w-0 truncate text-xs text-sidebar-foreground/60 group-data-[collapsible=icon]:hidden'>
-          Volunteer hours, valued for grants.
-        </p>
       </SidebarFooter>
     </Sidebar>
   );

@@ -4,6 +4,7 @@ import { parseCreateInvitation, listOrganizationInvitations, createOrganizationI
 import {
   createOrgMembership,
   deleteOrgMembership,
+  deleteOrgMemberships,
   listOrgMemberships,
   parseCreateOrgMembership,
   parseUpdateOrgMembership,
@@ -44,6 +45,17 @@ export function registerPeopleTools(server: McpServer) {
     { organizationId: guid, membershipId: guid },
     async ({ organizationId, membershipId }) => {
       await deleteOrgMembership(mcpAccess(), organizationId, membershipId);
+      return "deleted";
+    },
+  );
+
+  tool(
+    server,
+    "delete_memberships",
+    "Remove organization memberships. membershipIds is 1 to 100 organization membership ids.",
+    { organizationId: guid, membershipIds: z.array(guid) },
+    async ({ organizationId, membershipIds }) => {
+      await deleteOrgMemberships(mcpAccess(), organizationId, membershipIds);
       return "deleted";
     },
   );

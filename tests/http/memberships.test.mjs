@@ -338,4 +338,89 @@ describe("memberships", suite, () => {
     const gone = await callApi(`/organizations/${ctx.org.id}/memberships`, { token: ctx.second.accessToken });
     assert.equal(gone.json.items.some((item) => item.userId === existing.user.id), false);
   });
+
+  test("batch delete removes the selected memberships", async () => {
+    const path = `/organizations/${ctx.org.id}/memberships`;
+    const firstPerson = identity("batchone");
+    const secondPerson = identity("batchtwo");
+    const first = await createJson(ctx.second.accessToken, path, {
+      email: firstPerson.email,
+      username: firstPerson.username,
+      password: firstPerson.password,
+      firstName: "Batch",
+      lastName: "One",
+      role: "VOLUNTEER",
+      departmentIds: [ctx.department.id],
+    });
+    const second = await createJson(ctx.second.accessToken, path, {
+      email: secondPerson.email,
+      username: secondPerson.username,
+      password: secondPerson.password,
+      firstName: "Batch",
+      lastName: "Two",
+      role: "VOLUNTEER",
+      departmentIds: [ctx.department.id],
+    });
+
+    const empty = await callApi(path, { method: "DELETE", token: ctx.second.accessToken, body: { membershipIds: [] } });
+    const tooMany = await callApi(path, {
+      method: "DELETE",
+      token: ctx.second.accessToken,
+      body: { membershipIds: Array.from({ length: 101 }, () => missingId()) },
+    });
+    const malformed = await callApi(path, {
+      method: "DELETE",
+      token: ctx.second.accessToken,
+      body: { membershipIds: ["not-an-id"] },
+    });
+    const forbidden = await callApi(path, {
+      method: "DELETE",
+      token: ctx.member.accessToken,
+      body: { membershipIds: [first.id, second.id] },
+    });
+    const missing = await callApi(path, {
+      method: "DELETE",
+      token: ctx.second.accessToken,
+      body: { membershipIds: [first.id, missingId()] },
+    });
+    const listed = await callApi(path, { token: ctx.second.accessToken });
+    const admins = listed.json.items.filter((item) => item.role.code === "ADMIN");
+    const blocked = await callApi(path, {
+      method: "DELETE",
+      token: ctx.second.accessToken,
+      body: { membershipIds: [...admins.map((item) => item.id), first.id] },
+    });
+    assertError(empty, 400, "validation_error", "membershipIds must include at least one id.");
+    assertError(tooMany, 400, "validation_error", "membershipIds must include at most 100 ids.");
+    assertError(malformed, 400, "validation_error", "membershipIds must be an array of ids.");
+    assertError(forbidden, 403, "forbidden", "Forbidden.");
+    assertError(missing, 404, "not_found", "Not found.");
+    assertError(blocked, 409, "conflict", "The last organization admin cannot be removed.");
+
+    const stillThere = await callApi(path, { token: ctx.second.accessToken });
+    assert.equal(stillThere.json.items.some((item) => item.id === first.id), true);
+    assert.equal(stillThere.json.items.some((item) => item.id === second.id), true);
+    for (const admin of admins) {
+      assert.equal(stillThere.json.items.some((item) => item.id === admin.id), true);
+    }
+
+    const deleted = await callApi(path, {
+      method: "DELETE",
+      token: ctx.second.accessToken,
+      body: { membershipIds: [first.id, first.id, second.id] },
+    });
+    assert.equal(deleted.status, 204);
+    assert.equal(deleted.text, "");
+    const after = await callApi(path, { token: ctx.second.accessToken });
+    assert.equal(after.json.items.some((item) => item.userId === first.userId), false);
+    assert.equal(after.json.items.some((item) => item.userId === second.userId), false);
+    const departments = await callApi(`/departments/${ctx.department.id}/memberships`, { token: ctx.second.accessToken });
+    assert.equal(departments.json.items.some((item) => item.userId === first.userId), false);
+    assert.equal(departments.json.items.some((item) => item.userId === second.userId), false);
+    const login = await callApi("/auth/login", {
+      method: "POST",
+      body: { username: firstPerson.username, password: firstPerson.password },
+    });
+    assert.equal(login.status, 200);
+  });
 });
