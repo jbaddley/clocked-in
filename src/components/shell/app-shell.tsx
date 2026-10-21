@@ -13,12 +13,14 @@ import type { Organization } from "@/lib/types";
 export function AppShell({
   organization,
   isAdmin,
+  isCoordinator = false,
   isSuperAdmin,
   sidebarOpen,
   children,
 }: {
   organization: Organization | null;
   isAdmin: boolean;
+  isCoordinator?: boolean;
   isSuperAdmin: boolean;
   sidebarOpen: boolean;
   children: React.ReactNode;
@@ -29,7 +31,7 @@ export function AppShell({
     <SidebarProvider defaultOpen={sidebarOpen} className="h-svh overflow-hidden">
       {css ? <style>{css}</style> : null}
       <OrgFavicon href={icon} />
-      <AppSidebar organization={organization} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} />
+      <AppSidebar organization={organization} isAdmin={isAdmin} isCoordinator={isCoordinator} isSuperAdmin={isSuperAdmin} />
       <SidebarInset className="min-h-0 min-w-0 overflow-hidden bg-muted/40">
         <header className="sticky top-0 z-20 shrink-0 bg-background/90 backdrop-blur">
           <div className="flex h-16 items-center gap-2 px-3 md:px-4 lg:px-6">

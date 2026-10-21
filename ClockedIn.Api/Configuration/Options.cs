@@ -84,6 +84,11 @@ public static class CorsOrigins
     }
 }
 
+public sealed class PortalOptions
+{
+    public bool PublicSignup { get; set; } = true;
+}
+
 public static class OptionsSetup
 {
     public static IServiceCollection AddClockedInOptions(this IServiceCollection services)
@@ -141,6 +146,13 @@ public static class OptionsSetup
             })
             .Validate(options => Uri.IsWellFormedUriString(options.Url, UriKind.Absolute), "GITHUB_API_URL must be an absolute URL.")
             .ValidateOnStart();
+
+        services.AddOptions<PortalOptions>()
+            .Configure<IConfiguration>((options, configuration) =>
+            {
+                var value = configuration["PUBLIC_SIGNUP"]?.Trim().ToLowerInvariant();
+                options.PublicSignup = value is not "false" and not "0" and not "no";
+            });
 
         return services;
     }

@@ -21,6 +21,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useActionMutation } from "@/hooks/use-action-mutation";
 import { useMembers } from "@/hooks/use-members";
 import { organizationWide, usePlacement, type PlacementPreference } from "@/hooks/use-placement";
@@ -59,8 +60,12 @@ function previousOpenDay(dates: string[]) {
   return "";
 }
 
-function shiftDay(template: DayEntry & { startedAt: string; endedAt: string }, date: string) {
+function shiftDay(template: DayEntry & { startedAt?: string; endedAt?: string }, date: string) {
   if (date === template.occurredOn) return template;
+  if (!template.startedAt || !template.endedAt) {
+    return { occurredOn: date, durationMinutes: template.durationMinutes };
+  }
+
   const [fromYear, fromMonth, fromDay] = template.occurredOn.split("-").map(Number);
   const [toYear, toMonth, toDay] = date.split("-").map(Number);
   const delta = new Date(toYear, toMonth - 1, toDay).getTime() - new Date(fromYear, fromMonth - 1, fromDay).getTime();
@@ -92,19 +97,22 @@ export function TimeEntryForm({
   people?: { excludeSelf?: boolean; activeOnly?: boolean };
 }) {
   const organization = useOrganization();
-  const { viewer, isAdmin, canSelectRate } = useWorkspace();
+  const { viewer, isAdmin, isCoordinator, canSelectRate, groupDepartments } = useWorkspace();
   const { lookups } = useLookups();
   const idPrefix = useId();
   const excludeSelf = people?.excludeSelf ?? false;
   const activeOnly = people?.activeOnly ?? false;
   const batch = Boolean(userIds && userIds.length > 0);
-  const { members } = useMembers({ enabled: isAdmin && !entry && !lockedUserId && !batch });
-  const eligible = useMemo(
-    () => selectableMembers(members, viewer.id, { excludeSelf, activeOnly }),
-    [activeOnly, excludeSelf, members, viewer.id],
-  );
+  const { members } = useMembers({ enabled: (isAdmin || isCoordinator) && !entry && !lockedUserId && !batch });
+  const eligible = useMemo(() => {
+    const scoped = isCoordinator
+      ? members.filter((member) => (member.departmentIds ?? []).some((id) => groupDepartments.includes(id)))
+      : members;
+    return selectableMembers(scoped, viewer.id, { excludeSelf, activeOnly });
+  }, [activeOnly, excludeSelf, groupDepartments, isCoordinator, members, viewer.id]);
   const punch = entry?.mode === "Punch";
-  const total = entry?.mode === "Total";
+  const [method, setMethod] = useState<"Duration" | "Total">(entry?.mode === "Total" ? "Total" : "Duration");
+  const total = entry ? entry.mode === "Total" : method === "Total";
   const canEditTimes = !entry || organization.preferences.allowTimeEntryEditing;
   const placement = usePlacement(
     entry
@@ -239,7 +247,7 @@ export function TimeEntryForm({
     return null;
   }
 
-  function collectDays(): (DayEntry & { startedAt: string; endedAt: string })[] | null {
+  function collectDays(): DayEntry[] | null {
     const dates = [occurredOn, ...extraDates];
     if (dates.some((date) => !date)) {
       setError("Each day needs a date.");
@@ -256,6 +264,17 @@ export function TimeEntryForm({
       return null;
     }
 
+    if (total) {
+      const minutes = Math.round(Number(hours) * 60);
+      if (!Number.isFinite(minutes) || minutes < 1 || minutes > 59940) {
+        setError("Duration must be from 1 minute to 999 hours.");
+        return null;
+      }
+
+      setError("");
+      return dates.map((date) => ({ occurredOn: date, durationMinutes: minutes }));
+    }
+
     const template = span();
     if (!template) return null;
     return dates.map((date) => shiftDay(template, date));
@@ -265,8 +284,8 @@ export function TimeEntryForm({
     if (!canEditTimes) return {};
     if (total) {
       const minutes = Math.round(Number(hours) * 60);
-      if (!Number.isFinite(minutes) || minutes < 1) {
-        setError("Duration must be at least 1 minute.");
+      if (!Number.isFinite(minutes) || minutes < 1 || minutes > 59940) {
+        setError("Duration must be from 1 minute to 999 hours.");
         return null;
       }
 
@@ -304,7 +323,7 @@ export function TimeEntryForm({
     return span();
   }
 
-  const showPerson = !(entry || !isAdmin || lockedUserId || batch);
+  const showPerson = !(entry || !(isAdmin || isCoordinator) || lockedUserId || batch);
   const showRate = canSelectRate || lookups.hourlyRates.some((rate) => rate.isDefault);
   const endsNextDay =
     driver === "duration" &&
@@ -346,7 +365,7 @@ export function TimeEntryForm({
         if (!entries) return;
         create.mutate({
           userId: selectedPersonId,
-          next: { ...base, mode: "Duration", hourlyRateId: canSelectRate ? hourlyRateId || null : null, ...entries[0] },
+          next: { ...base, mode: total ? "Total" : "Duration", hourlyRateId: canSelectRate ? hourlyRateId || null : null, ...entries[0] },
           entries,
         });
       }}
@@ -370,6 +389,27 @@ export function TimeEntryForm({
           ) : null}
         </div>
       ) : null}
+      {!entry ? (
+        <Field label="Entry method">
+          <ToggleGroup
+            value={[method]}
+            onValueChange={(value) => {
+              const next = value[0];
+              if (next === "Duration" || next === "Total") setMethod(next);
+            }}
+            variant="outline"
+            spacing={0}
+            className="w-full sm:w-fit"
+          >
+            <ToggleGroupItem value="Duration" className="flex-1 sm:flex-none">
+              Start and end
+            </ToggleGroupItem>
+            <ToggleGroupItem value="Total" className="flex-1 sm:flex-none">
+              Total hours
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </Field>
+      ) : null}
       <div className={alignedEntryGridClass}>
         {punch && !canEditTimes ? (
           <p className="col-span-full text-sm text-muted-foreground">
@@ -377,7 +417,26 @@ export function TimeEntryForm({
           </p>
         ) : total ? (
           <>
-            <Field label="Date" htmlFor={`${idPrefix}-occurredOn`}>
+            <Field
+              label="Date"
+              htmlFor={`${idPrefix}-occurredOn`}
+              action={
+                !entry ? (
+                  <button
+                    type="button"
+                    aria-label="Add day"
+                    disabled={extraDates.length + 1 >= maxDays}
+                    onClick={() =>
+                      setExtraDates((current) => [...current, previousOpenDay([occurredOn, ...current])])
+                    }
+                    className="-mr-0.5 inline-flex h-5 items-center gap-0.5 rounded-sm px-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    <PlusIcon className="size-3" />
+                    Add day
+                  </button>
+                ) : undefined
+              }
+            >
               <Input
                 id={`${idPrefix}-occurredOn`}
                 type="date"
@@ -389,12 +448,13 @@ export function TimeEntryForm({
                 className="h-10"
               />
             </Field>
-            <Field label="Duration" htmlFor={`${idPrefix}-hours`} error={error || null} className="sm:col-start-4">
+            <Field label="Hours" htmlFor={`${idPrefix}-hours`} error={error || null} className="sm:col-start-4">
               <Input
                 id={`${idPrefix}-hours`}
                 type="number"
                 inputMode="decimal"
                 min="0.25"
+                max="999"
                 step="0.25"
                 value={hours}
                 onChange={(event) => setHours(event.target.value)}
@@ -532,7 +592,9 @@ export function TimeEntryForm({
                 </Button>
               </div>
             ))}
-            <p className="text-sm text-muted-foreground">This saves the same times and settings on each day.</p>
+            <p className="text-sm text-muted-foreground">
+              {total ? "This saves the same hours and settings on each day." : "This saves the same times and settings on each day."}
+            </p>
             {error ? <p className="text-xs text-destructive">{error}</p> : null}
           </div>
         ) : null}
@@ -595,7 +657,7 @@ export function TimeEntryDialog({
             : "You can update the project, category, and notes."
             : userIds && userIds.length > 1
             ? `This saves the same entry for ${userIds.length} people. Add days to record it on each one.`
-            : "Add a start time, then an end time or a duration. Add days to record the same entry on each one."
+            : "Start and end times, or total hours for a period. Add days to record the same entry on each one."
       }
       className="sm:max-w-xl"
     >

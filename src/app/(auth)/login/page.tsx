@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
+import { publicSignupEnabled } from "@/lib/portal";
 import { AuthCard, AuthFormSkeleton } from "../auth-card";
 import { LoginForm } from "./login-form";
 
@@ -12,12 +13,14 @@ export default function LoginPage() {
       title="Welcome back"
       description="Sign in to log and review volunteer hours."
       footer={
-        <>
-          New here?
-          <Link href="/signup" className="font-medium text-primary hover:underline">
-            Create an account
-          </Link>
-        </>
+        publicSignupEnabled() ? (
+          <>
+            New here?
+            <Link href="/signup" className="font-medium text-primary hover:underline">
+              Create an account
+            </Link>
+          </>
+        ) : undefined
       }
     >
       <Suspense fallback={<AuthFormSkeleton />}>

@@ -1,6 +1,6 @@
-# Clocked In domain schema
+# VolunTime domain schema
 
-This document is the source of truth for the Clocked In domain. The Next.js app queries it with Prisma, and the .NET app queries it with Entity Framework. Both backends share one Postgres database. Entity Framework owns migrations. This document does not define HTTP routes.
+This document is the source of truth for the VolunTime domain. The Next.js app queries it with Prisma, and the .NET app queries it with Entity Framework. Both backends share one Postgres database. Entity Framework owns migrations. This document does not define HTTP routes.
 
 An environment variable will later choose which API the Next.js server actions call. Both APIs use the same request and response contracts and the same JWT rules (shared issuer, audience, and signing key). Users and refresh tokens live in the shared database.
 
@@ -198,7 +198,7 @@ classDiagram
   User "1" --> "*" PasswordResetCode
 ```
 
-`TimeEntryMode` is `Punch`, `Duration`, or `Total`. Seed `Role.code` with `MEMBER`, `VOLUNTEER`, and `ADMIN`. The same role rows are used on organization and department memberships. `HourlyRate.type`, `defaultRateType`, and membership `rateType` are `Volunteer` or `Professional` (stored as text). `accessType` is `Public`, `Private`, or `Department` (stored as text). `headingFont` and `bodyFont` are `SourceSans3`, `NunitoSans`, or `Geist`. Tag and project-editor links are many-to-many; join tables are not domain entities. Color fields are `#RRGGBB`.
+`TimeEntryMode` is `Punch`, `Duration`, or `Total`. Seed `Role.code` with `MEMBER`, `VOLUNTEER`, and `ADMIN`. The same role rows are used on organization and department memberships. `HourlyRate.type`, `defaultRateType`, and membership `rateType` are `Volunteer` or `Professional` (stored as text). `accessType` is `Public`, `Private`, or `Department` (stored as text). `headingFont` and `bodyFont` are `HelveticaNeue`, `AvenirNext`, `SourceSans3`, `NunitoSans`, or `Geist`. Tag and project-editor links are many-to-many; join tables are not domain entities. Color fields are `#RRGGBB`.
 
 ## Entities
 
@@ -206,175 +206,175 @@ Foreign keys below are the relationship ends from the diagram. Tag and project-e
 
 ### User
 
-| Field | Required | Notes |
-| --- | --- | --- |
-| id | yes | UUID primary key |
-| username | yes | Unique, stored lowercase. Login identifier |
-| email | yes | Unique, stored lowercase |
-| passwordHash | yes | Hash only. Never store the password |
-| isSuperAdmin | yes | Default false. User-level flag, not a membership role. Bypasses membership checks |
-| mustChangePassword | yes | Default false. Set when an admin creates the account with a temporary password. Cleared when the user sets a new password or completes a reset |
-| createdAt | yes | |
-| updatedAt | yes | |
+| Field              | Required | Notes                                                                                                                                          |
+| ------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| id                 | yes      | UUID primary key                                                                                                                               |
+| username           | yes      | Unique, stored lowercase. Login identifier                                                                                                     |
+| email              | yes      | Unique, stored lowercase                                                                                                                       |
+| passwordHash       | yes      | Hash only. Never store the password                                                                                                            |
+| isSuperAdmin       | yes      | Default false. User-level flag, not a membership role. Bypasses membership checks                                                              |
+| mustChangePassword | yes      | Default false. Set when an admin creates the account with a temporary password. Cleared when the user sets a new password or completes a reset |
+| createdAt          | yes      |                                                                                                                                                |
+| updatedAt          | yes      |                                                                                                                                                |
 
 ### UserProfile
 
 One profile per user. `timezone` is an IANA name and defaults to `UTC`. `displayName`, `phone`, `zipCode`, and `notes` are optional. `firstName` and `lastName` are required. Rate type and professional rate live on `OrganizationMembership`, not on the profile. `memberNumber` is an optional Volunteer ID (`001`…).
 
-| Field | Required | Notes |
-| --- | --- | --- |
-| id | yes | UUID primary key |
-| userId | yes | Unique foreign key to User |
-| firstName | yes | |
-| lastName | yes | |
-| displayName | no | |
-| timezone | yes | IANA name, default `UTC` |
-| phone | no | |
-| zipCode | no | Workbook Zip Code |
-| notes | no | |
-| memberNumber | no | Volunteer ID shown on the Volunteer Log CSV |
+| Field        | Required | Notes                                       |
+| ------------ | -------- | ------------------------------------------- |
+| id           | yes      | UUID primary key                            |
+| userId       | yes      | Unique foreign key to User                  |
+| firstName    | yes      |                                             |
+| lastName     | yes      |                                             |
+| displayName  | no       |                                             |
+| timezone     | yes      | IANA name, default `UTC`                    |
+| phone        | no       |                                             |
+| zipCode      | no       | Workbook Zip Code                           |
+| notes        | no       |                                             |
+| memberNumber | no       | Volunteer ID shown on the Volunteer Log CSV |
 
 ### Role
 
 Lookup shared by organization and department memberships. Seed two rows: `MEMBER` and `ADMIN`.
 
-| Field | Required | Notes |
-| --- | --- | --- |
-| id | yes | UUID primary key |
-| code | yes | Unique. `MEMBER` or `ADMIN` |
-| name | yes | Display name |
+| Field | Required | Notes                       |
+| ----- | -------- | --------------------------- |
+| id    | yes      | UUID primary key            |
+| code  | yes      | Unique. `MEMBER` or `ADMIN` |
+| name  | yes      | Display name                |
 
 ### Organization
 
 In-kind valuation catalogs live on `HourlyRate`. Creating an organization seeds `rateSourceYear` `2025`, `defaultRateType` `Volunteer`, and one default volunteer `HourlyRate` named `Volunteer` at `35.47`. The HTTP organization still exposes `volunteerHourlyRate` as that default rate.
 
-| Field | Required | Notes |
-| --- | --- | --- |
-| id | yes | UUID primary key |
-| name | yes | |
-| rateSourceYear | yes | Integer year, default `2025` |
-| defaultRateType | yes | `Volunteer` or `Professional`, default `Volunteer` |
-| preferences | yes | jsonb. `allowTimeEntryEditing` defaults to false. When false, a time entry update cannot change `startedAt`, `endedAt`, `durationMinutes`, or `occurredOn`. `entityLabels` holds display names for `organization`, `project`, `department`, and `taskCategory` (defaults: Organization, Project, Department, Task category). |
-| themeId | yes | Foreign key to Theme. Defaults to the seeded Clocked In global theme. |
-| wordmarkUrl | no | Light-on-dark sidebar wordmark. Stays on the organization so switching themes does not wipe marks. Uploads are resized to fit 800×200, stored privately, and served at `/brand/wordmark` for members. |
-| wordmarkOnLightUrl | no | Dark-on-light wordmark for light surfaces. Same resize and private storage as `wordmarkUrl`, served at `/brand/wordmarkOnLight`. |
-| markUrl | no | Compact mark for favicon-sized use. Uploads are cropped to 64×64, stored privately, and served at `/brand/mark` for members. |
-| accentImageUrl | no | Decorative image for login, enrollment, empty states, and header bands, never behind tables or forms |
+| Field              | Required | Notes                                                                                                                                                                                                                                                                                                                        |
+| ------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id                 | yes      | UUID primary key                                                                                                                                                                                                                                                                                                             |
+| name               | yes      |                                                                                                                                                                                                                                                                                                                              |
+| rateSourceYear     | yes      | Integer year, default `2025`                                                                                                                                                                                                                                                                                                 |
+| defaultRateType    | yes      | `Volunteer` or `Professional`, default `Volunteer`                                                                                                                                                                                                                                                                           |
+| preferences        | yes      | jsonb. `allowTimeEntryEditing` defaults to false. When false, a time entry update cannot change `startedAt`, `endedAt`, `durationMinutes`, or `occurredOn`. `entityLabels` holds display names for `organization`, `project`, `department`, and `taskCategory` (defaults: Organization, Project, Department, Task category). |
+| themeId            | yes      | Foreign key to Theme. Defaults to the seeded VolunTime global theme.                                                                                                                                                                                                                                                         |
+| wordmarkUrl        | no       | Light-on-dark sidebar wordmark. Stays on the organization so switching themes does not wipe marks. Uploads are resized to fit 800×200, stored privately, and served at `/brand/wordmark` for members.                                                                                                                        |
+| wordmarkOnLightUrl | no       | Dark-on-light wordmark for light surfaces. Same resize and private storage as `wordmarkUrl`, served at `/brand/wordmarkOnLight`.                                                                                                                                                                                             |
+| markUrl            | no       | Compact mark for favicon-sized use. Uploads are cropped to 64×64, stored privately, and served at `/brand/mark` for members.                                                                                                                                                                                                 |
+| accentImageUrl     | no       | Decorative image for login, enrollment, empty states, and header bands, never behind tables or forms                                                                                                                                                                                                                         |
 
 ### Theme
 
-Global presets have `organizationId` empty and are read-only. Organizations can save named copies. Palettes are JSON arrays of `#RRGGBB` colors: categorical 6–8, sequential 5–10, diverging 7. Seed seven global themes: Clocked In, Harbor, Atelier, Evergreen, Orchid, Okabe–Ito, and Tol Bright.
+Global presets have `organizationId` empty and are read-only. Organizations can save named copies. Palettes are JSON arrays of `#RRGGBB` colors: categorical 6–8, sequential 5–10, diverging 7. Seed seven global themes: VolunTime, Harbor, Atelier, Evergreen, Orchid, Okabe–Ito, and Tol Bright.
 
-| Field | Required | Notes |
-| --- | --- | --- |
-| id | yes | UUID primary key |
-| name | yes | |
-| organizationId | no | Empty for a global preset. Set for an org-saved theme |
-| primary | yes | `#RRGGBB`. Sidebar, headings, primary buttons |
-| primaryForeground | yes | `#RRGGBB`. Text on primary |
-| highlight | yes | `#RRGGBB`. Emphasis and active nav, not body text |
-| accent | yes | `#RRGGBB`. Small accents |
-| success | yes | `#RRGGBB`. Success states |
-| surface | yes | `#RRGGBB`. Canvas and cards |
-| surfaceForeground | yes | `#RRGGBB`. Text on surface |
-| foreground | yes | `#RRGGBB`. Body text |
-| chartColor | yes | `#RRGGBB`. Base color for every chart |
-| headingFont | yes | `SourceSans3`, `NunitoSans`, or `Geist` |
-| bodyFont | yes | `SourceSans3`, `NunitoSans`, or `Geist` |
-| categoricalPalette | yes | JSON array of 6–8 `#RRGGBB` colors |
-| sequentialPalette | yes | JSON array of 5–10 `#RRGGBB` colors |
-| divergingPalette | yes | JSON array of 7 `#RRGGBB` colors |
+| Field              | Required | Notes                                                 |
+| ------------------ | -------- | ----------------------------------------------------- |
+| id                 | yes      | UUID primary key                                      |
+| name               | yes      |                                                       |
+| organizationId     | no       | Empty for a global preset. Set for an org-saved theme |
+| primary            | yes      | `#RRGGBB`. Sidebar, headings, primary buttons         |
+| primaryForeground  | yes      | `#RRGGBB`. Text on primary                            |
+| highlight          | yes      | `#RRGGBB`. Emphasis and active nav, not body text     |
+| accent             | yes      | `#RRGGBB`. Small accents                              |
+| success            | yes      | `#RRGGBB`. Success states                             |
+| surface            | yes      | `#RRGGBB`. Canvas and cards                           |
+| surfaceForeground  | yes      | `#RRGGBB`. Text on surface                            |
+| foreground         | yes      | `#RRGGBB`. Body text                                  |
+| chartColor         | yes      | `#RRGGBB`. Base color for every chart                 |
+| headingFont        | yes      | `SourceSans3`, `NunitoSans`, or `Geist`               |
+| bodyFont           | yes      | `SourceSans3`, `NunitoSans`, or `Geist`               |
+| categoricalPalette | yes      | JSON array of 6–8 `#RRGGBB` colors                    |
+| sequentialPalette  | yes      | JSON array of 5–10 `#RRGGBB` colors                   |
+| divergingPalette   | yes      | JSON array of 7 `#RRGGBB` colors                      |
 
 ### HourlyRate
 
 An organization-scoped catalog of rates. Names are unique within that organization, compared case-insensitively. Exactly one volunteer rate per organization has `isDefault` true.
 
-| Field | Required | Notes |
-| --- | --- | --- |
-| id | yes | UUID primary key |
-| organizationId | yes | Foreign key to Organization |
-| type | yes | `Volunteer` or `Professional` |
-| name | yes | Unique per organization, case-insensitive |
-| perHourRate | yes | decimal(10,2), greater than zero |
-| isDefault | yes | Default false. True only when `type` is `Volunteer`. One default volunteer rate per organization |
-| isArchived | yes | Default false. Archived rates stay on the organization and cannot be selected for new entries. The default volunteer rate cannot be archived |
-| source | no | Where the amount comes from, 1 to 200 characters. Empty when omitted |
+| Field          | Required | Notes                                                                                                                                        |
+| -------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| id             | yes      | UUID primary key                                                                                                                             |
+| organizationId | yes      | Foreign key to Organization                                                                                                                  |
+| type           | yes      | `Volunteer` or `Professional`                                                                                                                |
+| name           | yes      | Unique per organization, case-insensitive                                                                                                    |
+| perHourRate    | yes      | decimal(10,2), greater than zero                                                                                                             |
+| isDefault      | yes      | Default false. True only when `type` is `Volunteer`. One default volunteer rate per organization                                             |
+| isArchived     | yes      | Default false. Archived rates stay on the organization and cannot be selected for new entries. The default volunteer rate cannot be archived |
+| source         | no       | Where the amount comes from, 1 to 200 characters. Empty when omitted                                                                         |
 
 ### OrganizationMembership
 
 A user has at most one membership in a given organization. A person may belong to more than one department through `DepartmentMembership`. `primaryDepartmentId`, when set, is a department of this organization and is only the default on the log form. Membership `rateType` and `professionalBillingRate` are kept on the membership and do not set time-entry rates.
 
-| Field | Required | Notes |
-| --- | --- | --- |
-| id | yes | UUID primary key |
-| userId | yes | Foreign key to User. Unique with organizationId |
-| organizationId | yes | Foreign key to Organization. Unique with userId |
-| roleId | yes | Foreign key to Role |
-| rateType | yes | `Volunteer` or `Professional`. Default from the org’s `defaultRateType` at join time |
-| professionalBillingRate | no | decimal(10,2). Required and greater than zero when `Professional`; empty when `Volunteer` |
-| isActive | yes | Default true. Workbook Active? without deleting history |
-| primaryDepartmentId | no | Foreign key to Department. Cleared when that department is deleted |
-| joinedAt | yes | |
+| Field                   | Required | Notes                                                                                     |
+| ----------------------- | -------- | ----------------------------------------------------------------------------------------- |
+| id                      | yes      | UUID primary key                                                                          |
+| userId                  | yes      | Foreign key to User. Unique with organizationId                                           |
+| organizationId          | yes      | Foreign key to Organization. Unique with userId                                           |
+| roleId                  | yes      | Foreign key to Role                                                                       |
+| rateType                | yes      | `Volunteer` or `Professional`. Default from the org’s `defaultRateType` at join time      |
+| professionalBillingRate | no       | decimal(10,2). Required and greater than zero when `Professional`; empty when `Volunteer` |
+| isActive                | yes      | Default true. Workbook Active? without deleting history                                   |
+| primaryDepartmentId     | no       | Foreign key to Department. Cleared when that department is deleted                        |
+| joinedAt                | yes      |                                                                                           |
 
 ### Department
 
 A department belongs to exactly one organization. Names are unique within that organization, compared case-insensitively.
 
-| Field | Required | Notes |
-| --- | --- | --- |
-| id | yes | UUID primary key |
-| organizationId | yes | Foreign key to Organization |
-| name | yes | Unique per organization, case-insensitive |
+| Field          | Required | Notes                                     |
+| -------------- | -------- | ----------------------------------------- |
+| id             | yes      | UUID primary key                          |
+| organizationId | yes      | Foreign key to Organization               |
+| name           | yes      | Unique per organization, case-insensitive |
 
 ### DepartmentMembership
 
 A user has at most one membership in a given department and may belong to many departments in the same organization. The user must already belong to that department’s organization.
 
-| Field | Required | Notes |
-| --- | --- | --- |
-| id | yes | UUID primary key |
-| userId | yes | Foreign key to User. Unique with departmentId |
-| departmentId | yes | Foreign key to Department. Unique with userId |
-| roleId | yes | Foreign key to Role |
-| joinedAt | yes | |
+| Field        | Required | Notes                                         |
+| ------------ | -------- | --------------------------------------------- |
+| id           | yes      | UUID primary key                              |
+| userId       | yes      | Foreign key to User. Unique with departmentId |
+| departmentId | yes      | Foreign key to Department. Unique with userId |
+| roleId       | yes      | Foreign key to Role                           |
+| joinedAt     | yes      |                                               |
 
 ### Tag
 
 A tag belongs to one organization. Names are unique within that organization, compared case-insensitively.
 
-| Field | Required | Notes |
-| --- | --- | --- |
-| id | yes | UUID primary key |
-| organizationId | yes | Foreign key to Organization |
-| name | yes | Unique per organization, case-insensitive |
+| Field          | Required | Notes                                     |
+| -------------- | -------- | ----------------------------------------- |
+| id             | yes      | UUID primary key                          |
+| organizationId | yes      | Foreign key to Organization               |
+| name           | yes      | Unique per organization, case-insensitive |
 
 ### TaskCategory
 
 An org-scoped lookup, same uniqueness pattern as Tag. Each organization creates its own categories (for example Board Hours, Committee Member Hours, Participant Hours, Volunteer Hours). Not globally seeded.
 
-| Field | Required | Notes |
-| --- | --- | --- |
-| id | yes | UUID primary key |
-| organizationId | yes | Foreign key to Organization |
-| name | yes | Unique per organization, case-insensitive |
+| Field          | Required | Notes                                     |
+| -------------- | -------- | ----------------------------------------- |
+| id             | yes      | UUID primary key                          |
+| organizationId | yes      | Foreign key to Organization               |
+| name           | yes      | Unique per organization, case-insensitive |
 
 ### Project
 
 A project belongs to an organization. When `accessType` is `Department`, it also belongs to one of that organization’s departments. Workbook “General / No Specific Project” is a normal project row the organization creates; the schema does not auto-seed it.
 
-| Field | Required | Notes |
-| --- | --- | --- |
-| id | yes | UUID primary key |
-| organizationId | yes | Foreign key to Organization |
-| departmentId | no | Foreign key to Department. Set only when `accessType` is `Department` |
-| ownerUserId | yes | Foreign key to User. The creator in normal use. Can edit; not duplicated in the editor list |
-| title | yes | Unique per organization, case-insensitive |
-| description | no | |
-| accessType | yes | `Public`, `Private`, or `Department` |
-| projectType | yes | `Project` or `Event`. Default `Project` |
-| startDate | no | Calendar date |
-| endDate | no | Calendar date. When both dates are set, on or after startDate |
-| isActive | yes | Default true |
+| Field          | Required | Notes                                                                                       |
+| -------------- | -------- | ------------------------------------------------------------------------------------------- |
+| id             | yes      | UUID primary key                                                                            |
+| organizationId | yes      | Foreign key to Organization                                                                 |
+| departmentId   | no       | Foreign key to Department. Set only when `accessType` is `Department`                       |
+| ownerUserId    | yes      | Foreign key to User. The creator in normal use. Can edit; not duplicated in the editor list |
+| title          | yes      | Unique per organization, case-insensitive                                                   |
+| description    | no       |                                                                                             |
+| accessType     | yes      | `Public`, `Private`, or `Department`                                                        |
+| projectType    | yes      | `Project` or `Event`. Default `Project`                                                     |
+| startDate      | no       | Calendar date                                                                               |
+| endDate        | no       | Calendar date. When both dates are set, on or after startDate                               |
+| isActive       | yes      | Default true                                                                                |
 
 Editors are a many-to-many with User. The join table is not a domain entity.
 
@@ -382,59 +382,59 @@ Editors are a many-to-many with User. The join table is not a domain entity.
 
 Personal time for one user, against an organization or one of its departments. `userId` is whose hours they are. `enteredByUserId` is who created the row (may equal `userId`). `description` is optional notes. Tags are optional and must belong to the entry’s organization. Project and task category are required and must belong to the entry’s organization.
 
-| Field | Required | Notes |
-| --- | --- | --- |
-| id | yes | UUID primary key |
-| userId | yes | Foreign key to User. Whose hours |
-| enteredByUserId | yes | Foreign key to User. Who entered the row |
-| organizationId | yes | Foreign key to Organization. Always set |
-| departmentId | no | Foreign key to Department. Empty for organization-level time |
-| projectId | yes | Foreign key to Project |
-| taskCategoryId | yes | Foreign key to TaskCategory |
-| mode | yes | `Punch`, `Duration`, or `Total` |
-| startedAt | no | Required for `Punch`. See time-entry rules |
-| endedAt | no | Empty while a punch is open |
-| durationMinutes | no | Whole minutes. Required for `Duration` and `Total` |
-| occurredOn | yes | Calendar date the time applies to |
-| description | no | Notes |
-| hourlyRateId | no | Foreign key to HourlyRate. Set at write time |
-| hourlyRate | yes | decimal(10,2), zero or greater. Snapshot of the selected rate |
-| inKindValue | no | decimal(12,2). Empty only while a punch is open |
-| sourceRef | no | Unique when set. Idempotent import key. Empty for entries created in the app |
-| createdAt | yes | When the row was entered |
+| Field           | Required | Notes                                                                        |
+| --------------- | -------- | ---------------------------------------------------------------------------- |
+| id              | yes      | UUID primary key                                                             |
+| userId          | yes      | Foreign key to User. Whose hours                                             |
+| enteredByUserId | yes      | Foreign key to User. Who entered the row                                     |
+| organizationId  | yes      | Foreign key to Organization. Always set                                      |
+| departmentId    | no       | Foreign key to Department. Empty for organization-level time                 |
+| projectId       | yes      | Foreign key to Project                                                       |
+| taskCategoryId  | yes      | Foreign key to TaskCategory                                                  |
+| mode            | yes      | `Punch`, `Duration`, or `Total`                                              |
+| startedAt       | no       | Required for `Punch`. See time-entry rules                                   |
+| endedAt         | no       | Empty while a punch is open                                                  |
+| durationMinutes | no       | Whole minutes. Required for `Duration` and `Total`                           |
+| occurredOn      | yes      | Calendar date the time applies to                                            |
+| description     | no       | Notes                                                                        |
+| hourlyRateId    | no       | Foreign key to HourlyRate. Set at write time                                 |
+| hourlyRate      | yes      | decimal(10,2), zero or greater. Snapshot of the selected rate                |
+| inKindValue     | no       | decimal(12,2). Empty only while a punch is open                              |
+| sourceRef       | no       | Unique when set. Idempotent import key. Empty for entries created in the app |
+| createdAt       | yes      | When the row was entered                                                     |
 
 ### CollectiveTimeEntry
 
 Group time recorded by an admin. It is not calculated from user entries. `description` is optional. Tags are optional and must belong to the entry’s organization. Project and task category are required.
 
-| Field | Required | Notes |
-| --- | --- | --- |
-| id | yes | UUID primary key |
-| recordedByUserId | yes | Foreign key to User. The admin who recorded the session |
-| organizationId | yes | Foreign key to Organization. Always set |
-| departmentId | no | Foreign key to Department. Empty for organization-level time |
-| projectId | yes | Foreign key to Project |
-| taskCategoryId | yes | Foreign key to TaskCategory |
-| startedAt | yes | Time in |
-| endedAt | yes | Time out. Must be after startedAt |
-| participantCount | yes | Integer, at least 1 |
-| description | no | Notes |
-| hourlyRateId | no | Foreign key to HourlyRate. Set at write time |
-| hourlyRate | yes | decimal(10,2), greater than zero. Snapshot of the selected rate |
-| inKindValue | yes | decimal(12,2). Elapsed hours × participantCount × hourlyRate, rounded to cents |
-| createdAt | yes | When the row was entered |
+| Field            | Required | Notes                                                                          |
+| ---------------- | -------- | ------------------------------------------------------------------------------ |
+| id               | yes      | UUID primary key                                                               |
+| recordedByUserId | yes      | Foreign key to User. The admin who recorded the session                        |
+| organizationId   | yes      | Foreign key to Organization. Always set                                        |
+| departmentId     | no       | Foreign key to Department. Empty for organization-level time                   |
+| projectId        | yes      | Foreign key to Project                                                         |
+| taskCategoryId   | yes      | Foreign key to TaskCategory                                                    |
+| startedAt        | yes      | Time in                                                                        |
+| endedAt          | yes      | Time out. Must be after startedAt                                              |
+| participantCount | yes      | Integer, at least 1                                                            |
+| description      | no       | Notes                                                                          |
+| hourlyRateId     | no       | Foreign key to HourlyRate. Set at write time                                   |
+| hourlyRate       | yes      | decimal(10,2), greater than zero. Snapshot of the selected rate                |
+| inKindValue      | yes      | decimal(12,2). Elapsed hours × participantCount × hourlyRate, rounded to cents |
+| createdAt        | yes      | When the row was entered                                                       |
 
 ### RefreshToken
 
 Stores a hash of the refresh token so a backend can end a session. Access tokens are stateless JWTs and are not a table.
 
-| Field | Required | Notes |
-| --- | --- | --- |
-| id | yes | UUID primary key |
-| userId | yes | Foreign key to User |
-| tokenHash | yes | Unique hash of the refresh token |
-| expiresAt | yes | Rejected after this time. Logout, password change, and password reset pull it forward to now |
-| revokedAt | no | Set when the token is rotated or the session is ended. A rotated token can be presented again for 2 minutes while expiresAt is still in the future |
+| Field     | Required | Notes                                                                                                                                              |
+| --------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id        | yes      | UUID primary key                                                                                                                                   |
+| userId    | yes      | Foreign key to User                                                                                                                                |
+| tokenHash | yes      | Unique hash of the refresh token                                                                                                                   |
+| expiresAt | yes      | Rejected after this time. Logout, password change, and password reset pull it forward to now                                                       |
+| revokedAt | no       | Set when the token is rotated or the session is ended. A rotated token can be presented again for 2 minutes while expiresAt is still in the future |
 
 ### Invitation
 
@@ -442,32 +442,32 @@ A pending invite to one organization, or to one department of that organization.
 
 One pending invite is allowed per email and target. Pending means `acceptedAt` and `revokedAt` are both empty. That rule is a partial unique index.
 
-| Field | Required | Notes |
-| --- | --- | --- |
-| id | yes | UUID primary key |
-| email | yes | Stored lowercase. The account that may accept |
-| organizationId | yes | Foreign key to Organization |
-| departmentId | no | Foreign key to Department. Empty for an organization invite. When set, the department belongs to organizationId |
-| roleId | yes | Foreign key to Role |
-| codeHash | yes | Unique hash of the emailed code |
-| invitedByUserId | yes | Foreign key to User |
-| expiresAt | yes | |
-| acceptedAt | no | Set when the invite is accepted |
-| revokedAt | no | Set when an admin revokes the invite |
-| createdAt | yes | |
+| Field           | Required | Notes                                                                                                           |
+| --------------- | -------- | --------------------------------------------------------------------------------------------------------------- |
+| id              | yes      | UUID primary key                                                                                                |
+| email           | yes      | Stored lowercase. The account that may accept                                                                   |
+| organizationId  | yes      | Foreign key to Organization                                                                                     |
+| departmentId    | no       | Foreign key to Department. Empty for an organization invite. When set, the department belongs to organizationId |
+| roleId          | yes      | Foreign key to Role                                                                                             |
+| codeHash        | yes      | Unique hash of the emailed code                                                                                 |
+| invitedByUserId | yes      | Foreign key to User                                                                                             |
+| expiresAt       | yes      |                                                                                                                 |
+| acceptedAt      | no       | Set when the invite is accepted                                                                                 |
+| revokedAt       | no       | Set when an admin revokes the invite                                                                            |
+| createdAt       | yes      |                                                                                                                 |
 
 ### PasswordResetCode
 
 A single-use forgot-password code. Only `codeHash` is stored.
 
-| Field | Required | Notes |
-| --- | --- | --- |
-| id | yes | UUID primary key |
-| userId | yes | Foreign key to User |
-| codeHash | yes | Unique hash of the emailed code |
-| expiresAt | yes | |
-| usedAt | no | Set when the code is consumed or replaced |
-| createdAt | yes | |
+| Field     | Required | Notes                                     |
+| --------- | -------- | ----------------------------------------- |
+| id        | yes      | UUID primary key                          |
+| userId    | yes      | Foreign key to User                       |
+| codeHash  | yes      | Unique hash of the emailed code           |
+| expiresAt | yes      |                                           |
+| usedAt    | no       | Set when the code is consumed or replaced |
+| createdAt | yes      |                                           |
 
 ## Membership rules
 

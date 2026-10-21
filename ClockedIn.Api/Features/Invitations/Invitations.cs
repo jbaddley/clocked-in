@@ -76,7 +76,7 @@ public sealed class InvitationsService(
     public async Task<InvitationDto> CreateForDepartment(Guid departmentId, CreateInvitationRequest request, CancellationToken cancellationToken)
     {
         var department = await access.RequireDepartmentManager(departmentId, cancellationToken);
-        var organization = await access.RequireOrganizationAdmin(department.OrganizationId, cancellationToken);
+        var organization = await access.RequireOrganization(department.OrganizationId, false, cancellationToken);
         return await Create(department.OrganizationId, department.Id, InviteTarget(organization, department.Name), request, cancellationToken);
     }
 

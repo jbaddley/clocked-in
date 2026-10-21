@@ -23,7 +23,7 @@
     "test:http:csharp": "API_TARGET=csharp npm run test:http",
     "db:pull": "prisma db pull && prisma generate",
     "db:seed:caswj": "node scripts/with-env.mjs local -- tsx scripts/seed-caswj.ts",
-    "db:seed:caswj:production": "node scripts/with-env.mjs production -- tsx scripts/seed-caswj.ts",
+    "db:seed:caswj:anon": "node scripts/with-env.mjs staging -- tsx scripts/seed-caswj-anon.ts",
     "test:contract": "node --test --test-concurrency=1 \"tests/http/*.test.mjs\"",
     "email:dev": "email dev --dir emails --port 3030",
     "email:render": "tsx emails/render.ts",

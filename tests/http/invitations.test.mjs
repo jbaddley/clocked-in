@@ -148,4 +148,27 @@ describe("invitations", suite, () => {
     });
     assertError(revoked, 409, "conflict", "This invite has already been accepted.");
   });
+
+  test("a department admin can invite to that department", async () => {
+    const coordinator = await signUp("invitecoord");
+    const recruit = await signUp("invitecoordrecruit");
+    await createJson(ctx.admin.accessToken, `/departments/${ctx.department.id}/invitations`, {
+      email: coordinator.email,
+      role: "ADMIN",
+    });
+    await acceptInvite(coordinator.accessToken, coordinator.email);
+    const created = await createJson(coordinator.accessToken, `/departments/${ctx.department.id}/invitations`, {
+      email: recruit.email,
+      role: "MEMBER",
+    });
+    assertInvitation(created, {
+      email: recruit.email,
+      organizationId: ctx.org.id,
+      departmentId: ctx.department.id,
+      role: "MEMBER",
+    });
+    const listed = await callApi(`/departments/${ctx.department.id}/invitations`, { token: coordinator.accessToken });
+    assertList(listed.json);
+    assert.ok(listed.json.items.some((item) => item.id === created.id));
+  });
 });

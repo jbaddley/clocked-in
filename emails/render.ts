@@ -9,7 +9,7 @@ import FeedbackReceivedEmail, { feedbackReceived } from "./feedback-received";
 import InvitationEmail, { invitation } from "./invitation";
 import PasswordResetEmail, { passwordReset } from "./password-reset";
 
-const codeLine = /Use this code to (?:reset your Clocked In password|accept the invite):\s*\{\{code\}\}/;
+const codeLine = /Use this code to (?:reset your VolunTime password|accept the invite):\s*\{\{code\}\}/;
 
 const templates = [
   {

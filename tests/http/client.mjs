@@ -3,10 +3,8 @@ import { randomBytes, randomUUID } from "node:crypto";
 import pg from "pg";
 import { apiBaseUrl, databaseUrl, githubSinkUrl, mailSinkUrl } from "./fixture.mjs";
 
-const uuidPattern =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const instantPattern =
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const instantPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 let sequence = 0;
@@ -72,11 +70,7 @@ export async function callApi(path, { method = "GET", token, apiKey, body, query
 }
 
 export function assertStatus(response, status) {
-  assert.equal(
-    response.status,
-    status,
-    `expected ${status}, got ${response.status}: ${response.text.slice(0, 600)}`,
-  );
+  assert.equal(response.status, status, `expected ${status}, got ${response.status}: ${response.text.slice(0, 600)}`);
 }
 
 export function assertKeys(value, keys) {
@@ -125,7 +119,16 @@ export function assertNoSecrets(value) {
 }
 
 export function assertUser(user, expected = {}) {
-  assertKeys(user, ["id", "username", "email", "isSuperAdmin", "mustChangePassword", "createdAt", "updatedAt", "profile"]);
+  assertKeys(user, [
+    "id",
+    "username",
+    "email",
+    "isSuperAdmin",
+    "mustChangePassword",
+    "createdAt",
+    "updatedAt",
+    "profile",
+  ]);
   assertUuid(user.id);
   assertInstant(user.createdAt);
   assertInstant(user.updatedAt);
@@ -154,6 +157,7 @@ export function assertUser(user, expected = {}) {
     "phone",
     "zipCode",
     "notes",
+    "memberNumber",
   ]);
   assertUuid(user.profile.id);
   if (expected.firstName) {
@@ -227,7 +231,7 @@ export function assertOrganization(org, name) {
   assert.equal(org.defaultRateType, "Volunteer");
   assert.deepEqual(org.preferences, defaultPreferences());
   assert.equal(org.themeId, clockedInThemeId);
-  assert.equal(org.theme.name, "Clocked In");
+  assert.equal(org.theme.name, "VolunTime");
   assert.equal(org.wordmarkUrl, null);
   assert.equal(org.wordmarkOnLightUrl, null);
   assert.equal(org.markUrl, null);
@@ -589,7 +593,7 @@ export async function waitForGithubIssue(title) {
 
 export async function waitForCode(email) {
   const deadline = Date.now() + 8000;
-  const pattern = /Use this code to (?:reset your Clocked In password|accept the invite):\s*(\d{6})/;
+  const pattern = /Use this code to (?:reset your VolunTime password|accept the invite):\s*(\d{6})/;
   let last = "";
   while (Date.now() < deadline) {
     const response = await fetch(`${mailSinkUrl}/emails?to=${encodeURIComponent(email)}`);

@@ -5,8 +5,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   createPersonAction,
+  inviteDepartmentMemberAction,
   inviteMemberAction,
   removeMemberAction,
+  revokeDepartmentInvitationAction,
   resendInvitationAction,
   revokeInvitationAction,
   updateMemberAction,
@@ -57,9 +59,13 @@ import type { Invitation, Membership } from "@/lib/types";
 
 const roles = [
   { value: "VOLUNTEER", label: "Volunteer" },
-  { value: "MEMBER", label: "Member" },
+  { value: "MEMBER", label: "Staff" },
   { value: "ADMIN", label: "Admin" },
 ];
+
+function roleLabel(code: string, fallback: string) {
+  return roles.find((role) => role.value === code)?.label ?? fallback;
+}
 
 function personName(member: Membership) {
   const display = member.user.displayName?.trim();
@@ -214,8 +220,11 @@ function DepartmentSummary({ names }: { names: string[] }) {
 export function MembersView() {
   const organization = useOrganization();
   const copy = useLabels();
-  const { viewer } = useWorkspace();
-  const { members, isPending: membersPending } = useMembers();
+  const { viewer, isAdmin, isCoordinator, groupDepartments } = useWorkspace();
+  const { members: allMembers, isPending: membersPending } = useMembers();
+  const members = isCoordinator
+    ? allMembers.filter((member) => (member.departmentIds ?? []).some((id) => groupDepartments.includes(id)))
+    : allMembers;
   const { lookups, isPending: lookupsPending } = useLookups();
   const [selected, setSelected] = useState<string[]>([]);
   const [addOpen, setAddOpen] = useState(false);
@@ -274,9 +283,11 @@ export function MembersView() {
             >
               Add time
             </Button>
-            <Button type="button" className="h-9" onClick={() => setAddOpen(true)}>
-              Add person
-            </Button>
+            {isAdmin ? (
+              <Button type="button" className="h-9" onClick={() => setAddOpen(true)}>
+                Add person
+              </Button>
+            ) : null}
           </CardAction>
         </CardHeader>
         <CardContent className="px-0">
@@ -329,7 +340,7 @@ export function MembersView() {
                         onSave={(email) => saveMemberEmail(member.id, email)}
                       />
                     </TableCell>
-                    <TableCell>{member.role.name}</TableCell>
+                    <TableCell>{roleLabel(member.role.code, member.role.name)}</TableCell>
                     <TableCell className="whitespace-nowrap">
                       <DepartmentSummary names={departmentNames(member, lookups.departments)} />
                     </TableCell>
@@ -408,7 +419,7 @@ export function MembersView() {
                         onSave={(email) => saveMemberEmail(member.id, email)}
                       />
                       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                        <span>{member.role.name}</span>
+                        <span>{roleLabel(member.role.code, member.role.name)}</span>
                         <Badge variant={member.isActive === false ? "outline" : "secondary"}>
                           {member.isActive === false ? "Inactive" : "Active"}
                         </Badge>
@@ -500,16 +511,30 @@ function PersonActions({
 
 function InviteForm() {
   const organization = useOrganization();
+  const { isAdmin, isCoordinator, groupDepartments } = useWorkspace();
+  const { lookups } = useLookups();
+  const coordinated = lookups.departments.filter((department) => groupDepartments.includes(department.id));
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("VOLUNTEER");
+  const [departmentId, setDepartmentId] = useState(coordinated[0]?.id ?? "");
   const { invitations } = useInvitations();
-  const invalidate = [keys.invitations(organization.id), keys.members(organization.id)];
+  const invalidate = [
+    keys.invitations(organization.id),
+    ...coordinated.map((department) => keys.departmentInvitations(department.id)),
+    keys.members(organization.id),
+  ];
   const invite = useActionMutation(
-    (input: { email: string; role: string }) => inviteMemberAction(organization.id, input.email, input.role),
+    (input: { email: string; role: string; departmentId?: string }) =>
+      input.departmentId
+        ? inviteDepartmentMemberAction(input.departmentId, input.email, input.role)
+        : inviteMemberAction(organization.id, input.email, input.role),
     { invalidate, onSuccess: () => setEmail("") },
   );
   const revoke = useActionMutation(
-    (invitationId: string) => revokeInvitationAction(organization.id, invitationId),
+    (invitation: Invitation) =>
+      invitation.departmentId
+        ? revokeDepartmentInvitationAction(invitation.departmentId, invitation.id)
+        : revokeInvitationAction(organization.id, invitation.id),
     { invalidate },
   );
   const resend = useActionMutation(
@@ -528,7 +553,7 @@ function InviteForm() {
           className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_8rem_auto]"
           onSubmit={(event) => {
             event.preventDefault();
-            invite.mutate({ email, role });
+            invite.mutate({ email, role, departmentId: isCoordinator ? departmentId || coordinated[0]?.id : undefined });
           }}
         >
           <Field label="Email" htmlFor="invite-email">
@@ -541,6 +566,16 @@ function InviteForm() {
               className="h-9"
             />
           </Field>
+          {isCoordinator && coordinated.length > 1 ? (
+            <Field label="Group">
+              <SelectField
+                value={departmentId || coordinated[0]?.id || ""}
+                onValueChange={setDepartmentId}
+                options={coordinated.map((department) => ({ value: department.id, label: department.name }))}
+                className="h-9"
+              />
+            </Field>
+          ) : null}
           <Field label="Role">
             <SelectField value={role} onValueChange={setRole} options={roles} className="h-9" />
           </Field>
@@ -555,8 +590,8 @@ function InviteForm() {
                 key={invitation.id}
                 invitation={invitation}
                 pending={revoke.isPending || resend.isPending}
-                onRevoke={() => revoke.mutate(invitation.id)}
-                onResend={() => resend.mutate(invitation)}
+                onRevoke={() => revoke.mutate(invitation)}
+                onResend={invitation.departmentId ? undefined : () => resend.mutate(invitation)}
               />
             ))}
           </ul>
@@ -584,17 +619,17 @@ function InvitationRow({
   invitation: Invitation;
   pending: boolean;
   onRevoke: () => void;
-  onResend: () => void;
+  onResend?: () => void;
 }) {
   const { viewer } = useWorkspace();
   const status = invitationStatus(invitation);
-  const canResend = status.label === "Pending" || status.label === "Expired";
+  const canResend = Boolean(onResend) && (status.label === "Pending" || status.label === "Expired");
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5">
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{invitation.email}</p>
         <p className="text-xs text-muted-foreground">
-          {invitation.role.name} · sent {formatInstant(invitation.createdAt, viewer.timezone)}
+          {roleLabel(invitation.role.code, invitation.role.name)} · sent {formatInstant(invitation.createdAt, viewer.timezone)}
         </p>
       </div>
       <Badge variant={status.variant}>{status.label}</Badge>

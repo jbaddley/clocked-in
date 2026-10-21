@@ -17,7 +17,7 @@ export async function GET(request: Request, context: { params: Promise<{ kind: s
       return emptyNotFound();
     }
 
-    if (/^https?:\/\//i.test(storedUrl) && !isVercelBlobUrl(storedUrl)) {
+    if (storedUrl.startsWith("/") || (/^https?:\/\//i.test(storedUrl) && !isVercelBlobUrl(storedUrl))) {
       return Response.redirect(storedUrl, 302);
     }
 

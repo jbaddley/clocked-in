@@ -31,6 +31,7 @@ export const keys = {
   lookups: (organizationId: string) => ["org", organizationId, "lookups"] as const,
   members: (organizationId: string) => ["org", organizationId, "members"] as const,
   invitations: (organizationId: string) => ["org", organizationId, "invitations"] as const,
+  departmentInvitations: (departmentId: string) => ["department", departmentId, "invitations"] as const,
   apiKeys: (organizationId: string) => ["org", organizationId, "api-keys"] as const,
   entries: (organizationId: string, userId: string, range: DateRange) =>
     ["org", organizationId, "entries", userId, range.from ?? "", range.to ?? ""] as const,
@@ -76,6 +77,14 @@ export function invitationsQuery(organizationId: string) {
     queryKey: keys.invitations(organizationId),
     queryFn: async ({ signal }) =>
       (await fetchJson<Paged<Invitation>>(`/organizations/${organizationId}/invitations?limit=100`, signal)).items,
+  });
+}
+
+export function departmentInvitationsQuery(departmentId: string) {
+  return queryOptions({
+    queryKey: keys.departmentInvitations(departmentId),
+    queryFn: async ({ signal }) =>
+      (await fetchJson<Paged<Invitation>>(`/departments/${departmentId}/invitations?limit=100`, signal)).items,
   });
 }
 

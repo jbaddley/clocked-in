@@ -10,17 +10,17 @@ Instants are UTC ISO-8601. `occurredOn` is `YYYY-MM-DD`. Ids are UUIDs. Unknown 
 { "code": "validation_error", "message": "..." }
 ```
 
-| Status | code |
-| --- | --- |
-| 400 | `validation_error` |
-| 401 | `unauthorized` |
-| 403 | `forbidden` |
-| 403 | `password_change_required` |
-| 404 | `not_found` |
-| 405 | `method_not_allowed` |
-| 409 | `conflict` |
-| 500 | `server_error` |
-| 502 | `email_failed` |
+| Status | code                       |
+| ------ | -------------------------- |
+| 400    | `validation_error`         |
+| 401    | `unauthorized`             |
+| 403    | `forbidden`                |
+| 403    | `password_change_required` |
+| 404    | `not_found`                |
+| 405    | `method_not_allowed`       |
+| 409    | `conflict`                 |
+| 500    | `server_error`             |
+| 502    | `email_failed`             |
 
 A missing or invalid token returns 401 with `Authentication is required.`. A valid token whose user no longer exists returns 401 with `This token is not valid for this server.`. An unexpected failure returns 500 with `Something went wrong.`.
 
@@ -42,15 +42,15 @@ A request body must be a JSON object. An empty body is treated as `{}`. Anything
 
 Conflict messages:
 
-| Message | When |
-| --- | --- |
-| `That username is already in use.` | Duplicate username |
-| `That email is already in use.` | Duplicate account email |
-| `That sourceRef is already in use.` | Duplicate time entry `sourceRef` |
-| `A pending invite already exists for that email.` | Second pending invite for the same email and target |
-| `That value is already in use.` | Any other unique name, such as a department, tag, task category, or project title |
-| `Delete the time entries first.` | Deleting something that time entries still reference |
-| `This record is still in use.` | Deleting something that other records still reference |
+| Message                                           | When                                                                              |
+| ------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `That username is already in use.`                | Duplicate username                                                                |
+| `That email is already in use.`                   | Duplicate account email                                                           |
+| `That sourceRef is already in use.`               | Duplicate time entry `sourceRef`                                                  |
+| `A pending invite already exists for that email.` | Second pending invite for the same email and target                               |
+| `That value is already in use.`                   | Any other unique name, such as a department, tag, task category, or project title |
+| `Delete the time entries first.`                  | Deleting something that time entries still reference                              |
+| `This record is still in use.`                    | Deleting something that other records still reference                             |
 
 ## Auth
 
@@ -61,7 +61,16 @@ Refresh tokens last 30 days. Only their hash is stored. Refresh rotates the refr
 `POST /auth/user` (201) creates a user and profile and signs them in. `isSuperAdmin` cannot be set here.
 
 ```json
-{ "username": "", "email": "", "password": "", "firstName": "", "lastName": "", "displayName": null, "timezone": "UTC", "phone": null }
+{
+  "username": "",
+  "email": "",
+  "password": "",
+  "firstName": "",
+  "lastName": "",
+  "displayName": null,
+  "timezone": "UTC",
+  "phone": null
+}
 ```
 
 `displayName`, `timezone`, and `phone` are optional. `timezone` is an IANA name and defaults to `UTC`.
@@ -108,7 +117,8 @@ Both return:
     "timezone": "UTC",
     "phone": null,
     "zipCode": null,
-    "notes": null
+    "notes": null,
+    "memberNumber": null
   }
 }
 ```
@@ -129,12 +139,12 @@ Usernames are stored lowercase, 3 to 50 characters, matching `[a-z0-9][a-z0-9._-
 
 Any authenticated user can `POST /organizations` with `{ "name" }` and becomes that organization's `ADMIN`.
 
-Organization `{ "id", "name", "volunteerHourlyRate", "rateSourceYear", "defaultRateType", "preferences", "themeId", "theme", "wordmarkUrl", "wordmarkOnLightUrl", "markUrl", "accentImageUrl" }`. `volunteerHourlyRate` is the current default volunteer `HourlyRate` (`35.47` when an organization is created). `defaultRateType` is `Volunteer` or `Professional`. `preferences` is `{ "allowTimeEntryEditing": boolean, "entityLabels": { "organization", "project", "department", "taskCategory" } }`. `allowTimeEntryEditing` defaults to false. Entity label defaults are Organization, Project, Department, and Task category. Creating an organization assigns the seeded Clocked In global theme.
+Organization `{ "id", "name", "volunteerHourlyRate", "rateSourceYear", "defaultRateType", "preferences", "themeId", "theme", "wordmarkUrl", "wordmarkOnLightUrl", "markUrl", "accentImageUrl" }`. `volunteerHourlyRate` is the current default volunteer `HourlyRate` (`35.47` when an organization is created). `defaultRateType` is `Volunteer` or `Professional`. `preferences` is `{ "allowTimeEntryEditing": boolean, "entityLabels": { "organization", "project", "department", "taskCategory" } }`. `allowTimeEntryEditing` defaults to false. Entity label defaults are Organization, Project, Department, and Task category. Creating an organization assigns the seeded VolunTime global theme.
 
 - `GET /organizations` lists organizations the caller belongs to. SuperAdmin lists all.
 - `GET /organizations/{id}` requires membership or SuperAdmin
 - `PATCH /organizations/{id}` requires an organization admin. Fields: `name`, `volunteerHourlyRate`, `rateSourceYear`, `defaultRateType`, `preferences`, `themeId`, `wordmarkUrl`, `wordmarkOnLightUrl`, `markUrl`, and `accentImageUrl`. `volunteerHourlyRate` updates the organization's default volunteer rate. `themeId` must be a global theme or a theme owned by this organization. Marks stay on the organization.
-- `GET/POST /organizations/{id}/themes` and `PATCH/DELETE /organizations/{id}/themes/{themeId}`. List requires membership. Create, edit, and delete require an organization admin and apply only to org-owned themes. Global themes are read-only; saving edits of a global theme creates a new org-owned copy in the UI. Theme body: `name`, hex colors `primary`, `primaryForeground`, `highlight`, `accent`, `success`, `surface`, `surfaceForeground`, `foreground`, and `chartColor`, fonts `headingFont` and `bodyFont` (`SourceSans3`, `NunitoSans`, or `Geist`), `categoricalPalette` (6–8 colors), `sequentialPalette` (5–10), and `divergingPalette` (7). `chartColor` is the single color used by every chart. Deleting the active org theme reassigns the organization to Clocked In.
+- `GET/POST /organizations/{id}/themes` and `PATCH/DELETE /organizations/{id}/themes/{themeId}`. List requires membership. Create, edit, and delete require an organization admin and apply only to org-owned themes. Global themes are read-only; saving edits of a global theme creates a new org-owned copy in the UI. Theme body: `name`, hex colors `primary`, `primaryForeground`, `highlight`, `accent`, `success`, `surface`, `surfaceForeground`, `foreground`, and `chartColor`, fonts `headingFont` and `bodyFont` (`HelveticaNeue`, `AvenirNext`, `SourceSans3`, `NunitoSans`, or `Geist`), `categoricalPalette` (6–8 colors), `sequentialPalette` (5–10), and `divergingPalette` (7). Helvetica Neue and Avenir Next use system fonts with Source Sans 3 / Nunito Sans fallbacks. `chartColor` is the single color used by every chart. Deleting the active org theme reassigns the organization to VolunTime.
 - `GET/POST /organizations/{id}/hourly-rates` and `PATCH/DELETE /hourly-rates/{id}`. Create and edit require an organization admin. List requires membership. Body `{ "type", "name", "perHourRate", "isDefault", "isArchived", "source" }`. `type` is `Volunteer` or `Professional`. `source` is optional, 1 to 200 characters, and empty when omitted or blank. A patch can set `source` to `null` to clear it. Each organization has exactly one default volunteer rate. Only a volunteer rate can be the default, and that rate cannot be archived or deleted. Archived rates stay in this list. Time entries snapshot `hourlyRateId` and `hourlyRate`; deleting a rate that is still referenced fails with 409 `Archive this rate instead. Time entries still use it.`.
 - `DELETE /organizations/{id}` requires an organization admin and fails with 409 while time entries remain
 - `GET/POST /organizations/{id}/task-categories` and `PATCH/DELETE /task-categories/{id}`. Create and edit require an organization admin. Body `{ "name" }`. Delete fails with 409 while time entries remain.
@@ -293,11 +303,23 @@ Collective time entry:
 
 ## Reports
 
-`GET /organizations/{id}/report`, `GET /organizations/{id}/time-entries.csv`, and `GET /organizations/{id}/summary.csv` take the same optional query: `departmentId`, `taskCategoryId`, `projectId`, `userId`, `from`, and `to`. User entries are filtered by `occurredOn`. Collective entries are filtered by the UTC date of `startedAt` and ignore `userId`.
+`GET /organizations/{id}/report`, `GET /organizations/{id}/time-entries.csv`, and `GET /organizations/{id}/summary.csv` take the same optional query: `departmentId`, `taskCategoryId`, `projectId`, `userId`, `from`, and `to`. User entries are filtered by `occurredOn`. Collective entries are filtered by the UTC date of `startedAt` and ignore `userId`. Organization admins see the whole organization. Department admins (group coordinators) are scoped to the union of departments they admin; asking for another `departmentId` returns 403. Volunteers stay self-only. `user` is volunteer-rate hours. `staff` is the same rollup for professional-rate hours and stays out of volunteer KPIs. Collective entries with a professional rate are omitted from `collective`.
 
 ```json
 {
   "user": {
+    "hours": 0,
+    "volunteers": 0,
+    "entries": 0,
+    "inKind": 0,
+    "byDepartment": [],
+    "byCategory": [],
+    "byPerson": [],
+    "byVolunteer": [],
+    "byProject": [],
+    "byMonth": []
+  },
+  "staff": {
     "hours": 0,
     "volunteers": 0,
     "entries": 0,

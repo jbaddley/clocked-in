@@ -15,6 +15,7 @@ import {
 import { acceptInvitation, parseAcceptInvitation } from "@/lib/api/features/invitations";
 import { run, safeNext, text } from "@/lib/server/action";
 import { clearSessionCookies, currentRefreshToken, getAccess, setSessionCookies } from "@/lib/server/session";
+import { defaultOrganizationId } from "@/lib/portal";
 import { writeOrganization } from "@/lib/server/session-cookies";
 import type { ActionResult } from "@/lib/types";
 
@@ -22,6 +23,10 @@ export async function logInAction(_: ActionResult | null, formData: FormData): P
   const result = await run(async () => {
     const session = await logIn(parseLogIn({ username: text(formData, "username"), password: text(formData, "password") }));
     await setSessionCookies(session);
+    const portalOrg = defaultOrganizationId();
+    if (portalOrg) {
+      writeOrganization(await cookies(), portalOrg);
+    }
     return { mustChangePassword: session.user.mustChangePassword };
   });
   if (!result.ok) return result;

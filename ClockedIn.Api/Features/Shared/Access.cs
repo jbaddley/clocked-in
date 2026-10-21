@@ -153,6 +153,20 @@ public sealed class Access(ClockedInDbContext db, CurrentUser current)
     public async Task<List<Guid>> DepartmentIds(CancellationToken cancellationToken) =>
         (await Departments(cancellationToken)).Select(item => item.DepartmentId).ToList();
 
+    public async Task<List<Guid>> AdminDepartmentIds(Guid organizationId, CancellationToken cancellationToken)
+    {
+        var memberships = await Organizations(cancellationToken);
+        if (!memberships.TryGetValue(organizationId, out var membership) || !membership.IsActive)
+        {
+            return [];
+        }
+
+        return (await Departments(cancellationToken))
+            .Where(item => item.OrganizationId == organizationId && item.IsAdmin)
+            .Select(item => item.DepartmentId)
+            .ToList();
+    }
+
     public async Task<List<Guid>> SharedOrganizationIds(Guid otherUserId, CancellationToken cancellationToken)
     {
         var callerOrganizations = await ActiveOrganizationIds(cancellationToken);

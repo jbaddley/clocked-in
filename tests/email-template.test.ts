@@ -10,7 +10,7 @@ const sample: EmailTemplate = {
   variables: ["name"],
 };
 
-const codeLine = /Use this code to (?:reset your Clocked In password|accept the invite):\s*([A-Za-z0-9_-]+)/;
+const codeLine = /Use this code to (?:reset your VolunTime password|accept the invite):\s*([A-Za-z0-9_-]+)/;
 
 test("encodes html values and leaves plain text raw", () => {
   const filled = fillTemplate(sample, { name: `A<B> & "C"` });
@@ -40,7 +40,7 @@ test("rendered templates keep the mailed code lines", () => {
   assert.match(reset.html, /abc_123/);
   assert.match(reset.text, /https:\/\/clocked\.example\/forgot-password\?code=abc_123/);
   assert.match(reset.html, /https:\/\/clocked\.example\/forgot-password\?code=abc_123/);
-  assert.equal(reset.subject, "Your Clocked In password reset code");
+  assert.equal(reset.subject, "Your VolunTime password reset code");
 
   const inviteUrl = "https://clocked.example/accept?code=invite-9";
   const invite = fillTemplate(messages.invitation, {

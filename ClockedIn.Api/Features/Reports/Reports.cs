@@ -40,7 +40,7 @@ public sealed record CollectiveRollupDto(
     BucketDto[] ByCategory,
     BucketDto[] ByProject);
 
-public sealed record ReportDto(UserRollupDto User, CollectiveRollupDto Collective);
+public sealed record ReportDto(UserRollupDto User, UserRollupDto Staff, CollectiveRollupDto Collective);
 
 public sealed record PersonName(string Username, string? DisplayName, string? FirstName, string? LastName)
 {
@@ -71,8 +71,14 @@ public sealed class ReportsService(ClockedInDbContext db, Access access)
         var parsed = Filter.Parse(query);
         await access.RequireOrganization(organizationId, false, cancellationToken);
         var filter = await ForCaller(organizationId, parsed, cancellationToken);
-        var entries = UserEntries(organizationId, filter);
         var organization = await db.Organizations.AsNoTracking().FirstAsync(item => item.Id == organizationId, cancellationToken);
+        var user = await UserRollup(organization, UserEntries(organizationId, filter, RateType.Volunteer), cancellationToken);
+        var staff = await UserRollup(organization, UserEntries(organizationId, filter, RateType.Professional), cancellationToken);
+        return new ReportDto(user, staff, await CollectiveRollup(organizationId, filter, cancellationToken));
+    }
+
+    private async Task<UserRollupDto> UserRollup(Organization organization, IQueryable<UserTimeEntry> entries, CancellationToken cancellationToken)
+    {
         var byPerson = await Buckets(
             entries,
             entry => new { entry.UserId, entry.User.Username, entry.User.Profile!.DisplayName, entry.User.Profile.FirstName, entry.User.Profile.LastName },
@@ -133,7 +139,7 @@ public sealed class ReportsService(ClockedInDbContext db, Access access)
                 key => (key.ProjectId.ToString(), key.Title, key.ProjectType.ToString()),
                 cancellationToken)),
             byMonth);
-        return new ReportDto(user, await CollectiveRollup(organizationId, filter, cancellationToken));
+        return user;
     }
 
     public async Task<PushStreamHttpResult> Csv(Guid organizationId, ReportFilter query, CancellationToken cancellationToken)
@@ -242,10 +248,15 @@ public sealed class ReportsService(ClockedInDbContext db, Access access)
         }, "text/csv; charset=utf-8");
     }
 
-    private IQueryable<UserTimeEntry> UserEntries(Guid organizationId, Filter filter) =>
+    private IQueryable<UserTimeEntry> UserEntries(Guid organizationId, Filter filter, RateType? rateType = null) =>
         db.UserTimeEntries.AsNoTracking()
             .Where(entry => entry.OrganizationId == organizationId)
             .Where(entry => filter.DepartmentId == null || entry.DepartmentId == filter.DepartmentId)
+            .Where(entry => filter.DepartmentIds == null || (entry.DepartmentId != null && filter.DepartmentIds.Contains(entry.DepartmentId.Value)))
+            .Where(entry =>
+                rateType == null
+                || (rateType == RateType.Volunteer && (entry.Rate == null || entry.Rate.Type == RateType.Volunteer))
+                || (entry.Rate != null && entry.Rate.Type == rateType))
             .Where(entry => filter.TaskCategoryId == null || entry.TaskCategoryId == filter.TaskCategoryId)
             .Where(entry => filter.ProjectId == null || entry.ProjectId == filter.ProjectId)
             .Where(entry => filter.UserId == null || entry.UserId == filter.UserId)
@@ -282,8 +293,10 @@ public sealed class ReportsService(ClockedInDbContext db, Access access)
         var entries = await db.CollectiveTimeEntries.AsNoTracking()
             .Where(entry => entry.OrganizationId == organizationId)
             .Where(entry => filter.DepartmentId == null || entry.DepartmentId == filter.DepartmentId)
+            .Where(entry => filter.DepartmentIds == null || (entry.DepartmentId != null && filter.DepartmentIds.Contains(entry.DepartmentId.Value)))
             .Where(entry => filter.TaskCategoryId == null || entry.TaskCategoryId == filter.TaskCategoryId)
             .Where(entry => filter.ProjectId == null || entry.ProjectId == filter.ProjectId)
+            .Where(entry => entry.Rate == null || entry.Rate.Type == RateType.Volunteer)
             .Where(entry => from == null || entry.StartedAt >= from)
             .Where(entry => to == null || entry.StartedAt <= to)
             .Select(entry => new
@@ -428,6 +441,17 @@ public sealed class ReportsService(ClockedInDbContext db, Access access)
             return filter;
         }
 
+        var adminDepartments = await access.AdminDepartmentIds(organizationId, cancellationToken);
+        if (adminDepartments.Count > 0)
+        {
+            if (filter.DepartmentId is Guid requested && !adminDepartments.Contains(requested))
+            {
+                throw ApiException.Forbidden();
+            }
+
+            return filter.DepartmentId is not null ? filter : filter with { DepartmentIds = adminDepartments };
+        }
+
         if (!await access.IsOrgVolunteer(organizationId, cancellationToken))
         {
             return filter;
@@ -441,10 +465,18 @@ public sealed class ReportsService(ClockedInDbContext db, Access access)
         return filter with { UserId = access.ActorUserId };
     }
 
-    private sealed record Filter(Guid? DepartmentId, Guid? TaskCategoryId, Guid? ProjectId, Guid? UserId, DateOnly? From, DateOnly? To)
+    private sealed record Filter(
+        Guid? DepartmentId,
+        IReadOnlyList<Guid>? DepartmentIds,
+        Guid? TaskCategoryId,
+        Guid? ProjectId,
+        Guid? UserId,
+        DateOnly? From,
+        DateOnly? To)
     {
         public static Filter Parse(ReportFilter query) => new(
             Fields.QueryGuid(query.DepartmentId, "departmentId"),
+            null,
             Fields.QueryGuid(query.TaskCategoryId, "taskCategoryId"),
             Fields.QueryGuid(query.ProjectId, "projectId"),
             Fields.QueryGuid(query.UserId, "userId"),

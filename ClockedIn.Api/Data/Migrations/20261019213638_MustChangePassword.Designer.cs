@@ -780,7 +780,7 @@ namespace ClockedIn.Api.Data.Migrations
                             Foreground = "#001836",
                             HeadingFont = "SourceSans3",
                             Highlight = "#D4AC59",
-                            Name = "Clocked In",
+                            Name = "VolunTime",
                             Primary = "#001836",
                             PrimaryForeground = "#FFFFFF",
                             SequentialPalette = "[\"#F4F0E6\",\"#E8D7A8\",\"#D4AC59\",\"#8A6E2F\",\"#3D3014\"]",

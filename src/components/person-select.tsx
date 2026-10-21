@@ -4,6 +4,7 @@ import { UserIcon } from "lucide-react";
 import { SelectField } from "@/components/select-field";
 import { useMembers } from "@/hooks/use-members";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { canLogMemberTime } from "@/lib/roles";
 import type { Membership } from "@/lib/types";
 
 export function selectableMembers(
@@ -33,14 +34,23 @@ export function PersonSelect({
   activeOnly?: boolean;
   placeholder?: string;
 }) {
-  const { viewer, isAdmin } = useWorkspace();
-  const { members } = useMembers({ enabled: isAdmin });
-  if (!isAdmin) return null;
+  const { viewer, isAdmin, isCoordinator, groupDepartments } = useWorkspace();
+  const canPick = canLogMemberTime(isAdmin, groupDepartments);
+  const { members } = useMembers({ enabled: canPick });
+  if (!canPick) return null;
+  const scoped = isCoordinator
+    ? members.filter((member) => (member.departmentIds ?? []).some((id) => groupDepartments.includes(id)))
+    : members;
 
-  const options = selectableMembers(members, viewer.id, { excludeSelf, activeOnly }).map((member) => ({
-    value: member.userId,
-    label: member.userId === viewer.id ? `${member.user.username} (you)` : member.user.username,
-  }));
+  const options = selectableMembers(scoped, viewer.id, { excludeSelf, activeOnly }).map((member) => {
+    const display = member.user.displayName?.trim();
+    const full = [member.user.firstName, member.user.lastName].filter(Boolean).join(" ").trim();
+    const name = display || full || member.user.username;
+    return {
+      value: member.userId,
+      label: member.userId === viewer.id ? `${name} (you)` : name,
+    };
+  });
   if (!excludeSelf && !activeOnly && !options.some((option) => option.value === viewer.id)) {
     options.unshift({ value: viewer.id, label: `${viewer.username} (you)` });
   }
@@ -49,6 +59,7 @@ export function PersonSelect({
     <div className="flex items-center gap-2">
       <UserIcon className="size-4 shrink-0 text-muted-foreground" />
       <SelectField
+        aria-label="Person"
         className={className}
         value={value}
         onValueChange={onValueChange}

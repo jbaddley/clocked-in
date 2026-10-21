@@ -21,6 +21,7 @@ async function Workspace({ children }: { children: React.ReactNode }) {
       <AppShell
         organization={workspace.organization}
         isAdmin={workspace.isAdmin}
+        isCoordinator={workspace.isCoordinator}
         isSuperAdmin={workspace.viewer.isSuperAdmin}
         sidebarOpen={store.get("sidebar_state")?.value !== "false"}
       >

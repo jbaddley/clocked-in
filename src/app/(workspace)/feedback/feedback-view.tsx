@@ -37,16 +37,16 @@ export function FeedbackView() {
 
   return (
     <>
-      <PageHeader description="Bugs and feature requests from everyone using Clocked In." />
-      <Tabs defaultValue="active">
-        <TabsList variant="line">
-          <TabsTrigger value="active">Active</TabsTrigger>
-          <TabsTrigger value="inactive">Inactive</TabsTrigger>
+      <PageHeader description='Bugs and feature requests from everyone using VolunTime.' />
+      <Tabs defaultValue='active'>
+        <TabsList variant='line'>
+          <TabsTrigger value='active'>Active</TabsTrigger>
+          <TabsTrigger value='inactive'>Inactive</TabsTrigger>
         </TabsList>
-        <TabsContent value="active">
+        <TabsContent value='active'>
           <FeedbackTable active />
         </TabsContent>
-        <TabsContent value="inactive">
+        <TabsContent value='inactive'>
           <FeedbackTable active={false} />
         </TabsContent>
       </Tabs>
@@ -97,7 +97,7 @@ function FeedbackTable({ active }: { active: boolean }) {
     {
       key: "title",
       header: (
-        <button type="button" className="uppercase" onClick={() => toggleSort("title")}>
+        <button type='button' className='uppercase' onClick={() => toggleSort("title")}>
           Title
         </button>
       ),
@@ -113,7 +113,7 @@ function FeedbackTable({ active }: { active: boolean }) {
     {
       key: "priority",
       header: (
-        <button type="button" className="uppercase" onClick={() => toggleSort("priority")}>
+        <button type='button' className='uppercase' onClick={() => toggleSort("priority")}>
           Priority
         </button>
       ),
@@ -127,7 +127,7 @@ function FeedbackTable({ active }: { active: boolean }) {
     {
       key: "status",
       header: (
-        <button type="button" className="uppercase" onClick={() => toggleSort("status")}>
+        <button type='button' className='uppercase' onClick={() => toggleSort("status")}>
           Status
         </button>
       ),
@@ -148,7 +148,12 @@ function FeedbackTable({ active }: { active: boolean }) {
       header: "Ticket",
       cell: (row) =>
         row.ticketUrl ? (
-          <a href={row.ticketUrl} target="_blank" rel="noreferrer" className="text-primary underline-offset-4 hover:underline">
+          <a
+            href={row.ticketUrl}
+            target='_blank'
+            rel='noreferrer'
+            className='text-primary underline-offset-4 hover:underline'
+          >
             {row.githubIssueNumber ? `#${row.githubIssueNumber}` : "Open"}
           </a>
         ) : (
@@ -158,7 +163,7 @@ function FeedbackTable({ active }: { active: boolean }) {
     {
       key: "createdAt",
       header: (
-        <button type="button" className="uppercase" onClick={() => toggleSort("createdAt")}>
+        <button type='button' className='uppercase' onClick={() => toggleSort("createdAt")}>
           Received
         </button>
       ),
@@ -170,7 +175,7 @@ function FeedbackTable({ active }: { active: boolean }) {
             key: "actions",
             header: "Actions",
             cell: (row: Feedback) => (
-              <Button size="sm" variant="outline" onClick={() => setSelected(row)}>
+              <Button size='sm' variant='outline' onClick={() => setSelected(row)}>
                 Update
               </Button>
             ),
@@ -180,9 +185,14 @@ function FeedbackTable({ active }: { active: boolean }) {
   ];
 
   return (
-    <div className="grid gap-4">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search" className="h-9" />
+    <div className='grid gap-4'>
+      <div className='grid gap-3 sm:grid-cols-2 lg:grid-cols-5'>
+        <Input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder='Search'
+          className='h-9'
+        />
         <SelectField
           value={type}
           onValueChange={setType}
@@ -209,7 +219,7 @@ function FeedbackTable({ active }: { active: boolean }) {
       ) : rows.length ? (
         <DataTable rows={rows} columns={columns} rowKey={(row) => row.id} />
       ) : (
-        <p className="text-sm text-muted-foreground">No feedback in this list.</p>
+        <p className='text-sm text-muted-foreground'>No feedback in this list.</p>
       )}
       <UpdateFeedbackDialog feedback={selected} onOpenChange={(open) => !open && setSelected(null)} />
     </div>
@@ -227,9 +237,9 @@ function UpdateFeedbackDialog({
     <EntityFormDialog
       open={Boolean(feedback)}
       onOpenChange={onOpenChange}
-      title="Update feedback"
+      title='Update feedback'
       description={feedback?.title}
-      className="sm:max-w-lg"
+      className='sm:max-w-lg'
     >
       {feedback ? <UpdateFeedbackForm feedback={feedback} onSaved={() => onOpenChange(false)} /> : null}
     </EntityFormDialog>
@@ -246,7 +256,7 @@ function UpdateFeedbackForm({ feedback, onSaved }: { feedback: Feedback; onSaved
 
   return (
     <form
-      className="grid gap-4"
+      className='grid gap-4'
       onSubmit={(event) => {
         event.preventDefault();
         const form = new FormData(event.currentTarget);
@@ -258,34 +268,41 @@ function UpdateFeedbackForm({ feedback, onSaved }: { feedback: Feedback; onSaved
         });
       }}
     >
-      <p className="text-sm text-muted-foreground">{feedback.description}</p>
+      <p className='text-sm text-muted-foreground'>{feedback.description}</p>
       {feedback.ticketUrl ? (
-        <p className="text-sm">
+        <p className='text-sm'>
           GitHub issue:{" "}
-          <a href={feedback.ticketUrl} target="_blank" rel="noreferrer" className="text-primary underline-offset-4 hover:underline">
+          <a
+            href={feedback.ticketUrl}
+            target='_blank'
+            rel='noreferrer'
+            className='text-primary underline-offset-4 hover:underline'
+          >
             {feedback.githubIssueNumber ? `#${feedback.githubIssueNumber}` : feedback.ticketUrl}
           </a>
         </p>
       ) : null}
-      <Field label="Status" htmlFor="feedback-status">
+      <Field label='Status' htmlFor='feedback-status'>
         <SelectField
-          id="feedback-status"
+          id='feedback-status'
           value={status}
           onValueChange={(value) => setStatus(value as FeedbackStatus)}
           options={feedbackStatuses}
         />
       </Field>
-      <Field label="Note" htmlFor="feedback-note">
-        <Textarea id="feedback-note" name="description" required maxLength={2000} rows={4} />
+      <Field label='Note' htmlFor='feedback-note'>
+        <Textarea id='feedback-note' name='description' required maxLength={2000} rows={4} />
       </Field>
-      <Field label="Ticket URL" htmlFor="feedback-ticket" hint="Optional extra ticket URL. GitHub issues are created automatically.">
-        <Input id="feedback-ticket" name="ticketUrl" type="url" className="h-9" />
+      <Field
+        label='Ticket URL'
+        htmlFor='feedback-ticket'
+        hint='Optional extra ticket URL. GitHub issues are created automatically.'
+      >
+        <Input id='feedback-ticket' name='ticketUrl' type='url' className='h-9' />
       </Field>
-      <div className="flex justify-end gap-2">
+      <div className='flex justify-end gap-2'>
         <FormMessage
-          result={
-            update.error ? ({ ok: false, error: update.error.message } satisfies ActionResult) : null
-          }
+          result={update.error ? ({ ok: false, error: update.error.message } satisfies ActionResult) : null}
         />
         <SubmitButton pending={update.isPending}>Save</SubmitButton>
       </div>

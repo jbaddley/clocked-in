@@ -8,15 +8,20 @@ import { useClientRedirect } from "@/hooks/use-client-redirect";
 import { useLookups } from "@/hooks/use-lookups";
 import { useMembers } from "@/hooks/use-members";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { canLogMemberTime } from "@/lib/roles";
 import { SetupAlert } from "../setup-alert";
 
 export function MemberTimeView() {
-  const { viewer, isAdmin } = useWorkspace();
-  useClientRedirect(!isAdmin, "/log/own");
+  const { viewer, isAdmin, isCoordinator, groupDepartments } = useWorkspace();
+  const canLog = canLogMemberTime(isAdmin, groupDepartments);
+  useClientRedirect(!canLog, "/log/own");
   const { lookups, isSuccess } = useLookups();
-  const { members, isPending } = useMembers({ enabled: isAdmin });
-  if (!isAdmin) return null;
-  const eligible = selectableMembers(members, viewer.id, { excludeSelf: true, activeOnly: true });
+  const { members, isPending } = useMembers({ enabled: canLog });
+  if (!canLog) return null;
+  const scoped = isCoordinator
+    ? members.filter((member) => (member.departmentIds ?? []).some((id) => groupDepartments.includes(id)))
+    : members;
+  const eligible = selectableMembers(scoped, viewer.id, { excludeSelf: true, activeOnly: true });
   const missingProject = isSuccess && lookups.projects.length === 0;
   const missingCategory = isSuccess && lookups.categories.length === 0;
 
@@ -31,7 +36,7 @@ export function MemberTimeView() {
             <CalendarClockIcon className="size-4 text-muted-foreground" />
             Add time for a member
           </CardTitle>
-          <CardDescription>Choose an active member, then add a start time and an end time or a duration. Add days to save that same entry on each one.</CardDescription>
+          <CardDescription>Choose an active member, then log start and end times or total hours. Add days to save that same entry on each one.</CardDescription>
         </CardHeader>
         <CardContent>
           {isPending ? (

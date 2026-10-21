@@ -11,7 +11,7 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 import { useActionMutation } from "@/hooks/use-action-mutation";
 import { useLabels } from "@/hooks/use-labels";
 import { useLookups } from "@/hooks/use-lookups";
-import { useOrganization } from "@/hooks/use-workspace";
+import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
 import { formatDate } from "@/lib/format";
 import { keys } from "@/lib/queries";
 import type { Project } from "@/lib/types";
@@ -42,12 +42,18 @@ function groupProjects(projects: Project[]) {
 
 export function ProjectsCard() {
   const organization = useOrganization();
+  const { isCoordinator, groupDepartments } = useWorkspace();
   const copy = useLabels();
   const { lookups, names } = useLookups();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Project | null>(null);
-  const groups = groupProjects(lookups.projects);
+  const visible = isCoordinator
+    ? lookups.projects.filter(
+        (project) => project.accessType === "Department" && project.departmentId && groupDepartments.includes(project.departmentId),
+      )
+    : lookups.projects;
+  const groups = groupProjects(visible);
   const remove = useActionMutation((id: string) => deleteLookupAction("projects", id), {
     invalidate: [keys.lookups(organization.id)],
   });

@@ -53,7 +53,10 @@ describe("organizations", suite, () => {
     const listed = await callApi("/organizations", { token: ctx.admin.accessToken });
     assertList(listed.json);
     assert.ok(listed.json.items.some((item) => item.id === ctx.org.id));
-    assert.equal(listed.json.items.some((item) => item.id === otherOrg.id), false);
+    assert.equal(
+      listed.json.items.some((item) => item.id === otherOrg.id),
+      false,
+    );
     const unauthenticated = await callApi("/organizations");
     assertError(unauthenticated, 401, "unauthorized", "Authentication is required.");
     await grantSuperAdmin(ctx.admin.user.id);
@@ -146,12 +149,15 @@ describe("organizations", suite, () => {
 
     const globals = await callApi(`/organizations/${ctx.org.id}/themes`, { token: ctx.member.accessToken });
     assert.equal(globals.status, 200);
-    assert.ok(globals.json.items.some((theme) => theme.organizationId === null && theme.name === "Clocked In"));
-    const globalEdit = await callApi(`/organizations/${ctx.org.id}/themes/${globals.json.items.find((theme) => theme.organizationId === null).id}`, {
-      method: "PATCH",
-      token: ctx.admin.accessToken,
-      body: themeBody({ name: "Nope" }),
-    });
+    assert.ok(globals.json.items.some((theme) => theme.organizationId === null && theme.name === "VolunTime"));
+    const globalEdit = await callApi(
+      `/organizations/${ctx.org.id}/themes/${globals.json.items.find((theme) => theme.organizationId === null).id}`,
+      {
+        method: "PATCH",
+        token: ctx.admin.accessToken,
+        body: themeBody({ name: "Nope" }),
+      },
+    );
     assertError(globalEdit, 404, "not_found", "Not found.");
 
     const badPreference = await callApi(`/organizations/${ctx.org.id}`, {

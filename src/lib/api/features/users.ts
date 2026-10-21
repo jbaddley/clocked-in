@@ -39,6 +39,7 @@ export function userJson(user: Account, includePrivate = true) {
           phone: includePrivate ? user.profile.phone : null,
           zipCode: includePrivate ? user.profile.zipCode : null,
           notes: includePrivate ? user.profile.notes : null,
+          memberNumber: user.profile.memberNumber,
         }
       : null,
   };

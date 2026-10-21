@@ -32,7 +32,7 @@ export type UserReportSide = ReportSide & {
   byMonth: ReportGroup[];
 };
 
-export type ReportPayload = { user: UserReportSide; collective: ReportSide };
+export type ReportPayload = { user: UserReportSide; staff: UserReportSide; collective: ReportSide };
 
 export type Organization = { id: string; name: string };
 
@@ -45,10 +45,10 @@ export function adminPassword() {
   return password;
 }
 
-export async function loginAsAdmin(page: Page) {
+export async function loginAs(page: Page, username: string, password: string) {
   await page.goto("/login");
-  await page.locator("#username").fill("jbaddley");
-  await page.locator("#password").fill(adminPassword());
+  await page.locator("#username").fill(username);
+  await page.locator("#password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
   const formError = page.locator("form").getByRole("alert").filter({ hasText: /.+/ });
   await Promise.race([
@@ -68,6 +68,57 @@ export async function loginAsAdmin(page: Page) {
     },
   ]);
   return organization;
+}
+
+export async function loginAsAdmin(page: Page) {
+  return loginAs(page, "jbaddley", adminPassword());
+}
+
+export async function createOrgPerson(
+  request: APIRequestContext,
+  input: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    username: string;
+    password: string;
+    role?: "VOLUNTEER" | "MEMBER" | "ADMIN";
+    departmentIds?: string[];
+  },
+) {
+  const session = await loginBearer(request);
+  const headers = { authorization: `Bearer ${session.accessToken}` };
+  const organization = await caswjOrganization(request, session.accessToken);
+  const created = await request.post(`/organizations/${organization.id}/memberships`, {
+    headers,
+    data: {
+      firstName: input.firstName,
+      lastName: input.lastName,
+      displayName: `${input.firstName} ${input.lastName}`,
+      email: input.email,
+      username: input.username,
+      password: input.password,
+      role: input.role ?? "VOLUNTEER",
+      departmentIds: input.departmentIds ?? [],
+    },
+  });
+  expect(created.ok(), await created.text()).toBeTruthy();
+  return { membership: (await created.json()) as { id: string; userId: string; user: { email: string } }, organization, session };
+}
+
+export async function makeCoordinator(request: APIRequestContext, userId: string, departmentId: string) {
+  const session = await loginBearer(request);
+  const headers = { authorization: `Bearer ${session.accessToken}` };
+  const listed = await request.get(`/departments/${departmentId}/memberships?limit=100`, { headers });
+  expect(listed.ok(), await listed.text()).toBeTruthy();
+  const body = (await listed.json()) as { items: { id: string; userId: string }[] };
+  const membership = body.items.find((item) => item.userId === userId);
+  expect(membership, "department membership").toBeTruthy();
+  const updated = await request.patch(`/departments/${departmentId}/memberships/${membership!.id}`, {
+    headers,
+    data: { role: "ADMIN" },
+  });
+  expect(updated.ok(), await updated.text()).toBeTruthy();
 }
 
 export async function caswjOrganization(request: APIRequestContext, token?: string) {

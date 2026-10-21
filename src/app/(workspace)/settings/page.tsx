@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
+import { getWorkspace } from "@/lib/server/dal";
 
-export default function SettingsIndex() {
-  redirect("/settings/organization");
+export default async function SettingsIndex() {
+  const workspace = await getWorkspace();
+  redirect(workspace.isAdmin ? "/settings/organization" : "/settings/members");
 }

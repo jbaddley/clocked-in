@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 
 type Filter = {
   departmentId?: string;
+  departmentIds?: string[];
   taskCategoryId?: string;
   projectId?: string;
   userId?: string;
@@ -82,14 +83,35 @@ function sorted(rows: BucketRow[]) {
     .sort((a, b) => b.hours - a.hours || ordinal(a.label, b.label) || ordinal(a.id, b.id));
 }
 
-function userWhere(organizationId: string, filter: Filter): Prisma.UserTimeEntryWhereInput {
+function departmentWhere(filter: Filter): string | { in: string[] } | undefined {
+  if (filter.departmentId) {
+    return filter.departmentId;
+  }
+
+  if (filter.departmentIds) {
+    return { in: filter.departmentIds };
+  }
+
+  return undefined;
+}
+
+function userWhere(
+  organizationId: string,
+  filter: Filter,
+  rateType?: "Volunteer" | "Professional",
+): Prisma.UserTimeEntryWhereInput {
   return {
     organizationId,
-    departmentId: filter.departmentId,
+    departmentId: departmentWhere(filter),
     taskCategoryId: filter.taskCategoryId,
     projectId: filter.projectId,
     userId: filter.userId,
     occurredOn: filter.from || filter.to ? { gte: filter.from, lte: filter.to } : undefined,
+    ...(rateType === "Professional"
+      ? { rate: { type: "Professional" } }
+      : rateType === "Volunteer"
+        ? { OR: [{ hourlyRateId: null }, { rate: { type: "Volunteer" } }] }
+        : {}),
   };
 }
 
@@ -126,8 +148,8 @@ function namesById<T extends { id: string }>(rows: T[], label: (row: T) => strin
   return new Map(rows.map((row) => [row.id, label(row)]));
 }
 
-async function userRollup(organizationId: string, filter: Filter) {
-  const where = userWhere(organizationId, filter);
+async function userRollup(organizationId: string, filter: Filter, rateType: "Volunteer" | "Professional" = "Volunteer") {
+  const where = userWhere(organizationId, filter, rateType);
   const aggregate = { _count: { _all: true }, _sum: { durationMinutes: true, inKindValue: true } } as const;
   const [byUser, byDepartment, byCategory, byProject] = await Promise.all([
     prisma.userTimeEntry.groupBy({ by: ["userId"], where, ...aggregate }),
@@ -234,9 +256,10 @@ async function collectiveRollup(organizationId: string, filter: Filter) {
   const entries = await prisma.collectiveTimeEntry.findMany({
     where: {
       organizationId,
-      departmentId: filter.departmentId,
+      departmentId: departmentWhere(filter),
       taskCategoryId: filter.taskCategoryId,
       projectId: filter.projectId,
+      OR: [{ hourlyRateId: null }, { rate: { type: "Volunteer" } }],
       startedAt: filter.from || to ? { gte: filter.from, lt: to } : undefined,
     },
     select: {
@@ -298,6 +321,15 @@ async function forCaller(access: Access, organizationId: string, filter: Filter)
     return filter;
   }
 
+  const adminDepartments = await access.adminDepartmentIds(organizationId);
+  if (adminDepartments.length > 0) {
+    if (filter.departmentId && !adminDepartments.includes(filter.departmentId)) {
+      forbidden();
+    }
+
+    return filter.departmentId ? filter : { ...filter, departmentIds: adminDepartments };
+  }
+
   if (!(await access.isOrgVolunteer(organizationId))) {
     return filter;
   }
@@ -314,7 +346,8 @@ export async function report(access: Access, organizationId: string, params: URL
   await access.requireOrganization(organizationId, false);
   const filter = await forCaller(access, organizationId, parsed);
   return {
-    user: await userRollup(organizationId, filter),
+    user: await userRollup(organizationId, filter, "Volunteer"),
+    staff: await userRollup(organizationId, filter, "Professional"),
     collective: await collectiveRollup(organizationId, filter),
   };
 }

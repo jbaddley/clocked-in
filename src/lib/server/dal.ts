@@ -8,8 +8,10 @@ import { listOrgMemberships } from "@/lib/api/features/memberships";
 import { listOrganizations } from "@/lib/api/features/organizations";
 import { report } from "@/lib/api/features/reports";
 import { listTimeEntries } from "@/lib/api/features/time-entries";
+import { defaultOrganizationId } from "@/lib/portal";
 import { organizationCookie } from "@/lib/server/session-cookies";
 import { getAccess, requireAccess } from "@/lib/server/session";
+import { isCoordinator } from "@/lib/roles";
 import type { DateRange, GroupDepartments, Lookups, Viewer } from "@/lib/types";
 
 export function searchParamsFor(values: Record<string, string | number | undefined | null>) {
@@ -52,7 +54,7 @@ export const getOrganizations = cache(async () => {
 export const getWorkspace = cache(async () => {
   const access = await requireAccess();
   const [viewer, organizations, store] = await Promise.all([getViewer(), getOrganizations(), cookies()]);
-  const stored = store.get(organizationCookie)?.value;
+  const stored = store.get(organizationCookie)?.value || defaultOrganizationId();
   const organization = organizations.find((item) => item.id === stored) ?? organizations[0] ?? null;
   const role = organization ? await access.organizationRole(organization.id) : null;
   const isAdmin = organization ? viewer.isSuperAdmin || role === "ADMIN" : false;
@@ -62,7 +64,16 @@ export const getWorkspace = cache(async () => {
     : viewer.isSuperAdmin || role === "ADMIN"
       ? "all"
       : await access.adminDepartmentIds(organization.id);
-  return { viewer, organizations, organization, isAdmin, canSelectRate, role, groupDepartments };
+  return {
+    viewer,
+    organizations,
+    organization,
+    isAdmin,
+    isCoordinator: isCoordinator(groupDepartments),
+    canSelectRate,
+    role,
+    groupDepartments,
+  };
 });
 
 export const getCurrentOrganization = cache(async () => {
@@ -75,7 +86,7 @@ export const getCurrentOrganization = cache(async () => {
     listOrganizations(access, searchParamsFor({ limit: 100 })),
     cookies(),
   ]);
-  const stored = store.get(organizationCookie)?.value;
+  const stored = store.get(organizationCookie)?.value || defaultOrganizationId();
   return organizations.items.find((item) => item.id === stored) ?? organizations.items[0] ?? null;
 });
 

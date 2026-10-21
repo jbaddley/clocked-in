@@ -155,6 +155,30 @@
   background-position: center;
 }
 
+.brand-hero-white {
+  background-color: var(--surface, #fff);
+  background-image:
+    linear-gradient(
+      color-mix(in srgb, var(--surface, #fff) 70%, transparent),
+      color-mix(in srgb, var(--surface, #fff) 70%, transparent)
+    ),
+    var(--brand-accent-image, linear-gradient(90deg, var(--highlight), var(--accent)));
+  background-size: cover;
+  background-position: center;
+}
+
+.brand-hero-navy {
+  background-color: var(--primary);
+  background-image:
+    linear-gradient(
+      color-mix(in srgb, var(--primary) 55%, transparent),
+      color-mix(in srgb, var(--primary) 55%, transparent)
+    ),
+    var(--brand-accent-image, linear-gradient(90deg, var(--highlight), var(--accent)));
+  background-size: cover;
+  background-position: center;
+}
+
 /* Highlight is an accent, not body text, so only the warning icon takes it. */
 [data-rich-colors="true"][data-sonner-toast][data-type="success"] [data-icon] {
   color: var(--success);

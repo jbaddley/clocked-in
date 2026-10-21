@@ -16,10 +16,16 @@ public sealed class AuthService(
     TokenIssuer tokens,
     IEmailSender mail,
     IOptions<EmailOptions> emailOptions,
+    IOptions<PortalOptions> portalOptions,
     TimeProvider time)
 {
     public async Task<SessionDto> SignUp(SignUpRequest request, CancellationToken cancellationToken)
     {
+        if (!portalOptions.Value.PublicSignup)
+        {
+            throw ApiException.Forbidden();
+        }
+
         var user = new User
         {
             Id = Guid.NewGuid(),

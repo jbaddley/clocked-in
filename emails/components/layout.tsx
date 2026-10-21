@@ -10,15 +10,7 @@ const muted = "#5C6B7A";
 const page = "#F4F6F8";
 const fontFamily = '"Nunito Sans", "Segoe UI", Helvetica, Arial, sans-serif';
 
-export function EmailLayout({
-  preview,
-  title,
-  children,
-}: {
-  preview: string;
-  title: string;
-  children: ReactNode;
-}) {
+export function EmailLayout({ preview, title, children }: { preview: string; title: string; children: ReactNode }) {
   return (
     <Html>
       <Head />
@@ -44,7 +36,7 @@ export function EmailLayout({
                 margin: 0,
               }}
             >
-              CLOCKED IN
+              VolunTime
             </Text>
             <Heading
               style={{
@@ -66,7 +58,7 @@ export function EmailLayout({
           </Text>
         </Container>
         <Text style={{ color: muted, fontSize: "12px", lineHeight: "18px", margin: "16px 0 0", textAlign: "center" }}>
-          This message was sent by Clocked In.
+          This message was sent by VolunTime.
         </Text>
       </Body>
     </Html>

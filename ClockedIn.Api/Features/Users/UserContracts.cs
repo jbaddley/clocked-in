@@ -12,7 +12,8 @@ public sealed record ProfileDto(
     string Timezone,
     string? Phone,
     string? ZipCode,
-    string? Notes);
+    string? Notes,
+    string? MemberNumber);
 
 public sealed record UserDto(
     Guid Id,
@@ -42,7 +43,8 @@ public sealed record UserDto(
                 profile.Timezone,
                 includePrivate ? profile.Phone : null,
                 includePrivate ? profile.ZipCode : null,
-                includePrivate ? profile.Notes : null));
+                includePrivate ? profile.Notes : null,
+                profile.MemberNumber));
 }
 
 public sealed record UpdateUserRequest(

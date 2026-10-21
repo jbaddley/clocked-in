@@ -21,7 +21,7 @@ const fontVars: Record<string, string> = {
 
 export const clockedInTheme: ThemeJson = {
   id: "44444444-4444-4444-8444-444444444441",
-  name: "Clocked In",
+  name: "VolunTime",
   organizationId: null,
   primary: "#001836",
   primaryForeground: "#FFFFFF",
@@ -143,7 +143,7 @@ export function brandAssetSrc(kind: BrandKind, storedUrl: string | null) {
     return null;
   }
 
-  if (/^https?:\/\//i.test(storedUrl) && !isVercelBlobUrl(storedUrl)) {
+  if (storedUrl.startsWith("/") || (/^https?:\/\//i.test(storedUrl) && !isVercelBlobUrl(storedUrl))) {
     return storedUrl;
   }
 

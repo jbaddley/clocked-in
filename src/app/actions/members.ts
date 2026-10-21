@@ -1,9 +1,11 @@
 "use server";
 
 import {
+  createDepartmentInvitation,
   createOrganizationInvitation,
   parseCreateInvitation,
   resendOrganizationInvitation,
+  revokeDepartmentInvitation,
   revokeOrganizationInvitation,
 } from "@/lib/api/features/invitations";
 import {
@@ -74,6 +76,20 @@ export async function inviteMemberAction(organizationId: string, email: string, 
     const access = await requireAccess();
     await createOrganizationInvitation(access, organizationId, parseCreateInvitation({ email, role }));
   }, `Invitation sent to ${email}.`);
+}
+
+export async function inviteDepartmentMemberAction(departmentId: string, email: string, role: string) {
+  return run(async () => {
+    const access = await requireAccess();
+    await createDepartmentInvitation(access, departmentId, parseCreateInvitation({ email, role }));
+  }, `Invitation sent to ${email}.`);
+}
+
+export async function revokeDepartmentInvitationAction(departmentId: string, invitationId: string) {
+  return run(async () => {
+    const access = await requireAccess();
+    await revokeDepartmentInvitation(access, departmentId, invitationId);
+  }, "Invitation revoked.");
 }
 
 export async function resendInvitationAction(organizationId: string, invitationId: string, email: string) {

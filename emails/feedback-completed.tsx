@@ -21,13 +21,13 @@ export default function FeedbackCompletedEmail({
   note?: string;
 }) {
   return (
-    <EmailLayout preview={`An update on ${title}.`} title="Your feedback is complete">
+    <EmailLayout preview={`An update on ${title}.`} title='Your feedback is complete'>
       <Text style={bodyText}>Hi {firstName},</Text>
       <Text style={bodyText}>
         About your {typeLabel} "{title}": {outcome}.
       </Text>
       <Text style={bodyText}>{note}</Text>
-      <Text style={quietText}>Thank you for helping us improve Clocked In.</Text>
+      <Text style={quietText}>Thank you for helping us improve VolunTime.</Text>
     </EmailLayout>
   );
 }

@@ -62,12 +62,12 @@ function body(draft: GithubIssueDraft) {
     lines.push(`**Organization:** ${draft.organizationName}`);
   }
 
-  lines.push(`**Clocked In:** ${draft.adminUrl}`, "", draft.description);
+  lines.push(`**VolunTime:** ${draft.adminUrl}`, "", draft.description);
   for (const url of draft.screenshotUrls) {
     lines.push("", `![Screenshot](${url})`);
   }
 
-  lines.push("", `Clocked In id: \`${draft.id}\``);
+  lines.push("", `VolunTime id: \`${draft.id}\``);
   return lines.join("\n");
 }
 

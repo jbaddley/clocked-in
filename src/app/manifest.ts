@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Clocked In",
-    short_name: "Clocked In",
+    name: "VolunTime",
+    short_name: "VolunTime",
     description: "Log volunteer hours, value them for grants, and report on impact.",
     start_url: "/",
     display: "standalone",

@@ -6,7 +6,7 @@ public static class GlobalThemes
     [
         Create(
             Theme.ClockedInId,
-            "Clocked In",
+            "VolunTime",
             "#001836", "#FFFFFF", "#D4AC59", "#FF5E9F", "#4EBFAE", "#FFFFFF", "#001836", "#001836",
             "SourceSans3", "NunitoSans",
             ["#001836", "#D4AC59", "#2A6F97", "#4EBFAE", "#C17B4A", "#6B7C93"],

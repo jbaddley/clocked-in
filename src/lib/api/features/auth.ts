@@ -30,6 +30,8 @@ import {
   verifyPassword,
 } from "@/lib/api/security";
 import { userJson } from "@/lib/api/features/users";
+import { forbidden } from "@/lib/api/errors";
+import { publicSignupEnabled } from "@/lib/portal";
 
 export type SignUpRequest = {
   username: string;
@@ -99,6 +101,10 @@ async function issueSession(user: Account, db: Db = prisma) {
 }
 
 export async function signUp(request: SignUpRequest) {
+  if (!publicSignupEnabled()) {
+    forbidden();
+  }
+
   const user = await guard(
     prisma.user.create({
       data: {

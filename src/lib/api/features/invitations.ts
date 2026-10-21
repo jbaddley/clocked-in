@@ -157,7 +157,7 @@ export async function createOrganizationInvitation(
 
 export async function createDepartmentInvitation(access: Access, departmentId: string, request: CreateInvitationRequest) {
   const department = await access.requireDepartmentManager(departmentId);
-  const organization = await access.requireOrganizationAdmin(department.organizationId);
+  const organization = await access.requireOrganization(department.organizationId, false);
   return create(access, department.organizationId, department.id, inviteTarget(organization, department.name), request);
 }
 

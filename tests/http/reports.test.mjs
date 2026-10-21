@@ -47,6 +47,8 @@ describe("reports", suite, () => {
     assert.deepEqual(empty.json.user.byPerson, []);
     assert.deepEqual(empty.json.user.byVolunteer, []);
     assert.deepEqual(empty.json.user.byMonth, []);
+    assert.equal(empty.json.staff.hours, 0);
+    assert.equal(empty.json.staff.entries, 0);
     assert.equal(empty.json.collective.hours, 0);
     assert.equal(empty.json.collective.entries, 0);
     assert.equal(empty.json.collective.byPerson, undefined);
@@ -150,6 +152,56 @@ describe("reports", suite, () => {
     assert.match(response.text, /October,1\.5,53\.21/);
     const outsider = await callApi(`/organizations/${ctx.org.id}/summary.csv`, { token: ctx.outsider.accessToken });
     assertError(outsider, 403, "forbidden", "Forbidden.");
+  });
+
+  test("professional hours stay out of volunteer KPIs", async () => {
+    const professional = await createJson(ctx.admin.accessToken, `/organizations/${ctx.org.id}/hourly-rates`, {
+      type: "Professional",
+      name: label("Counsel rate"),
+      perHourRate: 90,
+    });
+    await createJson(ctx.admin.accessToken, "/time/duration", {
+      organizationId: ctx.org.id,
+      userId: ctx.member.user.id,
+      departmentId: ctx.department.id,
+      projectId: ctx.project.id,
+      taskCategoryId: ctx.category.id,
+      durationMinutes: 60,
+      occurredOn: "2026-10-02",
+      hourlyRateId: professional.id,
+    });
+    const response = await callApi(`/organizations/${ctx.org.id}/report`, {
+      token: ctx.admin.accessToken,
+      query: { from: "2026-10-01", to: "2026-10-31" },
+    });
+    assert.equal(response.status, 200);
+    assert.equal(response.json.user.hours, 1.5);
+    assert.equal(response.json.user.entries, 1);
+    assert.equal(response.json.staff.hours, 1);
+    assert.equal(response.json.staff.entries, 1);
+    assertMoney(response.json.staff.inKind, 90);
+  });
+
+  test("a department admin only sees that department in reports", async () => {
+    const coordinator = await signUp("reportcoord");
+    await createJson(ctx.admin.accessToken, `/departments/${ctx.department.id}/invitations`, {
+      email: coordinator.email,
+      role: "ADMIN",
+    });
+    await acceptInvite(coordinator.accessToken, coordinator.email);
+    const scoped = await callApi(`/organizations/${ctx.org.id}/report`, { token: coordinator.accessToken });
+    assert.equal(scoped.status, 200);
+    assert.equal(scoped.json.user.hours, 1.5);
+    assert.equal(scoped.json.user.entries, 1);
+    assert.equal(scoped.json.collective.entries, 0);
+    const other = await createJson(ctx.admin.accessToken, `/organizations/${ctx.org.id}/departments`, {
+      name: label("Other report department"),
+    });
+    const forbiddenDept = await callApi(`/organizations/${ctx.org.id}/report`, {
+      token: coordinator.accessToken,
+      query: { departmentId: other.id },
+    });
+    assertError(forbiddenDept, 403, "forbidden", "Forbidden.");
   });
 });
 

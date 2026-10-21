@@ -29,6 +29,7 @@ export const baseCaswjTheme = {
 };
 
 export const workbookPath = path.resolve(process.cwd(), "docs/base/2026 Volunteer Hours.xlsx");
+export const anonWorkbookPath = path.resolve(process.cwd(), "docs/base/clockify-export-ANONYMIZED-sample.xlsx");
 export const fallbackProjectTitle = "No Specific Project";
 export const caswjSourceRefPrefix = "caswj-log:";
 export const departmentNames = [
@@ -54,6 +55,11 @@ export type CaswjPerson = {
   displayName: string;
   memberNumber: string;
   active: boolean;
+  email?: string;
+  zipCode?: string;
+  notes?: string;
+  primaryGroup?: string;
+  rateType?: string;
 };
 
 export type CaswjProject = {
@@ -196,6 +202,34 @@ export function hoursFromMinutes(minutes: number) {
 
 export function hoursCell(minutes: number) {
   return String(Number(hoursFromMinutes(minutes).toFixed(5)));
+}
+
+function columnIndex(row: ExcelJS.Row) {
+  const map = new Map<string, number>();
+  row.eachCell((item, index) => {
+    const key = text(cell(item.value)).trim().toLowerCase().replace(/[^a-z0-9?]+/g, " ").trim();
+    if (key) {
+      map.set(key, index);
+    }
+  });
+  return (...aliases: string[]) => {
+    for (const alias of aliases) {
+      const found = map.get(alias.trim().toLowerCase());
+      if (found) {
+        return found;
+      }
+    }
+    return 0;
+  };
+}
+
+function matchDepartment(group: string) {
+  const key = group.trim().toLowerCase();
+  if (!key) {
+    return "";
+  }
+
+  return departmentNames.find((name) => key.includes(name.toLowerCase()) || name.toLowerCase().includes(key)) ?? group;
 }
 
 export function asNumber(value: unknown) {
@@ -357,25 +391,32 @@ export async function loadCaswjWorkbook(filePath = workbookPath): Promise<CaswjW
   const projectIndex = indexProjectAliases(projects);
 
   const people = new Map<string, CaswjPerson>();
+  const volunteerCols = columnIndex(volunteersSheet.getRow(1));
   volunteersSheet.eachRow((row, number) => {
     if (number === 1) {
       return;
     }
 
-    const firstName = text(cell(row.getCell(2).value));
-    const lastName = text(cell(row.getCell(3).value));
+    const firstName = text(cell(row.getCell(volunteerCols("first name") || 2).value));
+    const lastName = text(cell(row.getCell(volunteerCols("last name") || 3).value));
     if (!firstName && !lastName) {
       return;
     }
 
-    const displayName = text(cell(row.getCell(4).value)) || `${firstName} ${lastName}`.trim();
-    const memberNumber = text(cell(row.getCell(1).value)).padStart(3, "0");
+    const displayName =
+      text(cell(row.getCell(volunteerCols("display name", "name") || 4).value)) || `${firstName} ${lastName}`.trim();
+    const memberNumber = text(cell(row.getCell(volunteerCols("volunteer id") || 1).value)).padStart(3, "0");
     people.set(displayName.toLowerCase(), {
       firstName,
       lastName,
       displayName,
       memberNumber,
-      active: text(cell(row.getCell(8).value)).toLowerCase() !== "no",
+      active: text(cell(row.getCell(volunteerCols("active?", "active") || 8).value)).toLowerCase() !== "no",
+      email: text(cell(row.getCell(volunteerCols("email") || 5).value)),
+      zipCode: text(cell(row.getCell(volunteerCols("zip code", "zip") || 6).value)),
+      notes: text(cell(row.getCell(volunteerCols("notes") || 12).value)),
+      primaryGroup: text(cell(row.getCell(volunteerCols("primary group") || 7).value)),
+      rateType: text(cell(row.getCell(volunteerCols("rate type") || 9).value)),
     });
   });
 
@@ -446,6 +487,96 @@ export async function loadCaswjWorkbook(filePath = workbookPath): Promise<CaswjW
 
   assignMemberNumbers(people);
   return { categories, projects, people, logRows };
+}
+
+export async function loadClockifyExport(filePath = anonWorkbookPath): Promise<CaswjWorkbook> {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(filePath);
+  const sheet = workbook.worksheets[0];
+  if (!sheet) {
+    throw new Error("Anonymized Clockify export is empty.");
+  }
+
+  const cols = columnIndex(sheet.getRow(1));
+  const categories = new Set<string>(["Imported hours"]);
+  const projects = new Map<string, CaswjProject>();
+  const people = new Map<string, CaswjPerson>();
+  const logRows: CaswjLogRow[] = [];
+
+  sheet.eachRow((row, number) => {
+    if (number === 1) {
+      return;
+    }
+
+    const occurredOn = asDate(cell(row.getCell(cols("start date") || 10).value));
+    const hours = asNumber(cell(row.getCell(cols("duration (decimal)") || 15).value));
+    if (!occurredOn || hours == null) {
+      return;
+    }
+
+    const volunteer = text(cell(row.getCell(cols("user") || 5).value)) || `Volunteer ${String(number).padStart(2, "0")}`;
+    const email = text(cell(row.getCell(cols("email") || 7).value));
+    const projectTitle = text(cell(row.getCell(cols("project") || 1).value)) || fallbackProjectTitle;
+    const category = text(cell(row.getCell(cols("task") || 4).value)) || "Imported hours";
+    const group = matchDepartment(text(cell(row.getCell(cols("group") || 6).value)));
+    const notes = text(cell(row.getCell(cols("description") || 3).value));
+    const tags = text(cell(row.getCell(cols("tags") || 8).value))
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+    const hourlyRate = asNumber(cell(row.getCell(cols("billable rate (usd)") || 16).value)) ?? 0;
+    categories.add(category);
+    if (!projects.has(projectTitle.toLowerCase())) {
+      projects.set(projectTitle.toLowerCase(), {
+        title: projectTitle,
+        projectType: "Project",
+        startDate: null,
+        endDate: null,
+        active: true,
+      });
+    }
+    if (!people.has(volunteer.toLowerCase())) {
+      const [firstName, ...rest] = volunteer.split(/\s+/);
+      people.set(volunteer.toLowerCase(), {
+        firstName: firstName ?? volunteer,
+        lastName: rest.join(" "),
+        displayName: volunteer,
+        memberNumber: "",
+        active: true,
+        email,
+      });
+    }
+
+    logRows.push({
+      sheetRow: number,
+      occurredOn,
+      project: projectTitle,
+      volunteer,
+      group,
+      category,
+      startedAt: asDate(cell(row.getCell(cols("start time") || 11).value)),
+      endedAt: asDate(cell(row.getCell(cols("end time") || 13).value)),
+      hours,
+      rateType: hourlyRate > 0 && hourlyRate !== 35.47 ? "Professional" : "Volunteer",
+      hourlyRate: hourlyRate || 35.47,
+      inKind: asNumber(cell(row.getCell(cols("billable amount (usd)") || 17).value)) ?? 0,
+      tags,
+      enteredBy: "Clockify Import",
+      createdAt: asDate(cell(row.getCell(cols("date of creation") || 18).value)) ?? occurredOn,
+      notes,
+      volunteerId: "",
+    });
+  });
+
+  people.set("clockify import", {
+    firstName: "Clockify",
+    lastName: "Import",
+    displayName: "Clockify Import",
+    memberNumber: "",
+    active: false,
+  });
+  assignMemberNumbers(people);
+  return { categories, projects: [...projects.values()], people, logRows };
 }
 
 function ordinal(a: string, b: string) {

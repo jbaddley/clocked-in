@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -15,7 +16,9 @@ import {
   departmentNames,
   indexProjectAliases,
   inKindFromMinutes,
+  anonWorkbookPath,
   loadCaswjWorkbook,
+  loadClockifyExport,
   localEmail,
   money,
   onDate,
@@ -36,13 +39,59 @@ function prismaClient() {
   return new PrismaClient({ adapter: new PrismaPg(prismaPoolConfig(connectionString, { pooled: false })) });
 }
 
+function namedSeedAllowed() {
+  return appEnv === "local" || process.env.SEED_ALLOW_REAL_NAMES === "1";
+}
+
+async function seedBrandMarks(
+  db: PrismaClient,
+  organizationId: string,
+) {
+  const publicLogo = "/caswj-logo.svg";
+  const token = process.env.BLOB_READ_WRITE_TOKEN?.trim();
+  if (token) {
+    try {
+      const { put } = await import("@vercel/blob");
+      const sharp = (await import("sharp")).default;
+      const svg = await readFile(path.resolve(process.cwd(), "public/caswj-logo.svg"));
+      const access = process.env.BLOB_ACCESS?.trim().toLowerCase() === "public" ? "public" : "private";
+      const mark = await sharp(svg).resize(64, 64, { fit: "cover", position: "centre" }).webp({ quality: 85 }).toBuffer();
+      const wordmark = await sharp(svg).resize(800, 200, { fit: "inside", withoutEnlargement: true }).webp({ quality: 85 }).toBuffer();
+      const options = { access, addRandomSuffix: false, allowOverwrite: true, contentType: "image/webp", token } as const;
+      const markBlob = await put(`orgs/${organizationId}/mark.webp`, mark, options);
+      const wordmarkBlob = await put(`orgs/${organizationId}/wordmark.webp`, wordmark, options);
+      await db.organization.update({
+        where: { id: organizationId },
+        data: { markUrl: markBlob.url, wordmarkUrl: wordmarkBlob.url, wordmarkOnLightUrl: wordmarkBlob.url },
+      });
+      return;
+    } catch (error) {
+      console.warn("CASWJ brand upload failed; using the public logo.", error);
+    }
+  }
+
+  await db.organization.update({
+    where: { id: organizationId },
+    data: { markUrl: publicLogo, wordmarkUrl: publicLogo, wordmarkOnLightUrl: publicLogo },
+  });
+}
+
 async function main() {
   const password = process.env.SEED_SUPERADMIN_PASSWORD?.trim();
   if (!password) {
     throw new Error("SEED_SUPERADMIN_PASSWORD is required.");
   }
 
-  const { categories, projects, people, logRows } = await loadCaswjWorkbook();
+  const anon = process.env.SEED_ANON === "1";
+  if (!anon && !namedSeedAllowed()) {
+    console.warn(`Named CASWJ seed is local-only. Set SEED_ALLOW_REAL_NAMES=1 to import real names into ${appEnv}.`);
+    return;
+  }
+
+  const { categories, projects, people, logRows } = anon
+    ? await loadClockifyExport(anonWorkbookPath)
+    : await loadCaswjWorkbook();
+  const sourceRefPrefix = anon ? "caswj-anon:" : caswjSourceRefPrefix;
   const projectAliases = indexProjectAliases(projects);
   const db = prismaClient();
   try {
@@ -86,6 +135,7 @@ async function main() {
         preferences: { allowTimeEntryEditing: true, entityLabels: caswjLabels },
       },
     });
+    await seedBrandMarks(db, organization.id);
 
     const admin =
       (await db.user.findFirst({ where: { OR: [{ username: "jbaddley" }, { email: "jasonbaddley+caswj@gmail.com" }] } })) ??
@@ -108,6 +158,8 @@ async function main() {
       create: { userId: admin.id, organizationId: organization.id, roleId: adminRole.id, rateType: "Volunteer", isActive: true },
     });
 
+    let dworkmanStatus = "skipped";
+    if (!anon) {
     const dworkmanByUsername = await db.user.findUnique({ where: { username: "dworkman" } });
     const dworkmanByEmail = await db.user.findUnique({ where: { email: "volunteer@wjarts.org" } });
     if (dworkmanByUsername && dworkmanByEmail && dworkmanByUsername.id !== dworkmanByEmail.id) {
@@ -139,6 +191,8 @@ async function main() {
       update: { roleId: adminRole.id, isActive: true },
       create: { userId: dworkman.id, organizationId: organization.id, roleId: adminRole.id, rateType: "Volunteer", isActive: true },
     });
+    dworkmanStatus = dworkmanExisting ? "updated" : "created";
+    }
 
     const departments = new Map<string, string>();
     for (const name of departmentNames) {
@@ -237,11 +291,47 @@ async function main() {
       });
     }
 
+    const professionalRates = new Map<string, typeof rate>();
+    async function rateForRow(row: (typeof logRows)[number]) {
+      const amount = money(row.hourlyRate);
+      const professional =
+        row.rateType.trim().toLowerCase() === "professional" || amount !== 35.47;
+      if (!professional) {
+        return rate;
+      }
+
+      const key = `${amount}`;
+      const cached = professionalRates.get(key);
+      if (cached) {
+        return cached;
+      }
+
+      const existing = await db.hourlyRate.findFirst({
+        where: { organizationId: organization.id, type: "Professional", perHourRate: amount, isArchived: false },
+      });
+      const created =
+        existing ??
+        (await db.hourlyRate.create({
+          data: {
+            organizationId: organization.id,
+            type: "Professional",
+            name: row.rateType.trim() || `Professional ${amount}`,
+            perHourRate: amount,
+            isDefault: false,
+          },
+        }));
+      professionalRates.set(key, created);
+      return created;
+    }
+
     const usersByName = new Map<string, string>();
     for (const person of people.values()) {
       const usernameBase = slug(person.displayName) || slug(`${person.firstName} ${person.lastName}`) || "volunteer";
       const username = usernameBase.slice(0, 50);
-      const email = localEmail(username);
+      const email = !anon && person.email ? person.email.trim().toLowerCase() : localEmail(username);
+      const zipCode = !anon ? person.zipCode || null : null;
+      const notes = !anon ? person.notes || null : null;
+      const membershipRate = !anon && person.rateType?.toLowerCase().includes("professional") ? "Professional" : "Volunteer";
       const existing =
         (await db.user.findFirst({ where: { OR: [{ username }, { email }] } })) ??
         (await db.user.create({
@@ -255,6 +345,8 @@ async function main() {
                 lastName: person.lastName,
                 displayName: person.displayName,
                 memberNumber: person.memberNumber,
+                zipCode,
+                notes,
               },
             },
           },
@@ -266,6 +358,8 @@ async function main() {
           lastName: person.lastName,
           displayName: person.displayName,
           memberNumber: person.memberNumber,
+          zipCode,
+          notes,
         },
         create: {
           userId: existing.id,
@@ -273,19 +367,35 @@ async function main() {
           lastName: person.lastName,
           displayName: person.displayName,
           memberNumber: person.memberNumber,
+          zipCode,
+          notes,
         },
       });
       await db.organizationMembership.upsert({
         where: { userId_organizationId: { userId: existing.id, organizationId: organization.id } },
-        update: { isActive: person.displayName.toLowerCase() === "clockify import" ? false : person.active, roleId: volunteerRole.id },
+        update: {
+          isActive: person.displayName.toLowerCase() === "clockify import" ? false : person.active,
+          roleId: volunteerRole.id,
+          rateType: membershipRate,
+        },
         create: {
           userId: existing.id,
           organizationId: organization.id,
           roleId: volunteerRole.id,
-          rateType: "Volunteer",
+          rateType: membershipRate,
           isActive: person.displayName.toLowerCase() === "clockify import" ? false : person.active,
         },
       });
+      if (!anon && person.primaryGroup) {
+        const departmentId = departments.get(person.primaryGroup.toLowerCase());
+        if (departmentId) {
+          await db.departmentMembership.upsert({
+            where: { userId_departmentId: { userId: existing.id, departmentId } },
+            update: {},
+            create: { userId: existing.id, departmentId, roleId: volunteerRole.id },
+          });
+        }
+      }
       usersByName.set(person.displayName.toLowerCase(), existing.id);
     }
 
@@ -308,7 +418,7 @@ async function main() {
     let created = 0;
     let skipped = 0;
     for (const row of logRows) {
-      const sourceRef = `${caswjSourceRefPrefix}${row.sheetRow}`;
+      const sourceRef = `${sourceRefPrefix}${row.sheetRow}`;
       const projectId = projectIds.get(row.project.toLowerCase());
       const taskCategoryId = categoryIds.get(row.category.toLowerCase());
       if (!projectId || !taskCategoryId) {
@@ -338,6 +448,10 @@ async function main() {
         throw new Error(`Hours on row ${row.sheetRow} are outside the Total range (${row.hours}).`);
       }
 
+      const catalogRate = await rateForRow(row);
+      if (!catalogRate) {
+        throw new Error(`Missing hourly rate on row ${row.sheetRow}.`);
+      }
       const hourlyRate = money(row.hourlyRate);
       const inKindValue = inKindFromMinutes(minutes, hourlyRate);
       let entry;
@@ -350,7 +464,7 @@ async function main() {
             departmentId,
             projectId,
             taskCategoryId,
-            hourlyRateId: rate.id,
+            hourlyRateId: catalogRate.id,
             mode: "Total",
             startedAt: onDate(row.occurredOn, row.startedAt),
             endedAt: onDate(row.occurredOn, row.endedAt),
@@ -379,7 +493,7 @@ async function main() {
     }
 
     const totals = await db.userTimeEntry.aggregate({
-      where: { organizationId: organization.id, sourceRef: { startsWith: caswjSourceRefPrefix } },
+      where: { organizationId: organization.id, sourceRef: { startsWith: sourceRefPrefix } },
       _count: { _all: true },
       _sum: { durationMinutes: true, inKindValue: true },
     });
@@ -390,7 +504,7 @@ async function main() {
           organizationId: organization.id,
           themeId: theme.id,
           themeName: theme.name,
-          dworkman: dworkmanExisting ? "updated" : "created",
+          dworkman: dworkmanStatus,
           created,
           skipped,
           entries: totals._count._all,

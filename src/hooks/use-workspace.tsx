@@ -2,6 +2,7 @@
 
 import { createContext, useContext } from "react";
 import type { RoleCode } from "@/lib/api/json";
+import { isCoordinator } from "@/lib/roles";
 import type { GroupDepartments, Organization, Viewer } from "@/lib/types";
 
 export type Workspace = {
@@ -9,6 +10,7 @@ export type Workspace = {
   organizations: Organization[];
   organization: Organization | null;
   isAdmin: boolean;
+  isCoordinator: boolean;
   canSelectRate: boolean;
   role: RoleCode | null;
   groupDepartments: GroupDepartments;
@@ -17,7 +19,16 @@ export type Workspace = {
 const WorkspaceContext = createContext<Workspace | null>(null);
 
 export function WorkspaceProvider({ value, children }: { value: Workspace; children: React.ReactNode }) {
-  return <WorkspaceContext value={value}>{children}</WorkspaceContext>;
+  return (
+    <WorkspaceContext
+      value={{
+        ...value,
+        isCoordinator: value.isCoordinator || isCoordinator(value.groupDepartments),
+      }}
+    >
+      {children}
+    </WorkspaceContext>
+  );
 }
 
 export function useWorkspace() {

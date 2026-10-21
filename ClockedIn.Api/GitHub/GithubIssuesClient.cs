@@ -175,7 +175,7 @@ public sealed class GithubIssuesClient(HttpClient http, IOptions<GithubOptions> 
             builder.AppendLine($"**Organization:** {draft.OrganizationName}");
         }
 
-        builder.AppendLine($"**Clocked In:** {draft.AdminUrl}");
+        builder.AppendLine($"**VolunTime:** {draft.AdminUrl}");
         builder.AppendLine();
         builder.AppendLine(draft.Description);
         foreach (var url in draft.ScreenshotUrls)
@@ -185,7 +185,7 @@ public sealed class GithubIssuesClient(HttpClient http, IOptions<GithubOptions> 
         }
 
         builder.AppendLine();
-        builder.AppendLine($"Clocked In id: `{draft.FeedbackId}`");
+        builder.AppendLine($"VolunTime id: `{draft.FeedbackId}`");
         return builder.ToString();
     }
 }

@@ -17,13 +17,10 @@ export default function FeedbackReceivedEmail({
   typeLabel?: string;
 }) {
   return (
-    <EmailLayout
-      preview={`Thanks for telling us about ${title}.`}
-      title="We got your feedback"
-    >
+    <EmailLayout preview={`Thanks for telling us about ${title}.`} title='We got your feedback'>
       <Text style={bodyText}>Hi {firstName},</Text>
       <Text style={bodyText}>
-        Thank you for sending this {typeLabel}: {title}. We read every report and use it to make Clocked In better.
+        Thank you for sending this {typeLabel}: {title}. We read every report and use it to make VolunTime better.
       </Text>
       <Text style={quietText}>We will email you again if this is completed.</Text>
     </EmailLayout>

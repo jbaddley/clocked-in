@@ -91,10 +91,13 @@ export function ReportsView() {
             <TabsTrigger value="groups" className="flex-1 sm:flex-none">
               Group sessions
             </TabsTrigger>
+            <TabsTrigger value="staff" className="flex-1 sm:flex-none">
+              Staff
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="summary" className="flex flex-col gap-6">
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <StatCard icon={ClockIcon} label="Hours" value={formatNumber(report.user.hours)} />
+              <StatCard icon={ClockIcon} label="Total volunteer hours" value={formatNumber(report.user.hours)} />
               <StatCard icon={HandCoinsIcon} tone="success" label="In-kind value" value={formatCurrency(report.user.inKind)} />
               <StatCard icon={UsersIcon} tone="highlight" label="Volunteers" value={report.user.volunteers} />
               <StatCard icon={ListChecksIcon} tone="accent" label="Entries" value={report.user.entries} />
@@ -122,7 +125,7 @@ export function ReportsView() {
           </TabsContent>
           <TabsContent value="people" className="flex flex-col gap-6">
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <StatCard icon={ClockIcon} label="Hours" value={formatNumber(report.user.hours)} />
+              <StatCard icon={ClockIcon} label="Total volunteer hours" value={formatNumber(report.user.hours)} />
               <StatCard icon={HandCoinsIcon} tone="success" label="In-kind value" value={formatCurrency(report.user.inKind)} />
               <StatCard icon={UsersIcon} tone="highlight" label="Volunteers" value={report.user.volunteers} />
               <StatCard icon={ListChecksIcon} tone="accent" label="Entries" value={report.user.entries} />
@@ -155,6 +158,22 @@ export function ReportsView() {
               <GroupTable title={`By ${copy.project.toLowerCase()}`} rows={report.collective.byProject} total={report.collective.hours} />
               <GroupTable title={`By ${copy.department.toLowerCase()}`} rows={report.collective.byDepartment} total={report.collective.hours} />
               <GroupTable title={`By ${copy.taskCategory.toLowerCase()}`} rows={report.collective.byCategory} total={report.collective.hours} />
+            </div>
+          </TabsContent>
+          <TabsContent value="staff" className="flex flex-col gap-6">
+            <p className="text-sm text-muted-foreground">
+              Paid staff hours use a professional rate and stay out of volunteer grant totals.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <StatCard icon={ClockIcon} label="Staff hours" value={formatNumber(report.staff.hours)} />
+              <StatCard icon={HandCoinsIcon} tone="success" label="In-kind value" value={formatCurrency(report.staff.inKind)} />
+              <StatCard icon={UsersIcon} tone="highlight" label="Staff" value={report.staff.volunteers} />
+              <StatCard icon={ListChecksIcon} tone="accent" label="Entries" value={report.staff.entries} />
+            </div>
+            <div className="grid gap-6 xl:grid-cols-2">
+              <GroupTable title={`By ${copy.department.toLowerCase()}`} rows={report.staff.byDepartment} total={report.staff.hours} />
+              <GroupTable title={`By ${copy.project.toLowerCase()}`} rows={report.staff.byProject} total={report.staff.hours} />
+              <GroupTable title="By person" rows={report.staff.byPerson} total={report.staff.hours} />
             </div>
           </TabsContent>
         </Tabs>

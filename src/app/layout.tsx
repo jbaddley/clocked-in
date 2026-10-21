@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Nunito_Sans, Source_Sans_3 } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { defaultIcons } from "@/lib/favicon";
+import { portalName } from "@/lib/portal";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -28,7 +29,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: { default: "Clocked In", template: "%s · Clocked In" },
+  title: { default: portalName(), template: `%s · ${portalName()}` },
   description: "Log volunteer hours, value them for grants, and report on impact.",
   icons: defaultIcons,
 };

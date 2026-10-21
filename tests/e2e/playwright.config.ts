@@ -12,7 +12,18 @@ const remote = prod || staging;
 const defaultRemoteUrl = staging ? "https://staging.clocked-in.baddley.us/" : "https://clocked-in.baddley.us/";
 const baseURL = remote ? process.env.E2E_BASE_URL || defaultRemoteUrl : process.env.E2E_BASE_URL || "http://localhost:3025";
 const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim();
-const localSeedOnly = ["**/caswj-hours.spec.ts", "**/add-person.spec.ts", "**/feedback.spec.ts"];
+// Golden 14,609-hour suite and write specs that need the named local seed.
+// Never point these at production. Staging stays on cache-bust + write-safe e2e-* cleanup.
+const localSeedOnly = [
+  "**/caswj-hours.spec.ts",
+  "**/add-person.spec.ts",
+  "**/feedback.spec.ts",
+  "**/volunteer-hours.spec.ts",
+  "**/timer.spec.ts",
+  "**/invite-accept.spec.ts",
+  "**/admin-member-time.spec.ts",
+  "**/coordinator-report.spec.ts",
+];
 
 export default defineConfig({
   testDir: ".",

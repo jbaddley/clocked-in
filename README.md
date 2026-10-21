@@ -1,4 +1,4 @@
-# Clocked In
+# Voluntime
 
 Next.js app with Tailwind CSS, shadcn/ui, and Prisma. Local, staging, and production use PostgreSQL.
 
@@ -24,10 +24,10 @@ Open [http://localhost:3025](http://localhost:3025).
 
 ## Environments
 
-| | File | Database | API |
-| --- | --- | --- | --- |
-| Local | `.env` | PostgreSQL | Next.js |
-| Staging | `.env.staging` | PostgreSQL | Next.js |
+|            | File              | Database   | API     |
+| ---------- | ----------------- | ---------- | ------- |
+| Local      | `.env`            | PostgreSQL | Next.js |
+| Staging    | `.env.staging`    | PostgreSQL | Next.js |
 | Production | `.env.production` | PostgreSQL | Next.js |
 
 `APP_ENV` is `local`, `staging`, or `production`. `DATABASE_PROVIDER` is `postgresql`. `API_TARGET` is `next` for the Next.js API and `csharp` when the contract tests call the .NET API.
@@ -62,6 +62,17 @@ dotnet run --project ClockedIn.Api --launch-profile http
 
 Both servers implement the HTTP contract in [docs/api/http.md](docs/api/http.md). The Next.js routes are on port 3025. The .NET API listens on port 5103. They share `JWT_SIGNING_KEY`, `JWT_ISSUER`, `JWT_AUDIENCE`, `API_KEY_PEPPER`, the Resend settings, and optional `GITHUB_TOKEN` / `GITHUB_REPO` in `.env`.
 
+Docs live in [docs/README.md](docs/README.md). Brand files and seed workbooks are in [docs/base/](docs/base/). The [original goals assessment](docs/original-goals-assessment.md) tracks brief vs shipped.
+
+## Seed and Playwright
+
+```bash
+npm run db:seed:caswj
+npm run db:seed:caswj:anon
+```
+
+`db:seed:caswj` imports `docs/base/2026 Volunteer Hours.xlsx` (real names) and is **local-only**. It no-ops on staging/production unless `SEED_ALLOW_REAL_NAMES=1`. Staging uses the anonymized Clockify sample. The Playwright golden suite (`tests/e2e/caswj-hours.spec.ts`) needs that named local seed and must never run against production. Production e2e is the read-only cache-bust crawl.
+
 Set `CSHARP_API_URL` (for example `http://127.0.0.1:5103` or the App Service origin) to make Next.js a BFF that forwards REST calls to ClockedIn.Api. Leave it unset to keep the Next.js API. `/health` stays on Next.js.
 
 ## Deploy the .NET API
@@ -76,17 +87,17 @@ dotnet publish ClockedIn.Api -c Release -o ./publish
 
 Give the web app a system-assigned managed identity and store secrets in Key Vault. Point App Settings at Key Vault with `@Microsoft.KeyVault(SecretUri=https://<vault>.vault.azure.net/secrets/<name>/)`. Use `/health` as the health path.
 
-| App Setting | Role |
-| --- | --- |
-| `EF_DATABASE_URL` | Postgres URL (`postgres://` or `postgresql://`) |
-| `JWT_SIGNING_KEY`, `JWT_ISSUER`, `JWT_AUDIENCE` | Same values as the Next.js app |
-| `API_KEY_PEPPER` | HMAC pepper for organization and platform API keys (at least 32 characters) |
-| `APP_URL` | Public site URL used in invite and reset emails |
-| `RESEND_API_KEY`, `EMAIL_FROM` | Outbound mail |
-| `GITHUB_TOKEN`, `GITHUB_REPO` | Optional. Create a GitHub issue for each feedback item (`owner/name`) |
-| `ASPNETCORE_ENVIRONMENT` | `Production` or `Staging` |
-| `CORS_ORIGINS` | Optional comma-separated browser origins (Vercel and MCP web clients). Defaults to `APP_URL` |
-| `APPLICATIONINSIGHTS_CONNECTION_STRING` | Optional Application Insights |
+| App Setting                                     | Role                                                                                         |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `EF_DATABASE_URL`                               | Postgres URL (`postgres://` or `postgresql://`)                                              |
+| `JWT_SIGNING_KEY`, `JWT_ISSUER`, `JWT_AUDIENCE` | Same values as the Next.js app                                                               |
+| `API_KEY_PEPPER`                                | HMAC pepper for organization and platform API keys (at least 32 characters)                  |
+| `APP_URL`                                       | Public site URL used in invite and reset emails                                              |
+| `RESEND_API_KEY`, `EMAIL_FROM`                  | Outbound mail                                                                                |
+| `GITHUB_TOKEN`, `GITHUB_REPO`                   | Optional. Create a GitHub issue for each feedback item (`owner/name`)                        |
+| `ASPNETCORE_ENVIRONMENT`                        | `Production` or `Staging`                                                                    |
+| `CORS_ORIGINS`                                  | Optional comma-separated browser origins (Vercel and MCP web clients). Defaults to `APP_URL` |
+| `APPLICATIONINSIGHTS_CONNECTION_STRING`         | Optional Application Insights                                                                |
 
 MCP is Streamable HTTP at `/mcp` on both hosts. ClockedIn.Api accepts organization API keys on REST and MCP. The Next.js app accepts the same keys on `/mcp` (Bearer or `X-Api-Key`); Next.js REST routes still require a user JWT. Clients change only the URL:
 
