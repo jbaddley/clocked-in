@@ -176,7 +176,7 @@ public sealed class UsersService(ClockedInDbContext db, Access access, TimeProvi
     {
         if (!await db.Users.AnyAsync(user => user.IsSuperAdmin && user.Id != exceptUserId, cancellationToken))
         {
-            throw ApiException.Conflict("The last SuperAdmin cannot be removed.");
+            throw ApiException.Conflict("This account cannot be removed.");
         }
     }
 }

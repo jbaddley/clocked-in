@@ -113,7 +113,6 @@ function requireBrandKind(kind: string): BrandKind {
 export async function uploadOrganizationBrandAction(
   organizationId: string,
   kind: BrandKind,
-  _: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> {
   return run(async () => {
@@ -144,8 +143,6 @@ export async function uploadOrganizationBrandAction(
 export async function removeOrganizationBrandAction(
   organizationId: string,
   kind: BrandKind,
-  _: ActionResult | null,
-  _formData?: FormData,
 ): Promise<ActionResult> {
   return run(async () => {
     const access = await requireAccess();

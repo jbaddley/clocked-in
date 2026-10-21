@@ -1,41 +1,42 @@
 "use client";
 
-import { useActionState } from "react";
-import { cn } from "cn";
 import { removeOrganizationBrandAction, uploadOrganizationBrandAction } from "@/app/actions/organizations";
-import { Field, FormMessage } from "@/components/field";
-import { SubmitButton } from "@/components/submit-button";
+import { ImageUploader, imageUploaderHint } from "@/components/image-uploader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { useActionMutation } from "@/hooks/use-action-mutation";
 import { useOrganization } from "@/hooks/use-workspace";
 import { brandAssetSrc, brandField, type BrandKind } from "@/lib/brand";
 
-const accept = "image/png,image/jpeg,image/webp,image/gif";
-
 const copy: Record<
   BrandKind,
-  { title: string; description: string; preview: string; frame: string; empty: string }
+  {
+    title: string;
+    description: string;
+    empty: string;
+    surface: "muted" | "dark" | "light";
+    shape: "square" | "wide";
+  }
 > = {
   mark: {
     title: "Favicon",
     description: "Square mark for the browser tab and the sidebar icon. Uploads are cropped to 64×64.",
-    preview: "size-16 rounded-md object-contain",
-    frame: "size-20 shrink-0 bg-muted",
-    empty: "No favicon",
+    empty: "Drag and drop a favicon",
+    surface: "muted",
+    shape: "square",
   },
   wordmark: {
     title: "Light on dark",
     description: "Wordmark for the sidebar and other dark surfaces. Uploads are fit inside 800×200.",
-    preview: "h-full w-full object-contain",
-    frame: "h-20 min-w-32 flex-1 bg-sidebar",
-    empty: "No light-on-dark logo",
+    empty: "Drag and drop a logo",
+    surface: "dark",
+    shape: "wide",
   },
   wordmarkOnLight: {
     title: "Dark on light",
     description: "Wordmark for light pages. Uploads are fit inside 800×200.",
-    preview: "h-full w-full object-contain",
-    frame: "h-20 min-w-32 flex-1 bg-background",
-    empty: "No dark-on-light logo",
+    empty: "Drag and drop a logo",
+    surface: "light",
+    shape: "wide",
   },
 };
 
@@ -79,56 +80,35 @@ function BrandAssetFields({ kind }: { kind: BrandKind }) {
   const storedUrl = organization[brandField(kind)];
   const src = brandAssetSrc(kind, storedUrl);
   const labels = copy[kind];
-  const [uploadResult, uploadAction] = useActionState(
-    uploadOrganizationBrandAction.bind(null, organization.id, kind),
-    null,
+  const upload = useActionMutation(
+    (file: File) => {
+      const formData = new FormData();
+      formData.set("file", file);
+      return uploadOrganizationBrandAction(organization.id, kind, formData);
+    },
+    { errorToast: false },
   );
-  const [removeResult, removeAction] = useActionState(
-    removeOrganizationBrandAction.bind(null, organization.id, kind),
-    null,
-  );
+  const remove = useActionMutation<void>(() => removeOrganizationBrandAction(organization.id, kind), {
+    errorToast: false,
+  });
 
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-3">
       {kind !== "mark" ? (
         <div>
           <p className="mb-1.5 text-xs font-medium tracking-wide text-muted-foreground uppercase">{labels.title}</p>
-          <p className="mb-3 text-sm text-muted-foreground">{labels.description}</p>
+          <p className="text-sm text-muted-foreground">{labels.description}</p>
         </div>
       ) : null}
-      <div className="flex min-w-0 items-center gap-4">
-        <div
-          className={cn(
-            "flex items-center justify-center overflow-hidden rounded-lg ring-1 ring-foreground/10",
-            labels.frame,
-          )}
-        >
-          {src ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={src} alt="" className={labels.preview} />
-          ) : (
-            <span className="px-2 text-center text-xs text-muted-foreground">{labels.empty}</span>
-          )}
-        </div>
-        <p className="min-w-0 shrink text-sm text-muted-foreground">PNG, JPEG, WebP, or GIF. 4 MB or smaller.</p>
-      </div>
-      <form action={uploadAction} className="grid gap-3">
-        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-          <Field label="Image" htmlFor={`${kind}-file`}>
-            <Input id={`${kind}-file`} name="file" type="file" accept={accept} required className="h-9" />
-          </Field>
-          <SubmitButton className="h-9">Upload</SubmitButton>
-        </div>
-        <FormMessage result={uploadResult} />
-      </form>
-      {storedUrl ? (
-        <form action={removeAction} className="flex items-center justify-between gap-3">
-          <FormMessage result={removeResult} />
-          <SubmitButton variant="destructive" className="ml-auto h-9">
-            Remove
-          </SubmitButton>
-        </form>
-      ) : null}
+      <ImageUploader
+        src={src}
+        emptyLabel={labels.empty}
+        hint={imageUploaderHint}
+        surface={labels.surface}
+        shape={labels.shape}
+        onUpload={(file) => upload.mutateAsync(file)}
+        onRemove={storedUrl ? () => remove.mutateAsync() : undefined}
+      />
     </div>
   );
 }

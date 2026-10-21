@@ -175,7 +175,7 @@ export async function updateUser(access: Access, userId: string, request: Update
       await lockSuperAdmins(tx);
       const others = await tx.user.count({ where: { isSuperAdmin: true, id: { not: user.id } } });
       if (others === 0) {
-        conflict("The last SuperAdmin cannot be removed.");
+        conflict("This account cannot be removed.");
       }
     }
 
@@ -230,7 +230,7 @@ export async function deleteUser(access: Access, userId: string) {
       await lockSuperAdmins(tx);
       const others = await tx.user.count({ where: { isSuperAdmin: true, id: { not: user.id } } });
       if (others === 0) {
-        conflict("The last SuperAdmin cannot be removed.");
+        conflict("This account cannot be removed.");
       }
     }
 

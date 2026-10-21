@@ -1,16 +1,16 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useRef, useState } from "react";
+import { XIcon } from "lucide-react";
 import { updateOrganizationSettingsAction } from "@/app/actions/organizations";
 import { Field, FormMessage } from "@/components/field";
 import { SubmitButton } from "@/components/submit-button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { useLabels } from "@/hooks/use-labels";
 import { useMembers } from "@/hooks/use-members";
-import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
-import { selectableMembers } from "@/components/person-select";
+import { useOrganization } from "@/hooks/use-workspace";
+import type { Membership } from "@/lib/types";
 import { HourlyRatesCard } from "./hourly-rates-card";
 
 export function OrganizationForm() {
@@ -90,47 +90,158 @@ function OrganizationFields() {
   );
 }
 
-function FeedbackNotifyField({ defaultIds }: { defaultIds: string[] }) {
-  const { viewer } = useWorkspace();
-  const { members } = useMembers({ enabled: true });
-  const options = useMemo(
-    () => selectableMembers(members, viewer.id, { activeOnly: true }),
-    [members, viewer.id],
+function personName(member: Membership) {
+  return (
+    member.user.displayName?.trim() ||
+    [member.user.firstName, member.user.lastName].filter(Boolean).join(" ").trim() ||
+    member.user.username
   );
-  const [selected, setSelected] = useState<string[]>(defaultIds);
+}
 
-  function toggle(userId: string, checked: boolean) {
-    setSelected((current) => (checked ? [...new Set([...current, userId])] : current.filter((id) => id !== userId)));
+function personSearch(member: Membership) {
+  return [personName(member), member.user.username, member.user.email].filter(Boolean).join(" ").toLowerCase();
+}
+
+function FeedbackNotifyField({ defaultIds }: { defaultIds: string[] }) {
+  const { members, isPending } = useMembers({ enabled: true });
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [selected, setSelected] = useState(defaultIds);
+  const [draft, setDraft] = useState("");
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const query = draft.trim().toLowerCase();
+  const suggestions =
+    query.length === 0
+      ? []
+      : members
+          .filter(
+            (member) =>
+              member.isActive === true && !selected.includes(member.userId) && personSearch(member).includes(query),
+          )
+          .slice(0, 8);
+  const chosen = selected.map((id) => {
+    const member = members.find((item) => item.userId === id);
+    return {
+      id,
+      name: member ? personName(member) : isPending ? "" : "Former member",
+    };
+  });
+
+  function select(userId: string) {
+    setSelected((current) => (current.includes(userId) ? current : [...current, userId]));
+    setDraft("");
+    setActive(0);
+    setOpen(false);
+    inputRef.current?.focus();
+  }
+
+  function remove(userId: string) {
+    setSelected((current) => current.filter((id) => id !== userId));
+    inputRef.current?.focus();
   }
 
   return (
-    <div className="grid gap-2 sm:col-span-2">
-      <Field label="Feedback email list">
-        <p className="text-sm text-muted-foreground">
-          Active people here are emailed when someone in this organization sends feedback. SuperAdmins are always notified.
-        </p>
-      </Field>
+    <Field
+      label="Who receives feedback"
+      hint="These people are emailed when someone in this organization sends feedback."
+      className="sm:col-span-2"
+    >
       <input type="hidden" name="feedbackNotifyUserIds" value={selected.join(",")} />
-      <ul className="grid gap-2 rounded-lg border p-3 sm:grid-cols-2">
-        {options.map((member) => {
-          const label =
-            member.user.displayName?.trim() ||
-            [member.user.firstName, member.user.lastName].filter(Boolean).join(" ").trim() ||
-            member.user.username;
-          const checked = selected.includes(member.userId);
-          return (
-            <li key={member.userId} className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={checked}
-                onCheckedChange={(value) => toggle(member.userId, value === true)}
-                aria-label={label}
-              />
-              <span>{label}</span>
-            </li>
-          );
-        })}
-        {options.length === 0 ? <li className="text-sm text-muted-foreground">No active members yet.</li> : null}
-      </ul>
-    </div>
+      <div
+        className="flex min-h-9 w-full flex-wrap items-center gap-1 rounded-lg border border-input bg-transparent px-1.5 py-1 transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget) {
+            event.preventDefault();
+            inputRef.current?.focus();
+          }
+        }}
+      >
+        {chosen.map((person) => (
+          <span
+            key={person.id}
+            className="inline-flex h-6 max-w-full items-center gap-0.5 rounded-full bg-secondary pr-0.5 pl-2 text-xs text-secondary-foreground"
+          >
+            <span className="truncate">{person.name}</span>
+            <button
+              type="button"
+              className="rounded-full p-0.5 text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
+              aria-label={`Remove ${person.name || "person"}`}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => remove(person.id)}
+            >
+              <XIcon className="size-3" />
+            </button>
+          </span>
+        ))}
+        <input
+          ref={inputRef}
+          value={draft}
+          aria-label="Add a person"
+          aria-expanded={open && query.length > 0}
+          aria-controls="feedback-recipient-options"
+          role="combobox"
+          placeholder={chosen.length ? "" : "Add a person"}
+          className="h-6 min-w-24 flex-1 bg-transparent px-1 text-sm outline-none placeholder:text-muted-foreground"
+          onChange={(event) => {
+            setDraft(event.target.value);
+            setActive(0);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setOpen(false)}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              setOpen(true);
+              setActive((index) => Math.min(index + 1, Math.max(suggestions.length - 1, 0)));
+            } else if (event.key === "ArrowUp") {
+              event.preventDefault();
+              setActive((index) => Math.max(index - 1, 0));
+            } else if (event.key === "Enter") {
+              event.preventDefault();
+              const match = suggestions[active] ?? suggestions[0];
+              if (match) select(match.userId);
+            } else if (event.key === "Backspace" && !draft) {
+              const last = selected[selected.length - 1];
+              if (!last) return;
+              event.preventDefault();
+              remove(last);
+            } else if (event.key === "Escape") {
+              setOpen(false);
+            }
+          }}
+        />
+      </div>
+      {open && query.length > 0 ? (
+        <ul
+          id="feedback-recipient-options"
+          className="mt-1 max-h-44 overflow-auto rounded-lg border bg-popover p-1 text-sm shadow-md"
+          role="listbox"
+        >
+          {suggestions.length === 0 ? (
+            <li className="px-2 py-1.5 text-muted-foreground">No matches</li>
+          ) : (
+            suggestions.map((member, index) => {
+              const name = personName(member);
+              return (
+                <li key={member.userId}>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={index === active}
+                    className="flex w-full rounded-md px-2 py-1.5 text-left hover:bg-muted aria-selected:bg-muted"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onMouseEnter={() => setActive(index)}
+                    onClick={() => select(member.userId)}
+                  >
+                    {name}
+                  </button>
+                </li>
+              );
+            })
+          )}
+        </ul>
+      ) : null}
+    </Field>
   );
 }
