@@ -108,6 +108,38 @@ async function main() {
       create: { userId: admin.id, organizationId: organization.id, roleId: adminRole.id, rateType: "Volunteer", isActive: true },
     });
 
+    const dworkmanByUsername = await db.user.findUnique({ where: { username: "dworkman" } });
+    const dworkmanByEmail = await db.user.findUnique({ where: { email: "volunteer@wjarts.org" } });
+    if (dworkmanByUsername && dworkmanByEmail && dworkmanByUsername.id !== dworkmanByEmail.id) {
+      throw new Error("Username dworkman and email volunteer@wjarts.org belong to different users.");
+    }
+
+    const dworkmanExisting = dworkmanByUsername ?? dworkmanByEmail;
+    const dworkman = dworkmanExisting
+      ? await db.user.update({
+          where: { id: dworkmanExisting.id },
+          data: { username: "dworkman", email: "volunteer@wjarts.org" },
+        })
+      : await db.user.create({
+          data: {
+            username: "dworkman",
+            email: "volunteer@wjarts.org",
+            passwordHash: await bcrypt.hash("dworkman_temp", 12),
+            mustChangePassword: true,
+            profile: { create: { firstName: "Dillon", lastName: "Workman", displayName: "Dillon Workman" } },
+          },
+        });
+    await db.userProfile.upsert({
+      where: { userId: dworkman.id },
+      update: { firstName: "Dillon", lastName: "Workman", displayName: "Dillon Workman" },
+      create: { userId: dworkman.id, firstName: "Dillon", lastName: "Workman", displayName: "Dillon Workman" },
+    });
+    await db.organizationMembership.upsert({
+      where: { userId_organizationId: { userId: dworkman.id, organizationId: organization.id } },
+      update: { roleId: adminRole.id, isActive: true },
+      create: { userId: dworkman.id, organizationId: organization.id, roleId: adminRole.id, rateType: "Volunteer", isActive: true },
+    });
+
     const departments = new Map<string, string>();
     for (const name of departmentNames) {
       const department =
@@ -358,6 +390,7 @@ async function main() {
           organizationId: organization.id,
           themeId: theme.id,
           themeName: theme.name,
+          dworkman: dworkmanExisting ? "updated" : "created",
           created,
           skipped,
           entries: totals._count._all,

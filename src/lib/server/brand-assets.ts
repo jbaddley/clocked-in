@@ -17,6 +17,16 @@ function blobToken() {
   return token;
 }
 
+function blobAccess(): "public" | "private" {
+  const configured = process.env.BLOB_ACCESS?.trim().toLowerCase();
+  if (configured === "public" || configured === "private") {
+    return configured;
+  }
+
+  // Production's store is public. Local and staging stores are private.
+  return process.env.VERCEL_ENV === "production" ? "public" : "private";
+}
+
 function pathnameFor(organizationId: string, kind: BrandKind) {
   return `orgs/${organizationId}/${kind}.webp`;
 }
@@ -61,7 +71,7 @@ export async function resizeBrandImage(file: File, kind: BrandKind) {
 
 export async function putBrandAsset(organizationId: string, kind: BrandKind, buffer: Buffer) {
   return put(pathnameFor(organizationId, kind), buffer, {
-    access: "private",
+    access: blobAccess(),
     addRandomSuffix: false,
     allowOverwrite: true,
     contentType: "image/webp",
@@ -76,7 +86,7 @@ export async function encodePng(stream: ReadableStream<Uint8Array>) {
 
 export async function readBrandAsset(storedUrl: string) {
   try {
-    return await get(storedUrl, { access: "private", token: blobToken(), useCache: false });
+    return await get(storedUrl, { access: blobAccess(), token: blobToken(), useCache: false });
   } catch (error) {
     if (error instanceof BlobNotFoundError) {
       return null;
