@@ -57,4 +57,4 @@ export type DateRange = { from?: string; to?: string };
 
 export type ActionResult<T = unknown> =
   | { ok: true; data?: T; message?: string }
-  | { ok: false; error: string };
+  | { ok: false; error: string; reason?: "email_mismatch" };

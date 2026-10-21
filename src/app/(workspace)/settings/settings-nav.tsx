@@ -1,6 +1,6 @@
 "use client";
 
-import { BuildingIcon, ImageIcon, KeyRoundIcon, ListTreeIcon, NetworkIcon, PaletteIcon, UsersIcon } from "lucide-react";
+import { BuildingIcon, ImageIcon, KeyRoundIcon, ListTreeIcon, NetworkIcon, PaletteIcon, UploadIcon, UsersIcon } from "lucide-react";
 import { SectionNav } from "@/components/section-nav";
 import { useLabels } from "@/hooks/use-labels";
 import { useWorkspace } from "@/hooks/use-workspace";
@@ -14,6 +14,7 @@ export function SettingsNav() {
     { href: "/settings/departments", label: copy.departments, icon: NetworkIcon, admin: true },
     { href: "/settings/lists", label: `${copy.projects} & lists`, icon: ListTreeIcon },
     { href: "/settings/members", label: "People", icon: UsersIcon },
+    { href: "/settings/import", label: "Import", icon: UploadIcon, admin: true },
     { href: "/settings/theme", label: "Themes", icon: PaletteIcon, admin: true },
     { href: "/settings/brand", label: "Brand", icon: ImageIcon, admin: true },
   ];

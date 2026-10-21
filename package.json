@@ -16,6 +16,7 @@
     "env:print": "node scripts/with-env.mjs -- node scripts/print-env.mjs",
     "lint": "eslint",
     "test:http": "node --test --test-concurrency=4 tests/http/*.test.mjs",
+    "test:import": "node --import tsx --test tests/import/*.test.ts",
     "test:e2e": "playwright test -c tests/e2e/playwright.config.ts",
     "test:e2e:prod": "E2E_ENV=PROD playwright test -c tests/e2e/playwright.config.ts",
     "test:e2e:staging": "E2E_ENV=STAGING playwright test -c tests/e2e/playwright.config.ts",

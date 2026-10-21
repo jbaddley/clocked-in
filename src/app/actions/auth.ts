@@ -12,7 +12,14 @@ import {
   requestPasswordReset,
   signUp,
 } from "@/lib/api/features/auth";
-import { acceptInvitation, parseAcceptInvitation } from "@/lib/api/features/invitations";
+import {
+  acceptAuthRedirect,
+  acceptCodeFromNext,
+  acceptInvitation,
+  invitationAccount,
+  inviteEmailMismatch,
+  parseAcceptInvitation,
+} from "@/lib/api/features/invitations";
 import { run, safeNext, text } from "@/lib/server/action";
 import { clearSessionCookies, currentRefreshToken, getAccess, setSessionCookies } from "@/lib/server/session";
 import { defaultOrganizationId } from "@/lib/portal";
@@ -35,6 +42,17 @@ export async function logInAction(_: ActionResult | null, formData: FormData): P
 }
 
 export async function signUpAction(_: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  const next = safeNext(text(formData, "next"));
+  const code = acceptCodeFromNext(next);
+  const invite = code ? await invitationAccount(code) : null;
+  if (code && !invite) {
+    return { ok: false, error: "The code is not valid." };
+  }
+
+  if (invite?.userExists) {
+    redirect(`/login?next=${encodeURIComponent(next)}`);
+  }
+
   const result = await run(async () => {
     const session = await signUp(
       parseSignUp({
@@ -45,21 +63,32 @@ export async function signUpAction(_: ActionResult | null, formData: FormData): 
         password: text(formData, "password"),
         timezone: text(formData, "timezone") || undefined,
       }),
+      invite ? { invitationEmail: invite.email } : undefined,
     );
     await setSessionCookies(session);
   });
   if (!result.ok) return result;
-  redirect(safeNext(text(formData, "next")));
+  redirect(next);
 }
 
-export async function logOutAction() {
+async function endSession() {
   const [access, refreshToken] = await Promise.all([getAccess(), currentRefreshToken()]);
   if (access && refreshToken) {
     await logOut(access, { refreshToken }).catch(() => undefined);
   }
 
   await clearSessionCookies();
+}
+
+export async function logOutAction() {
+  await endSession();
   redirect("/login");
+}
+
+export async function logOutStayOnAcceptAction(code: string) {
+  await endSession();
+  const trimmed = code.trim();
+  redirect(trimmed ? `/accept?code=${encodeURIComponent(trimmed)}` : "/accept");
 }
 
 export async function requestResetAction(_: ActionResult | null, formData: FormData): Promise<ActionResult> {
@@ -84,16 +113,24 @@ export async function confirmResetAction(_: ActionResult | null, formData: FormD
 }
 
 export async function acceptInviteAction(_: ActionResult | null, formData: FormData): Promise<ActionResult> {
-  const code = text(formData, "code");
+  const code = text(formData, "code").trim();
   const access = await getAccess();
   if (!access) {
-    redirect(`/login?next=${encodeURIComponent(`/accept?code=${code}`)}`);
+    const invite = await invitationAccount(code);
+    if (!invite) {
+      return { ok: false, error: "The code is not valid." };
+    }
+
+    redirect(acceptAuthRedirect(code, invite.userExists));
   }
 
   const result = await run(async () => {
     const accepted = await acceptInvitation(access, parseAcceptInvitation({ code }));
     writeOrganization(await cookies(), accepted.invitation.organizationId);
   });
-  if (!result.ok) return result;
+  if (!result.ok) {
+    return result.error === inviteEmailMismatch ? { ok: false, error: result.error, reason: "email_mismatch" } : result;
+  }
+
   redirect("/dashboard");
 }

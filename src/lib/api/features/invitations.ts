@@ -239,6 +239,39 @@ function usable(invitation: { acceptedAt: Date | null; revokedAt: Date | null; e
   return !invitation.acceptedAt && !invitation.revokedAt && invitation.expiresAt > now;
 }
 
+export const inviteEmailMismatch = "This invite was sent to a different email.";
+
+export function acceptCodeFromNext(next: string) {
+  const queryIndex = next.indexOf("?");
+  const path = queryIndex === -1 ? next : next.slice(0, queryIndex);
+  if (path !== "/accept") {
+    return null;
+  }
+
+  const code = new URLSearchParams(queryIndex === -1 ? "" : next.slice(queryIndex + 1)).get("code")?.trim() ?? "";
+  return code || null;
+}
+
+export function acceptAuthRedirect(code: string, userExists: boolean) {
+  const next = `/accept?code=${encodeURIComponent(code)}`;
+  return `${userExists ? "/login" : "/signup"}?next=${encodeURIComponent(next)}`;
+}
+
+export async function invitationAccount(code: string) {
+  const trimmed = code.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const found = await prisma.invitation.findUnique({ where: { codeHash: hashCode(trimmed) } });
+  if (!found || !usable(found, new Date())) {
+    return null;
+  }
+
+  const user = await prisma.user.findUnique({ where: { email: found.email }, select: { id: true } });
+  return { email: found.email, userExists: user !== null };
+}
+
 export async function acceptInvitation(access: Access, request: AcceptInvitationRequest) {
   const caller = access.requireHuman();
   const now = new Date();
@@ -249,7 +282,7 @@ export async function acceptInvitation(access: Access, request: AcceptInvitation
   }
 
   if (found.email !== caller.email) {
-    throw new ApiError(403, "forbidden", "This invite was sent to a different email.");
+    throw new ApiError(403, "forbidden", inviteEmailMismatch);
   }
 
   const memberRoleId = await roleId("MEMBER");

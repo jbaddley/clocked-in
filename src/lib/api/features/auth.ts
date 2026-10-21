@@ -100,8 +100,13 @@ async function issueSession(user: Account, db: Db = prisma) {
   return { accessToken, refreshToken, expiresAt: expiresAt.toISOString(), user: userJson(user) };
 }
 
-export async function signUp(request: SignUpRequest) {
-  if (!publicSignupEnabled()) {
+export async function signUp(request: SignUpRequest, options?: { invitationEmail?: string }) {
+  const invitationEmail = options?.invitationEmail;
+  if (invitationEmail && invitationEmail !== request.email) {
+    validation("Use the email address the invitation was sent to.");
+  }
+
+  if (!publicSignupEnabled() && !invitationEmail) {
     forbidden();
   }
 

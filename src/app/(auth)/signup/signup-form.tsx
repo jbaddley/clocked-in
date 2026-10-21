@@ -8,7 +8,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { Input } from "@/components/ui/input";
 import type { ActionResult } from "@/lib/types";
 
-export function SignupForm() {
+export function SignupForm({ email }: { email?: string }) {
   const next = useSearchParams().get("next") ?? "/dashboard";
   const [result, action] = useActionState((previous: ActionResult | null, formData: FormData) => {
     formData.set("timezone", Intl.DateTimeFormat().resolvedOptions().timeZone);
@@ -29,8 +29,21 @@ export function SignupForm() {
       <Field label="Username" htmlFor="username">
         <Input id="username" name="username" autoComplete="username" required className="h-10" />
       </Field>
-      <Field label="Email" htmlFor="email">
-        <Input id="email" name="email" type="email" autoComplete="email" required className="h-10" />
+      <Field
+        label="Email"
+        htmlFor="email"
+        hint={email ? "This invitation was sent to this email." : undefined}
+      >
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          required
+          defaultValue={email}
+          readOnly={Boolean(email)}
+          className={email ? "h-10 bg-muted" : "h-10"}
+        />
       </Field>
       <Field label="Password" htmlFor="password">
         <Input id="password" name="password" type="password" autoComplete="new-password" required className="h-10" />

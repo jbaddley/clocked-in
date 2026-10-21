@@ -153,6 +153,14 @@ Organization `{ "id", "name", "volunteerHourlyRate", "rateSourceYear", "defaultR
 - `GET /organizations/{id}/time-entries.csv` requires membership and returns the filtered Volunteer Log as CSV. See Reports below.
 - `GET /organizations/{id}/summary.csv` requires membership and returns the Summary sheet as CSV. See Reports below.
 
+### Import
+
+`POST /organizations/{id}/imports/people`, `POST /organizations/{id}/imports/departments`, and `POST /organizations/{id}/imports/projects` require an organization admin. Body `{ "rows": [ ... ] }` with at most 1000 rows. Blank rows are ignored. A row that fails validation is listed in `errors` and the rest continue. Existing records are skipped and not updated: people by email, departments by name, and projects by title. Names and titles match case-insensitively. A repeated key later in the same file is also skipped.
+
+Response `{ "created", "skipped", "errors": [{ "row", "message" }] }`. Row numbers start at 1 for the first submitted data row. People also return `passwords`: `{ "email", "username", "temporaryPassword" }` for accounts created by that request. New people must change that password the first time they sign in. `username` is derived from the email when it is omitted. `role` defaults to `VOLUNTEER`. `timezone` defaults to `UTC`. `primaryDepartment` and project `department` are existing department names; an unknown name is a row error and does not create a department. Project `accessType` defaults to `Public`, `projectType` to `Project`, and `isActive` to true. Department projects require `department`. Public and Private projects must leave it empty. The project owner is the caller.
+
+People fields: `email`, `firstName`, `lastName`, `displayName`, `timezone`, `phone`, `zipCode`, `notes`, `memberNumber`, `username`, `role`, `primaryDepartment`. Department field: `name`. Project fields: `title`, `description`, `projectType`, `accessType`, `department`, `startDate`, `endDate`, `isActive`. Dates are `yyyy-MM-dd` or `M/d/yyyy`. Booleans accept `true`, `false`, `yes`, and `no`.
+
 ### Project visibility
 
 Organization admins and SuperAdmins see every project in the organization. Other members see Public projects, projects they own or edit, and Department projects for departments they belong to. `GET /organizations/{id}/projects` returns only the projects the caller can see, sorted by `title`. `GET /projects/{id}` returns 403 for a project the caller cannot see. Projects can be changed by their owner, their editors, an organization admin, or, for a Department project, that department's admin.
