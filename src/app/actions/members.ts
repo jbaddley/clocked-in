@@ -15,6 +15,7 @@ import {
   parseUpdateOrgMembership,
   updateOrgMembership,
 } from "@/lib/api/features/memberships";
+import { ApiError } from "@/lib/api/errors";
 import { body, run } from "@/lib/server/action";
 import { requireAccess } from "@/lib/server/session";
 
@@ -69,6 +70,21 @@ export async function removeMemberAction(organizationId: string, membershipId: s
     const access = await requireAccess();
     await deleteOrgMembership(access, organizationId, membershipId);
   }, "Person removed from the organization.");
+}
+
+export async function removeMembersAction(organizationId: string, membershipIds: string[]) {
+  const ids = [...new Set(membershipIds)];
+  return run(async () => {
+    const access = await requireAccess();
+    for (const membershipId of ids) {
+      try {
+        await deleteOrgMembership(access, organizationId, membershipId);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) continue;
+        throw error;
+      }
+    }
+  }, ids.length === 1 ? "Person removed from the organization." : `${ids.length} people removed from the organization.`);
 }
 
 export async function inviteMemberAction(organizationId: string, email: string, role: string) {

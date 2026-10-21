@@ -1,6 +1,6 @@
 "use client";
 
-import { MoreVerticalIcon, PencilIcon } from "lucide-react";
+import { ChevronDownIcon, MoreVerticalIcon, PencilIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -8,6 +8,7 @@ import {
   inviteDepartmentMemberAction,
   inviteMemberAction,
   removeMemberAction,
+  removeMembersAction,
   revokeDepartmentInvitationAction,
   resendInvitationAction,
   revokeInvitationAction,
@@ -72,6 +73,20 @@ function personName(member: Membership) {
   if (display) return display;
   const full = [member.user.firstName, member.user.lastName].filter(Boolean).join(" ").trim();
   return full || member.user.username;
+}
+
+function removalDescription(people: Membership[], organizationName: string) {
+  const names = people.map(personName);
+  const who =
+    names.length === 0
+      ? "These people"
+      : names.length === 1
+        ? names[0]
+        : names.length === 2
+          ? `${names[0]} and ${names[1]}`
+          : `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
+  const history = names.length === 1 ? "Their account and time history stay." : "Their accounts and time history stay.";
+  return `${who} will lose access to ${organizationName}. ${history}`;
 }
 
 function departmentNames(member: Membership, departments: { id: string; name: string }[]) {
@@ -230,6 +245,7 @@ export function MembersView() {
   const [addOpen, setAddOpen] = useState(false);
   const [editMember, setEditMember] = useState<Membership | null>(null);
   const [removeMember, setRemoveMember] = useState<Membership | null>(null);
+  const [pendingRemoval, setPendingRemoval] = useState<Membership[] | null>(null);
   const [timeFor, setTimeFor] = useState<string[] | null>(null);
   const invalidate = [keys.members(organization.id)];
   const update = useActionMutation(
@@ -256,6 +272,16 @@ export function MembersView() {
     (membershipId: string) => removeMemberAction(organization.id, membershipId),
     { invalidate, onSuccess: () => setRemoveMember(null) },
   );
+  const removeMany = useActionMutation(
+    (membershipIds: string[]) => removeMembersAction(organization.id, membershipIds),
+    {
+      invalidate,
+      onSuccess: () => {
+        setPendingRemoval(null);
+        setSelected([]);
+      },
+    },
+  );
 
   const selectedIds = useMemo(() => new Set(selected), [selected]);
   const allSelected = members.length > 0 && members.every((member) => selectedIds.has(member.id));
@@ -271,22 +297,34 @@ export function MembersView() {
             Volunteers can only log their own time. Admins can log time for others. Removing someone leaves the account
             and their history.
           </CardDescription>
-          <CardAction className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              className="h-9"
-              disabled={selected.length === 0}
-              onClick={() =>
-                setTimeFor(members.filter((member) => selectedIds.has(member.id)).map((member) => member.userId))
-              }
-            >
-              Add time
-            </Button>
+          <CardAction className="flex flex-col items-end gap-2">
             {isAdmin ? (
               <Button type="button" className="h-9" onClick={() => setAddOpen(true)}>
                 Add person
               </Button>
+            ) : null}
+            {selected.length > 0 ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger render={<Button type="button" variant="outline" className="h-9" />}>
+                  Actions
+                  <ChevronDownIcon data-icon="inline-end" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() =>
+                      setTimeFor(members.filter((member) => selectedIds.has(member.id)).map((member) => member.userId))
+                    }
+                  >
+                    Add time
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => setPendingRemoval(members.filter((member) => selectedIds.has(member.id)))}
+                  >
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : null}
           </CardAction>
         </CardHeader>
@@ -449,6 +487,33 @@ export function MembersView() {
         userId={timeFor?.length === 1 ? timeFor[0] : undefined}
         userIds={timeFor && timeFor.length > 1 ? timeFor : undefined}
       />
+      <AlertDialog
+        open={Boolean(pendingRemoval)}
+        onOpenChange={(open) => {
+          if (!open && !removeMany.isPending) setPendingRemoval(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove from organization?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingRemoval ? removalDescription(pendingRemoval, organization.name) : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removeMany.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={removeMany.isPending || !pendingRemoval?.length}
+              onClick={() => {
+                if (pendingRemoval?.length) removeMany.mutate(pendingRemoval.map((member) => member.id));
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <AlertDialog open={Boolean(removeMember)} onOpenChange={(open) => { if (!open) setRemoveMember(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
