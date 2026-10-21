@@ -15,7 +15,7 @@ import { useReport } from "@/hooks/use-report";
 import { DashboardSkeleton } from "@/components/skeletons";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { formatCurrency, formatHours, formatNumber, toDateOnly } from "@/lib/format";
-import { canLogGroupTime } from "@/lib/roles";
+import { canLogGroupTime, canSeeReports } from "@/lib/roles";
 
 function weekStart() {
   const now = new Date();
@@ -24,7 +24,9 @@ function weekStart() {
 }
 
 export function DashboardView() {
-  const { viewer, groupDepartments } = useWorkspace();
+  const workspace = useWorkspace();
+  const { viewer, groupDepartments } = workspace;
+  const groupSessionsHref = canLogGroupTime(groupDepartments) ? "/log/group" : canSeeReports(workspace) ? "/reports" : null;
   const copy = useLabels();
   const week = weekStart();
   const { data: report, isPending } = useReport({});
@@ -44,12 +46,13 @@ export function DashboardView() {
           label="Volunteer hours"
           value={formatNumber(people.hours)}
           hint={
-            <Link
-              href={canLogGroupTime(groupDepartments) ? "/log/group" : "/reports"}
-              className="underline-offset-2 hover:underline"
-            >
-              {formatNumber(report.collective.hours)} more in group sessions
-            </Link>
+            groupSessionsHref ? (
+              <Link href={groupSessionsHref} className="underline-offset-2 hover:underline">
+                {formatNumber(report.collective.hours)} more in group sessions
+              </Link>
+            ) : (
+              `${formatNumber(report.collective.hours)} more in group sessions`
+            )
           }
         />
         <StatCard icon={HandCoinsIcon} tone="success" label="In-kind value" value={formatCurrency(people.inKind)} hint="At your volunteer rate" />

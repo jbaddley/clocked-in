@@ -149,7 +149,7 @@ export function AboutPrototypeView() {
           where: "Analyze · Reports",
           summary: `Summary, People, Group sessions, and Staff, with breakdowns by ${group}, ${category}, ${project}, person, and month. In-kind uses the rate stored on each entry, so a later rate change leaves grant history alone. Download Volunteer Log or Summary CSV.`,
           access: {
-            volunteer: "Own hours",
+            volunteer: "—",
             staff: "Organization, including the Staff tab",
             coordinator: `Their ${groups}`,
             admin: "Organization, staff, and group sessions",

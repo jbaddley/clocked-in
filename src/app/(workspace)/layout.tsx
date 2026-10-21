@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { OrganizationGate } from "@/components/organization-gate";
 import { AppShell, ShellSkeleton } from "@/components/shell/app-shell";
 import { WorkspaceProvider } from "@/hooks/use-workspace";
+import { canSeeReports } from "@/lib/roles";
 import { getWorkspace } from "@/lib/server/dal";
 
 export default function WorkspaceLayout({ children }: LayoutProps<"/">) {
@@ -23,6 +24,7 @@ async function Workspace({ children }: { children: React.ReactNode }) {
         isAdmin={workspace.isAdmin}
         isCoordinator={workspace.isCoordinator}
         isSuperAdmin={workspace.viewer.isSuperAdmin}
+        showReports={canSeeReports(workspace)}
         sidebarOpen={store.get("sidebar_state")?.value !== "false"}
       >
         <OrganizationGate>{children}</OrganizationGate>

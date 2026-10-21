@@ -1,5 +1,5 @@
 /**
- * Volunteer own Duration + Total, and Reports show only their hours.
+ * Volunteer own Duration + Total. Volunteers do not see Reports.
  * Local named seed only — skipped on staging/production.
  */
 import { expect, test } from "@playwright/test";
@@ -29,7 +29,7 @@ test.afterAll(async ({ request }) => {
   await deleteMembershipByEmail(request, person.email);
 });
 
-test("volunteer logs Duration and Total and sees only their hours on Reports", async ({ page, request }) => {
+test("volunteer logs Duration and Total and does not see Reports", async ({ page, request }) => {
   await createOrgPerson(request, person);
   const organization = await loginAs(page, person.username, person.password);
   await page.goto("/log/own");
@@ -47,10 +47,10 @@ test("volunteer logs Duration and Total and sees only their hours on Reports", a
   await page.getByRole("button", { name: "Save time" }).click();
   await expect(page.getByText("Time saved.")).toBeVisible();
 
+  await expect(page.getByRole("link", { name: "Reports" })).toHaveCount(0);
   await page.goto("/reports");
-  await expect(page.getByRole("heading", { name: "Reports" })).toBeVisible();
-  await expect(page.getByText("Total volunteer hours")).toBeVisible();
-  await expect(page.getByText("3")).toBeVisible();
+  await expect(page).toHaveURL(/\/dashboard/);
+  await expect(page.getByRole("heading", { name: "Reports" })).toHaveCount(0);
 
   const session = await loginBearer(page.request);
   const volunteerSession = await page.request.post("/auth/login", {

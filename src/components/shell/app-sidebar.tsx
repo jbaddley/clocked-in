@@ -32,6 +32,7 @@ type NavItem = {
   admin?: boolean;
   coordinator?: boolean;
   superAdmin?: boolean;
+  reports?: boolean;
 };
 
 const sections: { label: string; links: NavItem[] }[] = [
@@ -43,7 +44,7 @@ const sections: { label: string; links: NavItem[] }[] = [
       { href: "/entries", label: "Entries", icon: ListChecksIcon },
     ],
   },
-  { label: "Analyze", links: [{ href: "/reports", label: "Reports", icon: BarChart3Icon }] },
+  { label: "Analyze", links: [{ href: "/reports", label: "Reports", icon: BarChart3Icon, reports: true }] },
   {
     label: "Manage",
     links: [
@@ -59,11 +60,13 @@ export function AppSidebar({
   isAdmin,
   isCoordinator = false,
   isSuperAdmin,
+  showReports,
 }: {
   organization: Organization | null;
   isAdmin: boolean;
   isCoordinator?: boolean;
   isSuperAdmin: boolean;
+  showReports: boolean;
 }) {
   const markUrl = brandAssetSrc("mark", organization?.markUrl ?? null);
   const wordmarkUrl = wordmarkSrc(organization, "dark");
@@ -100,7 +103,9 @@ export function AppSidebar({
             ...section,
             links: section.links.filter(
               (link) =>
-                (!link.admin || isAdmin || (link.coordinator && isCoordinator)) && (!link.superAdmin || isSuperAdmin),
+                (!link.admin || isAdmin || (link.coordinator && isCoordinator)) &&
+                (!link.superAdmin || isSuperAdmin) &&
+                (!link.reports || showReports),
             ),
           }))
           .filter((section) => section.links.length > 0)

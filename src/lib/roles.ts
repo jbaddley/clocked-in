@@ -11,3 +11,7 @@ export function isCoordinator(groupDepartments: GroupDepartments) {
 export function canLogMemberTime(isAdmin: boolean, groupDepartments: GroupDepartments) {
   return isAdmin || isCoordinator(groupDepartments);
 }
+
+export function canSeeReports(input: { role: string | null; isAdmin: boolean; isCoordinator: boolean }) {
+  return input.isAdmin || input.isCoordinator || input.role === "MEMBER";
+}
