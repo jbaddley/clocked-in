@@ -1,5 +1,5 @@
 import "server-only";
-import { BlobNotFoundError, del, get, put } from "@vercel/blob";
+import { BlobAccessError, BlobError, BlobNotFoundError, del, get, put } from "@vercel/blob";
 import sharp from "sharp";
 import { fail, validation } from "@/lib/api/errors";
 import { brandField, isVercelBlobUrl, type BrandKind } from "@/lib/brand";
@@ -25,6 +25,14 @@ function blobAccess(): "public" | "private" {
 
   // Production's store is public. Local and staging stores are private.
   return process.env.VERCEL_ENV === "production" ? "public" : "private";
+}
+
+function isMissingBlob(error: unknown) {
+  if (error instanceof BlobNotFoundError || error instanceof BlobAccessError) {
+    return true;
+  }
+
+  return error instanceof BlobError && /\b(401|403)\b/.test(error.message);
 }
 
 function pathnameFor(organizationId: string, kind: BrandKind) {
@@ -88,7 +96,7 @@ export async function readBrandAsset(storedUrl: string) {
   try {
     return await get(storedUrl, { access: blobAccess(), token: blobToken(), useCache: false });
   } catch (error) {
-    if (error instanceof BlobNotFoundError) {
+    if (isMissingBlob(error)) {
       return null;
     }
 
@@ -104,7 +112,7 @@ export async function deleteBrandAsset(storedUrl: string | null) {
   try {
     await del(storedUrl, { token: blobToken() });
   } catch (error) {
-    if (error instanceof BlobNotFoundError) {
+    if (isMissingBlob(error)) {
       return;
     }
 
