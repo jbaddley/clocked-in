@@ -1,8 +1,10 @@
 import { emptyNotFound } from "@/lib/api/guid";
 import { respond } from "@/lib/api/respond";
 import { isBrandKind, isVercelBlobUrl } from "@/lib/brand";
+import { getAuthBrand } from "@/lib/server/auth-brand";
 import { encodePng, readBrandAsset, storedBrandUrl } from "@/lib/server/brand-assets";
 import { getCurrentOrganization } from "@/lib/server/dal";
+import { getAccess } from "@/lib/server/session";
 
 export async function GET(request: Request, context: { params: Promise<{ kind: string }> }) {
   return respond(async () => {
@@ -11,7 +13,9 @@ export async function GET(request: Request, context: { params: Promise<{ kind: s
       return emptyNotFound();
     }
 
-    const organization = await getCurrentOrganization();
+    // The login screen paints these marks with no session. Signed-in requests
+    // stay limited to an organization the caller belongs to.
+    const organization = (await getAccess()) ? await getCurrentOrganization() : await getAuthBrand();
     const storedUrl = organization ? storedBrandUrl(organization, kind) : null;
     if (!organization || !storedUrl) {
       return emptyNotFound();
