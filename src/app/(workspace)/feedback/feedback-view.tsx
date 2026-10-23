@@ -1,26 +1,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { updateFeedbackAction } from "@/app/actions/feedback";
 import { DataTable, type Column } from "@/components/data-table";
-import { EntityFormDialog } from "@/components/entity-forms/entity-form-dialog";
-import { Field, FormMessage } from "@/components/field";
 import { PageHeader } from "@/components/page-header";
 import { SelectField } from "@/components/select-field";
-import { SubmitButton } from "@/components/submit-button";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 import { PageSkeleton } from "@/components/skeletons";
-import { useActionMutation } from "@/hooks/use-action-mutation";
 import { useClientRedirect } from "@/hooks/use-client-redirect";
 import { useWorkspace } from "@/hooks/use-workspace";
-import type { FeedbackStatus } from "@/lib/api/json";
 import { feedbackAreas, feedbackLabel, feedbackPriorities, feedbackStatuses, feedbackTypes } from "@/lib/feedback";
-import { keys, feedbackQuery } from "@/lib/queries";
-import type { ActionResult, Feedback } from "@/lib/types";
+import { feedbackQuery } from "@/lib/queries";
+import type { Feedback } from "@/lib/types";
 
 function personName(row: Feedback) {
   return row.user.displayName || row.user.username;
@@ -55,6 +49,7 @@ export function FeedbackView() {
 }
 
 function FeedbackTable({ active }: { active: boolean }) {
+  const router = useRouter();
   const { data, isPending } = useQuery(feedbackQuery(active));
   const [search, setSearch] = useState("");
   const [type, setType] = useState("all");
@@ -63,7 +58,6 @@ function FeedbackTable({ active }: { active: boolean }) {
   const [status, setStatus] = useState("all");
   const [sortKey, setSortKey] = useState<"createdAt" | "title" | "priority" | "status">("createdAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const [selected, setSelected] = useState<Feedback | null>(null);
 
   const rows = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -97,13 +91,28 @@ function FeedbackTable({ active }: { active: boolean }) {
     {
       key: "title",
       header: (
-        <button type='button' className='uppercase' onClick={() => toggleSort("title")}>
+        <button
+          type='button'
+          className='uppercase'
+          onClick={(event) => {
+            event.stopPropagation();
+            toggleSort("title");
+          }}
+        >
           Title
         </button>
       ),
       primary: true,
       wrap: true,
-      cell: (row) => row.title,
+      cell: (row) => (
+        <Link
+          href={`/feedback/${row.id}`}
+          className='font-medium underline-offset-4 hover:underline'
+          onClick={(event) => event.stopPropagation()}
+        >
+          {row.title}
+        </Link>
+      ),
     },
     {
       key: "type",
@@ -113,7 +122,14 @@ function FeedbackTable({ active }: { active: boolean }) {
     {
       key: "priority",
       header: (
-        <button type='button' className='uppercase' onClick={() => toggleSort("priority")}>
+        <button
+          type='button'
+          className='uppercase'
+          onClick={(event) => {
+            event.stopPropagation();
+            toggleSort("priority");
+          }}
+        >
           Priority
         </button>
       ),
@@ -127,7 +143,14 @@ function FeedbackTable({ active }: { active: boolean }) {
     {
       key: "status",
       header: (
-        <button type='button' className='uppercase' onClick={() => toggleSort("status")}>
+        <button
+          type='button'
+          className='uppercase'
+          onClick={(event) => {
+            event.stopPropagation();
+            toggleSort("status");
+          }}
+        >
           Status
         </button>
       ),
@@ -153,6 +176,7 @@ function FeedbackTable({ active }: { active: boolean }) {
             target='_blank'
             rel='noreferrer'
             className='text-primary underline-offset-4 hover:underline'
+            onClick={(event) => event.stopPropagation()}
           >
             {row.githubIssueNumber ? `#${row.githubIssueNumber}` : "Open"}
           </a>
@@ -163,25 +187,19 @@ function FeedbackTable({ active }: { active: boolean }) {
     {
       key: "createdAt",
       header: (
-        <button type='button' className='uppercase' onClick={() => toggleSort("createdAt")}>
+        <button
+          type='button'
+          className='uppercase'
+          onClick={(event) => {
+            event.stopPropagation();
+            toggleSort("createdAt");
+          }}
+        >
           Received
         </button>
       ),
       cell: (row) => formatWhen(row.createdAt),
     },
-    ...(active
-      ? [
-          {
-            key: "actions",
-            header: "Actions",
-            cell: (row: Feedback) => (
-              <Button size='sm' variant='outline' onClick={() => setSelected(row)}>
-                Update
-              </Button>
-            ),
-          } satisfies Column<Feedback>,
-        ]
-      : []),
   ];
 
   return (
@@ -217,95 +235,15 @@ function FeedbackTable({ active }: { active: boolean }) {
       {isPending ? (
         <PageSkeleton rows={8} />
       ) : rows.length ? (
-        <DataTable rows={rows} columns={columns} rowKey={(row) => row.id} />
+        <DataTable
+          rows={rows}
+          columns={columns}
+          rowKey={(row) => row.id}
+          onRowClick={(row) => router.push(`/feedback/${row.id}`)}
+        />
       ) : (
         <p className='text-sm text-muted-foreground'>No feedback in this list.</p>
       )}
-      <UpdateFeedbackDialog feedback={selected} onOpenChange={(open) => !open && setSelected(null)} />
     </div>
-  );
-}
-
-function UpdateFeedbackDialog({
-  feedback,
-  onOpenChange,
-}: {
-  feedback: Feedback | null;
-  onOpenChange: (open: boolean) => void;
-}) {
-  return (
-    <EntityFormDialog
-      open={Boolean(feedback)}
-      onOpenChange={onOpenChange}
-      title='Update feedback'
-      description={feedback?.title}
-      className='sm:max-w-lg'
-    >
-      {feedback ? <UpdateFeedbackForm feedback={feedback} onSaved={() => onOpenChange(false)} /> : null}
-    </EntityFormDialog>
-  );
-}
-
-function UpdateFeedbackForm({ feedback, onSaved }: { feedback: Feedback; onSaved: () => void }) {
-  const [status, setStatus] = useState(feedback.status);
-  const update = useActionMutation(updateFeedbackAction, {
-    invalidate: [keys.feedback(true), keys.feedback(false)],
-    onSuccess: onSaved,
-    errorToast: false,
-  });
-
-  return (
-    <form
-      className='grid gap-4'
-      onSubmit={(event) => {
-        event.preventDefault();
-        const form = new FormData(event.currentTarget);
-        update.mutate({
-          id: feedback.id,
-          status,
-          description: String(form.get("description") ?? ""),
-          ticketUrl: String(form.get("ticketUrl") ?? "").trim() || undefined,
-        });
-      }}
-    >
-      <p className='text-sm text-muted-foreground'>{feedback.description}</p>
-      {feedback.ticketUrl ? (
-        <p className='text-sm'>
-          GitHub issue:{" "}
-          <a
-            href={feedback.ticketUrl}
-            target='_blank'
-            rel='noreferrer'
-            className='text-primary underline-offset-4 hover:underline'
-          >
-            {feedback.githubIssueNumber ? `#${feedback.githubIssueNumber}` : feedback.ticketUrl}
-          </a>
-        </p>
-      ) : null}
-      <Field label='Status' htmlFor='feedback-status'>
-        <SelectField
-          id='feedback-status'
-          value={status}
-          onValueChange={(value) => setStatus(value as FeedbackStatus)}
-          options={feedbackStatuses}
-        />
-      </Field>
-      <Field label='Note' htmlFor='feedback-note'>
-        <Textarea id='feedback-note' name='description' required maxLength={2000} rows={4} />
-      </Field>
-      <Field
-        label='Ticket URL'
-        htmlFor='feedback-ticket'
-        hint='Optional extra ticket URL. GitHub issues are created automatically.'
-      >
-        <Input id='feedback-ticket' name='ticketUrl' type='url' className='h-9' />
-      </Field>
-      <div className='flex justify-end gap-2'>
-        <FormMessage
-          result={update.error ? ({ ok: false, error: update.error.message } satisfies ActionResult) : null}
-        />
-        <SubmitButton pending={update.isPending}>Save</SubmitButton>
-      </div>
-    </form>
   );
 }

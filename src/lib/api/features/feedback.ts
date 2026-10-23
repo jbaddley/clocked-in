@@ -166,10 +166,48 @@ export function parseUpdateFeedback(body: Body): UpdateFeedbackRequest {
   };
 }
 
+export type EditFeedbackRequest = {
+  type: FeedbackType;
+  priority: FeedbackPriority;
+  area: FeedbackArea;
+  title: string;
+  description: string;
+};
+
+export function parseEditFeedback(body: Body): EditFeedbackRequest {
+  return {
+    type: normalizeFeedbackType(requireString(body, "type")),
+    priority: normalizeFeedbackPriority(requireString(body, "priority")),
+    area: normalizeFeedbackArea(requireString(body, "area")),
+    title: feedbackTitle(requireString(body, "title")),
+    description: requiredLongText(body, "description", 4000),
+  };
+}
+
 function requireSuperAdmin(access: Access) {
-  if (!access.isSuperAdmin) {
+  if (access.isApiKey || !access.isSuperAdmin) {
     forbidden();
   }
+}
+
+async function requireFeedbackEditor(
+  access: Access,
+  feedback: { userId: string; organizationId: string | null },
+) {
+  if (access.isApiKey) {
+    forbidden();
+  }
+
+  const caller = access.requireHuman();
+  if (access.isSuperAdmin || caller.id === feedback.userId) {
+    return;
+  }
+
+  if (feedback.organizationId && (await access.isOrgAdmin(feedback.organizationId))) {
+    return;
+  }
+
+  forbidden();
 }
 
 function firstName(user: PersonRow) {
@@ -214,7 +252,7 @@ async function tryOpenGithubIssue(feedback: FeedbackRow) {
     submitterName: displayName(feedback.user),
     submitterUsername: feedback.user.username,
     organizationName: feedback.organization?.name ?? null,
-    adminUrl: appUrl("/feedback"),
+    adminUrl: appUrl(`/feedback/${feedback.id}`),
   });
   if (!issue) {
     return feedback;
@@ -347,13 +385,37 @@ export async function listFeedback(access: Access, params: URLSearchParams) {
 }
 
 export async function getFeedback(access: Access, feedbackId: string) {
-  requireSuperAdmin(access);
   const feedback = await prisma.feedback.findUnique({ where: { id: feedbackId }, include: detailInclude });
   if (!feedback) {
     notFound();
   }
 
+  await requireFeedbackEditor(access, feedback);
   return feedbackJson(feedback, true);
+}
+
+export async function editFeedback(access: Access, feedbackId: string, request: EditFeedbackRequest) {
+  const existing = await prisma.feedback.findUnique({ where: { id: feedbackId } });
+  if (!existing) {
+    notFound();
+  }
+
+  await requireFeedbackEditor(access, existing);
+  const updated = await guard(
+    prisma.feedback.update({
+      where: { id: feedbackId },
+      data: {
+        type: request.type,
+        priority: request.priority,
+        area: request.area,
+        title: request.title,
+        description: request.description,
+        updatedAt: utcNow(),
+      },
+      include: detailInclude,
+    }),
+  );
+  return feedbackJson(updated, true);
 }
 
 export async function updateFeedback(access: Access, feedbackId: string, request: UpdateFeedbackRequest) {

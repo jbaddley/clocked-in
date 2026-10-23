@@ -16,11 +16,13 @@ export function DataTable<T>({
   rows,
   columns,
   rowKey,
+  onRowClick,
   className,
 }: {
   rows: T[];
   columns: Column<T>[];
   rowKey: (row: T) => string;
+  onRowClick?: (row: T) => void;
   className?: string;
 }) {
   const primary = columns.find((column) => column.primary) ?? columns[0];
@@ -53,7 +55,11 @@ export function DataTable<T>({
           </TableHeader>
           <TableBody>
             {rows.map((row) => (
-              <TableRow key={rowKey(row)}>
+              <TableRow
+                key={rowKey(row)}
+                className={onRowClick ? "cursor-pointer" : undefined}
+                onClick={onRowClick ? () => onRowClick(row) : undefined}
+              >
                 {columns.map((column) => (
                   <TableCell
                     key={column.key}
@@ -73,7 +79,11 @@ export function DataTable<T>({
       </div>
       <ul className="divide-y md:hidden">
         {rows.map((row) => (
-          <li key={rowKey(row)} className="flex flex-col gap-2 py-3">
+          <li
+            key={rowKey(row)}
+            className={cn("flex flex-col gap-2 py-3", onRowClick && "cursor-pointer")}
+            onClick={onRowClick ? () => onRowClick(row) : undefined}
+          >
             <div className="font-medium">{primary.cell(row)}</div>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
               {rest.map((column) => (

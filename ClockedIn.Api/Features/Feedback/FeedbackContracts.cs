@@ -109,6 +109,21 @@ public sealed record CreateFeedbackRequest(
         Fields.OptionalGuid(body, "organizationId"));
 }
 
+public sealed record EditFeedbackRequest(
+    FeedbackType Type,
+    FeedbackPriority Priority,
+    FeedbackArea Area,
+    string Title,
+    string Description)
+{
+    public static EditFeedbackRequest Parse(JsonObject body) => new(
+        Fields.NormalizeFeedbackType(Fields.RequiredString(body, "type")),
+        Fields.NormalizeFeedbackPriority(Fields.RequiredString(body, "priority")),
+        Fields.NormalizeFeedbackArea(Fields.RequiredString(body, "area")),
+        Fields.FeedbackTitle(Fields.RequiredString(body, "title")),
+        Fields.RequiredLongText(body, "description", 4000));
+}
+
 public sealed record UpdateFeedbackRequest(FeedbackStatus Status, string Description, string? TicketUrl)
 {
     public static async ValueTask<UpdateFeedbackRequest?> BindAsync(HttpContext context) => Parse(await Body.Read(context));

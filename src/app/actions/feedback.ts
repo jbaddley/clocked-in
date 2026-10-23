@@ -2,7 +2,9 @@
 
 import {
   createFeedback,
+  editFeedback,
   parseCreateFeedback,
+  parseEditFeedback,
   parseUpdateFeedback,
   updateFeedback,
 } from "@/lib/api/features/feedback";
@@ -30,6 +32,30 @@ export async function createFeedbackAction(formData: FormData): Promise<ActionRe
       }),
     );
   }, "Thanks for the feedback.");
+}
+
+export async function editFeedbackAction(input: {
+  id: string;
+  type: string;
+  priority: string;
+  area: string;
+  title: string;
+  description: string;
+}): Promise<ActionResult> {
+  return run(async () => {
+    const access = await requireAccess();
+    return editFeedback(
+      access,
+      input.id,
+      parseEditFeedback({
+        type: input.type,
+        priority: input.priority,
+        area: input.area,
+        title: input.title,
+        description: input.description,
+      }),
+    );
+  }, "Feedback saved.");
 }
 
 export async function updateFeedbackAction(input: {

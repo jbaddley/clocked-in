@@ -42,6 +42,7 @@ export const keys = {
   openPunch: (userId: string) => ["user", userId, "open-punch"] as const,
   me: () => ["user", "me"] as const,
   feedback: (active?: boolean) => (active === undefined ? (["feedback"] as const) : (["feedback", active] as const)),
+  feedbackItem: (id: string) => ["feedback", "item", id] as const,
 };
 
 export const lookupStaleTime = 5 * 60 * 1000;
@@ -168,6 +169,13 @@ export function feedbackQuery(active: boolean) {
     queryKey: keys.feedback(active),
     queryFn: ({ signal }) =>
       fetchJson<Paged<Feedback>>(`/feedback${query({ active: String(active), limit: 100 })}`, signal),
+  });
+}
+
+export function feedbackItemQuery(id: string) {
+  return queryOptions({
+    queryKey: keys.feedbackItem(id),
+    queryFn: ({ signal }) => fetchJson<Feedback>(`/feedback/${id}`, signal),
   });
 }
 

@@ -127,8 +127,23 @@ public sealed class FeedbackService(
 
     public async Task<FeedbackDto> Get(Guid feedbackId, CancellationToken cancellationToken)
     {
-        RequireSuperAdmin();
-        return FeedbackDto.From(await Load(feedbackId, cancellationToken), includeActions: true);
+        var feedback = await Load(feedbackId, cancellationToken);
+        await RequireEditor(feedback, cancellationToken);
+        return FeedbackDto.From(feedback, includeActions: true);
+    }
+
+    public async Task<FeedbackDto> Edit(Guid feedbackId, EditFeedbackRequest request, CancellationToken cancellationToken)
+    {
+        var feedback = await Load(feedbackId, cancellationToken);
+        await RequireEditor(feedback, cancellationToken);
+        feedback.Type = request.Type;
+        feedback.Priority = request.Priority;
+        feedback.Area = request.Area;
+        feedback.Title = request.Title;
+        feedback.Description = request.Description;
+        feedback.UpdatedAt = time.UtcNowToSecond();
+        await db.SaveOrThrowAsync(cancellationToken);
+        return FeedbackDto.From(feedback, includeActions: true);
     }
 
     public async Task<FeedbackDto> Update(Guid feedbackId, UpdateFeedbackRequest request, CancellationToken cancellationToken)
@@ -190,10 +205,31 @@ public sealed class FeedbackService(
 
     private void RequireSuperAdmin()
     {
-        if (!access.IsSuperAdmin)
+        if (access.IsApiKey || !access.IsSuperAdmin)
         {
             throw ApiException.Forbidden();
         }
+    }
+
+    private async Task RequireEditor(Entities.Feedback feedback, CancellationToken cancellationToken)
+    {
+        if (access.IsApiKey)
+        {
+            throw ApiException.Forbidden();
+        }
+
+        access.RequireHuman();
+        if (access.IsSuperAdmin || access.ActorUserId == feedback.UserId)
+        {
+            return;
+        }
+
+        if (feedback.OrganizationId is { } organizationId && await access.IsOrgAdmin(organizationId, cancellationToken))
+        {
+            return;
+        }
+
+        throw ApiException.Forbidden();
     }
 
     private async Task NotifyCreated(Entities.Feedback feedback, CancellationToken cancellationToken)
@@ -278,7 +314,7 @@ public sealed class FeedbackService(
                     DisplayName(feedback.User),
                     feedback.User.Username,
                     feedback.Organization?.Name,
-                    emailOptions.Value.Link("/feedback")),
+                    emailOptions.Value.Link($"/feedback/{feedback.Id}")),
                 cancellationToken);
             if (issue is null)
             {

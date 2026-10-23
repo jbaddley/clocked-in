@@ -137,6 +137,7 @@ describe("feedback", suite, () => {
     assert.equal(created.ticketUrl, issue.html_url);
     assert.equal(issue.state, "open");
     assert.ok(issue.labels.includes("Bug"));
+    assert.match(issue.body, new RegExp(`\\*\\*VolunTime:\\*\\* https?://\\S+/feedback/${created.id}(?:\\s|$)`));
     ctx.githubIssue = issue;
 
     const memberList = await callApi("/feedback", { token: ctx.member.accessToken });
@@ -153,7 +154,12 @@ describe("feedback", suite, () => {
     assert.equal(detail.status, 200);
     assertFeedback(detail.json, { title: body.title, status: "Pending" });
     const memberGet = await callApi(`/feedback/${created.id}`, { token: ctx.member.accessToken });
-    assertError(memberGet, 403, "forbidden", "Forbidden.");
+    assert.equal(memberGet.status, 200);
+    assertFeedback(memberGet.json, { title: body.title, status: "Pending" });
+    const adminGet = await callApi(`/feedback/${created.id}`, { token: ctx.admin.accessToken });
+    assert.equal(adminGet.status, 200);
+    const notifyGet = await callApi(`/feedback/${created.id}`, { token: ctx.notify.accessToken });
+    assertError(notifyGet, 403, "forbidden", "Forbidden.");
     const unauthenticated = await callApi("/feedback");
     assertError(unauthenticated, 401, "unauthorized", "Authentication is required.");
   });
@@ -239,6 +245,47 @@ describe("feedback", suite, () => {
   });
 
   test("SuperAdmins update status, write an action, and email on completed statuses", async () => {
+    const edited = await callApi(`/feedback/${ctx.item.id}`, {
+      method: "PATCH",
+      token: ctx.member.accessToken,
+      body: {
+        type: "Bug",
+        priority: "Low",
+        area: "Dashboard",
+        title: ctx.item.title,
+        description: "The timer still did not stop.",
+      },
+    });
+    assert.equal(edited.status, 200);
+    assert.equal(edited.json.description, "The timer still did not stop.");
+    assert.equal(edited.json.priority, "Low");
+    assert.equal(edited.json.area, "Dashboard");
+    assert.equal(edited.json.status, "Pending");
+    const notifyEdit = await callApi(`/feedback/${ctx.item.id}`, {
+      method: "PATCH",
+      token: ctx.notify.accessToken,
+      body: {
+        type: "Bug",
+        priority: "High",
+        area: "LogTime",
+        title: ctx.item.title,
+        description: "A member who did not send this cannot change it.",
+      },
+    });
+    assertError(notifyEdit, 403, "forbidden", "Forbidden.");
+    const adminEdit = await callApi(`/feedback/${ctx.item.id}`, {
+      method: "PATCH",
+      token: ctx.admin.accessToken,
+      body: {
+        type: "Bug",
+        priority: "High",
+        area: "LogTime",
+        title: ctx.item.title,
+        description: "The timer did not stop when I clocked out.",
+      },
+    });
+    assert.equal(adminEdit.status, 200);
+    assert.equal(adminEdit.json.description, "The timer did not stop when I clocked out.");
     const forbidden = await callApi(`/feedback/${ctx.item.id}`, {
       method: "PATCH",
       token: ctx.admin.accessToken,
