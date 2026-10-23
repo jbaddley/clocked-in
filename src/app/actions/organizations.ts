@@ -67,6 +67,8 @@ export async function updateOrganizationSettingsAction(
       parseUpdateOrganization({
         name: text(formData, "name"),
         rateSourceYear: Number(text(formData, "rateSourceYear")),
+        description: text(formData, "description"),
+        websiteUrl: text(formData, "websiteUrl"),
         preferences,
       }),
     );

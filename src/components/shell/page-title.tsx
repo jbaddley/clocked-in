@@ -6,8 +6,8 @@ import { viewTitle } from "@/lib/view-title";
 
 export function HeaderTitle() {
   const pathname = usePathname();
-  const { viewer } = useWorkspace();
-  const title = viewTitle(pathname, viewer.name);
+  const { viewer, organization } = useWorkspace();
+  const title = viewTitle(pathname, viewer.name, organization?.name);
   if (!title) return null;
 
   return (

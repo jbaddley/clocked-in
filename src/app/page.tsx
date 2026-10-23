@@ -1,20 +1,46 @@
+import { Suspense } from "react";
 import Link from "next/link";
+import { OrganizationHome } from "@/components/organization-home";
+import { ShellSkeleton } from "@/components/shell/app-shell";
+import { WorkspaceShell } from "@/components/shell/workspace-shell";
 import { buttonVariants } from "@/components/ui/button";
+import { getAccess } from "@/lib/server/session";
 import { cn } from "cn";
 
 export default function Home() {
   return (
-    <main className='mx-auto flex w-full max-w-lg flex-1 flex-col justify-center gap-6 px-6'>
-      <p className='text-xs font-semibold uppercase tracking-widest'>VolunTime</p>
-      <h1 className='text-4xl font-semibold tracking-tight'>Track volunteer time</h1>
-      <p className='text-muted-foreground'>
+    <Suspense fallback={<ShellSkeleton />}>
+      <HomePage />
+    </Suspense>
+  );
+}
+
+async function HomePage() {
+  const access = await getAccess();
+  if (!access) {
+    return <MarketingHome />;
+  }
+
+  return (
+    <WorkspaceShell>
+      <OrganizationHome />
+    </WorkspaceShell>
+  );
+}
+
+function MarketingHome() {
+  return (
+    <main className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center gap-6 px-6">
+      <p className="text-xs font-semibold uppercase tracking-widest">VolunTime</p>
+      <h1 className="text-4xl font-semibold tracking-tight">Track volunteer time</h1>
+      <p className="text-muted-foreground">
         Log hours, value them for grants, and let each organization bring its own colors and marks.
       </p>
-      <div className='flex gap-3'>
-        <Link href='/login' className={cn(buttonVariants())}>
+      <div className="flex gap-3">
+        <Link href="/login" className={cn(buttonVariants())}>
           Sign in
         </Link>
-        <Link href='/signup' className={cn(buttonVariants({ variant: "outline" }))}>
+        <Link href="/signup" className={cn(buttonVariants({ variant: "outline" }))}>
           Create an account
         </Link>
       </div>

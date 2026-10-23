@@ -24,7 +24,7 @@ export function registerPeopleTools(server: McpServer) {
   tool(
     server,
     "create_member",
-    "Create a membership (existing or new person). Pass JSON with email, role, firstName, lastName, and optional username, password, departmentIds.",
+    "Create a membership (existing or new person). Pass JSON with email, role, firstName, lastName, and optional username, password, departmentIds, avatarUrl, description, orgUserTitle, and orgUserDescription.",
     { organizationId: guid, body: z.string() },
     ({ organizationId, body }) => createOrgMembership(mcpAccess(), organizationId, parseCreateOrgMembership(jsonBody(body))),
   );

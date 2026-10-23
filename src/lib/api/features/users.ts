@@ -40,6 +40,8 @@ export function userJson(user: Account, includePrivate = true) {
           zipCode: includePrivate ? user.profile.zipCode : null,
           notes: includePrivate ? user.profile.notes : null,
           memberNumber: user.profile.memberNumber,
+          avatarUrl: user.profile.avatarUrl,
+          description: user.profile.description,
         }
       : null,
   };
@@ -57,6 +59,8 @@ export type UpdateUserRequest = {
   phone: Optional<string | null>;
   zipCode: Optional<string | null>;
   notes: Optional<string | null>;
+  avatarUrl: Optional<string | null>;
+  description: Optional<string | null>;
   isSuperAdmin: Optional<boolean>;
 };
 
@@ -88,6 +92,8 @@ export function parseUpdateUser(body: Body): UpdateUserRequest {
     phone: optional(body, "phone", (b, k) => limited(b, k, 40, "phone is required.")),
     zipCode: optional(body, "zipCode", (b, k) => limited(b, k, 20, "zipCode must be 20 characters or fewer.")),
     notes: optional(body, "notes", (b, k) => limited(b, k, 2000, "notes must be 2000 characters or fewer.")),
+    avatarUrl: optional(body, "avatarUrl", (b, k) => limited(b, k, 2000, "avatarUrl must be a URL.")),
+    description: optional(body, "description", (b, k) => limited(b, k, 8000, "description must be 8000 characters or fewer.")),
     isSuperAdmin: optional(body, "isSuperAdmin", requireBool),
   };
 }
@@ -196,6 +202,8 @@ export async function updateUser(access: Access, userId: string, request: Update
             phone: request.phone.set ? request.phone.value : undefined,
             zipCode: request.zipCode.set ? request.zipCode.value : undefined,
             notes: request.notes.set ? request.notes.value : undefined,
+            avatarUrl: request.avatarUrl.set ? request.avatarUrl.value : undefined,
+            description: request.description.set ? request.description.value : undefined,
           },
         },
       },

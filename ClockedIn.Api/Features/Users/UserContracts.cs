@@ -13,7 +13,9 @@ public sealed record ProfileDto(
     string? Phone,
     string? ZipCode,
     string? Notes,
-    string? MemberNumber);
+    string? MemberNumber,
+    string? AvatarUrl,
+    string? Description);
 
 public sealed record UserDto(
     Guid Id,
@@ -44,7 +46,9 @@ public sealed record UserDto(
                 includePrivate ? profile.Phone : null,
                 includePrivate ? profile.ZipCode : null,
                 includePrivate ? profile.Notes : null,
-                profile.MemberNumber));
+                profile.MemberNumber,
+                profile.AvatarUrl,
+                profile.Description));
 }
 
 public sealed record UpdateUserRequest(
@@ -59,6 +63,8 @@ public sealed record UpdateUserRequest(
     Optional<string?> Phone,
     Optional<string?> ZipCode,
     Optional<string?> Notes,
+    Optional<string?> AvatarUrl,
+    Optional<string?> Description,
     Optional<bool> IsSuperAdmin)
 {
     public static async ValueTask<UpdateUserRequest?> BindAsync(HttpContext context) => Parse(await Body.Read(context));
@@ -90,6 +96,8 @@ public sealed record UpdateUserRequest(
         var phone = Optional.Read(body, "phone", (b, k) => Limited(b, k, 40, "phone is required."));
         var zipCode = Optional.Read(body, "zipCode", (b, k) => Limited(b, k, 20, "zipCode must be 20 characters or fewer."));
         var notes = Optional.Read(body, "notes", (b, k) => Limited(b, k, 2000, "notes must be 2000 characters or fewer."));
+        var avatarUrl = Optional.Read(body, "avatarUrl", (b, k) => Limited(b, k, 2000, "avatarUrl must be a URL."));
+        var description = Optional.Read(body, "description", (b, k) => Limited(b, k, 8000, "description must be 8000 characters or fewer."));
         var isSuperAdmin = Optional.Read(body, "isSuperAdmin", Fields.RequiredBool);
         return new UpdateUserRequest(
             username,
@@ -103,6 +111,8 @@ public sealed record UpdateUserRequest(
             phone,
             zipCode,
             notes,
+            avatarUrl,
+            description,
             isSuperAdmin);
     }
 

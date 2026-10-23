@@ -39,6 +39,8 @@ public sealed record MembershipDto(
     bool? IsActive,
     Guid? PrimaryDepartmentId,
     Guid[] DepartmentIds,
+    string? OrgUserTitle,
+    string? OrgUserDescription,
     MemberUserDto User)
 {
     public static MembershipDto From(OrganizationMembership membership, IEnumerable<Guid> departmentIds) => new(
@@ -53,6 +55,8 @@ public sealed record MembershipDto(
         membership.IsActive,
         membership.PrimaryDepartmentId,
         departmentIds.Order().ToArray(),
+        membership.OrgUserTitle,
+        membership.OrgUserDescription,
         MemberUserDto.From(membership.User));
 
     public static MembershipDto From(DepartmentMembership membership, Guid organizationId) => new(
@@ -67,6 +71,8 @@ public sealed record MembershipDto(
         null,
         null,
         [membership.DepartmentId],
+        null,
+        null,
         MemberUserDto.From(membership.User));
 }
 
@@ -81,6 +87,10 @@ public sealed record CreateOrgMembershipRequest(
     string? Phone,
     string? ZipCode,
     string? Notes,
+    string? AvatarUrl,
+    string? Description,
+    string? OrgUserTitle,
+    string? OrgUserDescription,
     RoleCode Role,
     List<Guid> DepartmentIds)
 {
@@ -107,9 +117,17 @@ public sealed record CreateOrgMembershipRequest(
         var phone = Fields.Has(body, "phone") ? UpdateUserRequest.Limited(body, "phone", 40, "phone is required.") : null;
         var zipCode = Fields.Has(body, "zipCode") ? UpdateUserRequest.Limited(body, "zipCode", 20, "zipCode must be 20 characters or fewer.") : null;
         var notes = Fields.Has(body, "notes") ? UpdateUserRequest.Limited(body, "notes", 2000, "notes must be 2000 characters or fewer.") : null;
+        var avatarUrl = Fields.Has(body, "avatarUrl") ? UpdateUserRequest.Limited(body, "avatarUrl", 2000, "avatarUrl must be a URL.") : null;
+        var description = Fields.Has(body, "description") ? UpdateUserRequest.Limited(body, "description", 8000, "description must be 8000 characters or fewer.") : null;
+        var orgUserTitle = Fields.Has(body, "orgUserTitle") ? UpdateUserRequest.Limited(body, "orgUserTitle", 100, "orgUserTitle must be 100 characters or fewer.") : null;
+        var orgUserDescription = Fields.Has(body, "orgUserDescription")
+            ? UpdateUserRequest.Limited(body, "orgUserDescription", 8000, "orgUserDescription must be 8000 characters or fewer.")
+            : null;
         var role = Fields.NormalizeRole(Fields.RequiredString(body, "role"));
         var departmentIds = Fields.Ids(body, "departmentIds", optional: true);
-        return new CreateOrgMembershipRequest(email, username, password, firstName, lastName, displayName, zone, phone, zipCode, notes, role, departmentIds);
+        return new CreateOrgMembershipRequest(
+            email, username, password, firstName, lastName, displayName, zone, phone, zipCode, notes,
+            avatarUrl, description, orgUserTitle, orgUserDescription, role, departmentIds);
     }
 }
 
@@ -127,6 +145,10 @@ public sealed record UpdateOrgMembershipRequest(
     Optional<string?> Phone,
     Optional<string?> ZipCode,
     Optional<string?> Notes,
+    Optional<string?> AvatarUrl,
+    Optional<string?> Description,
+    Optional<string?> OrgUserTitle,
+    Optional<string?> OrgUserDescription,
     Optional<string> Email)
 {
     public static async ValueTask<UpdateOrgMembershipRequest?> BindAsync(HttpContext context) => Parse(await Body.Read(context));
@@ -152,6 +174,10 @@ public sealed record UpdateOrgMembershipRequest(
             Optional.Read(body, "phone", (b, k) => UpdateUserRequest.Limited(b, k, 40, "phone is required.")),
             Optional.Read(body, "zipCode", (b, k) => UpdateUserRequest.Limited(b, k, 20, "zipCode must be 20 characters or fewer.")),
             Optional.Read(body, "notes", (b, k) => UpdateUserRequest.Limited(b, k, 2000, "notes must be 2000 characters or fewer.")),
+            Optional.Read(body, "avatarUrl", (b, k) => UpdateUserRequest.Limited(b, k, 2000, "avatarUrl must be a URL.")),
+            Optional.Read(body, "description", (b, k) => UpdateUserRequest.Limited(b, k, 8000, "description must be 8000 characters or fewer.")),
+            Optional.Read(body, "orgUserTitle", (b, k) => UpdateUserRequest.Limited(b, k, 100, "orgUserTitle must be 100 characters or fewer.")),
+            Optional.Read(body, "orgUserDescription", (b, k) => UpdateUserRequest.Limited(b, k, 8000, "orgUserDescription must be 8000 characters or fewer.")),
             Optional.Read(body, "email", (b, k) => Fields.NormalizeEmail(Fields.RequiredString(b, k))));
         if (!request.Role.HasValue
             && !request.RateType.HasValue
@@ -166,6 +192,10 @@ public sealed record UpdateOrgMembershipRequest(
             && !request.Phone.HasValue
             && !request.ZipCode.HasValue
             && !request.Notes.HasValue
+            && !request.AvatarUrl.HasValue
+            && !request.Description.HasValue
+            && !request.OrgUserTitle.HasValue
+            && !request.OrgUserDescription.HasValue
             && !request.Email.HasValue)
         {
             throw ApiException.Validation("Provide at least one field to update.");

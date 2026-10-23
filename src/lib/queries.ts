@@ -151,6 +151,8 @@ export type MeUser = {
     phone: string | null;
     zipCode: string | null;
     notes: string | null;
+    avatarUrl: string | null;
+    description: string | null;
   } | null;
 };
 

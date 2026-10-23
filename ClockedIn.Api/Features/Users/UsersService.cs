@@ -113,6 +113,8 @@ public sealed class UsersService(ClockedInDbContext db, Access access, TimeProvi
         user.Profile.Phone = request.Phone.Or(user.Profile.Phone);
         user.Profile.ZipCode = request.ZipCode.Or(user.Profile.ZipCode);
         user.Profile.Notes = request.Notes.Or(user.Profile.Notes);
+        user.Profile.AvatarUrl = request.AvatarUrl.Or(user.Profile.AvatarUrl);
+        user.Profile.Description = request.Description.Or(user.Profile.Description);
         if (request.IsSuperAdmin.HasValue)
         {
             if (!request.IsSuperAdmin.Value && user.IsSuperAdmin)

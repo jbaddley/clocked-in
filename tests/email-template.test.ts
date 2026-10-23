@@ -44,6 +44,7 @@ test("rendered templates keep the mailed code lines", () => {
 
   const inviteUrl = "https://clocked.example/accept?code=invite-9";
   const invite = fillTemplate(messages.invitation, {
+    targetKind: "Organization",
     targetName: "North <Org>",
     roleName: "Member",
     code: "invite-9",
@@ -54,5 +55,5 @@ test("rendered templates keep the mailed code lines", () => {
   assert.match(invite.text, /North <Org>/);
   assert.match(invite.text, /https:\/\/clocked\.example\/accept\?code=invite-9/);
   assert.match(invite.html, /https:\/\/clocked\.example\/accept\?code=invite-9/);
-  assert.equal(invite.subject, "You are invited to North <Org>");
+  assert.equal(invite.subject, "You are invited to join the Organization North <Org>");
 });

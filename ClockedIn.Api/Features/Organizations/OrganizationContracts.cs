@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using ClockedIn.Api.Entities;
+using ClockedIn.Api.Features.Users;
 using ClockedIn.Api.Http;
 
 namespace ClockedIn.Api.Features.Organizations;
@@ -250,7 +251,9 @@ public sealed record OrganizationDto(
     string? WordmarkUrl,
     string? WordmarkOnLightUrl,
     string? MarkUrl,
-    string? AccentImageUrl)
+    string? AccentImageUrl,
+    string? Description,
+    string? WebsiteUrl)
 {
     public static OrganizationDto From(Organization organization, decimal volunteerHourlyRate) => new(
         organization.Id,
@@ -264,7 +267,9 @@ public sealed record OrganizationDto(
         organization.WordmarkUrl,
         organization.WordmarkOnLightUrl,
         organization.MarkUrl,
-        organization.AccentImageUrl);
+        organization.AccentImageUrl,
+        organization.Description,
+        organization.WebsiteUrl);
 }
 
 public sealed record NameRequest(string Name)
@@ -283,7 +288,9 @@ public sealed record UpdateOrganizationRequest(
     Optional<string?> WordmarkUrl,
     Optional<string?> WordmarkOnLightUrl,
     Optional<string?> MarkUrl,
-    Optional<string?> AccentImageUrl)
+    Optional<string?> AccentImageUrl,
+    Optional<string?> Description,
+    Optional<string?> WebsiteUrl)
 {
     public static async ValueTask<UpdateOrganizationRequest?> BindAsync(HttpContext context) => Parse(await Body.Read(context));
 
@@ -308,7 +315,9 @@ public sealed record UpdateOrganizationRequest(
             Optional.Read(body, "wordmarkUrl", BrandUrl),
             Optional.Read(body, "wordmarkOnLightUrl", BrandUrl),
             Optional.Read(body, "markUrl", BrandUrl),
-            Optional.Read(body, "accentImageUrl", BrandUrl));
+            Optional.Read(body, "accentImageUrl", BrandUrl),
+            Optional.Read(body, "description", (b, k) => UpdateUserRequest.Limited(b, k, 8000, "description must be 8000 characters or fewer.")),
+            Optional.Read(body, "websiteUrl", (b, k) => UpdateUserRequest.Limited(b, k, 2000, "websiteUrl must be a URL.")));
         if (!request.Name.HasValue
             && !request.VolunteerHourlyRate.HasValue
             && !request.RateSourceYear.HasValue
@@ -318,7 +327,9 @@ public sealed record UpdateOrganizationRequest(
             && !request.WordmarkUrl.HasValue
             && !request.WordmarkOnLightUrl.HasValue
             && !request.MarkUrl.HasValue
-            && !request.AccentImageUrl.HasValue)
+            && !request.AccentImageUrl.HasValue
+            && !request.Description.HasValue
+            && !request.WebsiteUrl.HasValue)
         {
             throw ApiException.Validation("Provide at least one field to update.");
         }

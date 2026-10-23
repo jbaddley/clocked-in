@@ -4,6 +4,7 @@ import {
   acceptInvite,
   assertError,
   assertList,
+  assertSession,
   assertMoney,
   assertNamed,
   callApi,
@@ -270,17 +271,21 @@ describe("hardening / invitations, sessions, and admins", suite, () => {
     assertError(response, 404, "not_found", "Not found.");
   });
 
-  test("a refresh token works only once under concurrent use", async () => {
+  test("concurrent refresh uses inside the overlap window stay signed in", async () => {
     const person = await signUp("refreshrace");
     const responses = await Promise.all(
       Array.from({ length: 6 }, () =>
         callApi("/auth/refresh", { method: "POST", body: { refreshToken: person.refreshToken } }),
       ),
     );
-    const ok = responses.filter((response) => response.status === 200);
-    assert.equal(ok.length, 1, responses.map((response) => response.status).join(","));
-    for (const response of responses.filter((item) => item.status !== 200)) {
-      assertError(response, 401, "unauthorized", "Authentication is required.");
+    assert.equal(
+      responses.filter((response) => response.status === 200).length,
+      responses.length,
+      responses.map((response) => response.status).join(","),
+    );
+    for (const response of responses) {
+      assertSession(response.json, person);
+      assert.notEqual(response.json.refreshToken, person.refreshToken);
     }
   });
 

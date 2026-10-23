@@ -3,7 +3,8 @@ export function welcomeTitle(name: string) {
   return first ? `Welcome back, ${first}` : "Welcome back";
 }
 
-export function viewTitle(pathname: string, name: string) {
+export function viewTitle(pathname: string, name: string, organizationName?: string | null) {
+  if (pathname === "/") return organizationName?.trim() || "Home";
   if (pathname.startsWith("/dashboard")) return welcomeTitle(name);
   if (pathname.startsWith("/log")) return "Log time";
   if (pathname.startsWith("/entries")) return "Entries";

@@ -68,6 +68,8 @@ export function orgMembershipJson(
     professionalBillingRate: Prisma.Decimal | null;
     isActive: boolean;
     primaryDepartmentId: string | null;
+    orgUserTitle: string | null;
+    orgUserDescription: string | null;
     role: RoleRow;
     user: MemberUser;
   },
@@ -86,6 +88,8 @@ export function orgMembershipJson(
     isActive: membership.isActive,
     primaryDepartmentId: membership.primaryDepartmentId,
     departmentIds: [...departmentIds].sort(),
+    orgUserTitle: membership.orgUserTitle,
+    orgUserDescription: membership.orgUserDescription,
     user: memberUserJson(membership.user),
   };
 }
@@ -106,6 +110,8 @@ export function departmentMembershipJson(
     isActive: null,
     primaryDepartmentId: null,
     departmentIds: [membership.departmentId],
+    orgUserTitle: null,
+    orgUserDescription: null,
     user: memberUserJson(membership.user),
   };
 }
@@ -126,6 +132,10 @@ export type CreateOrgMembershipRequest = {
   phone: string | null;
   zipCode: string | null;
   notes: string | null;
+  avatarUrl: string | null;
+  description: string | null;
+  orgUserTitle: string | null;
+  orgUserDescription: string | null;
   role: RoleCode;
   departmentIds: string[];
 };
@@ -147,6 +157,13 @@ export function parseCreateOrgMembership(body: Body): CreateOrgMembershipRequest
     phone: body.phone === undefined ? null : limited(body, "phone", 40, "phone is required."),
     zipCode: body.zipCode === undefined ? null : limited(body, "zipCode", 20, "zipCode must be 20 characters or fewer."),
     notes: body.notes === undefined ? null : limited(body, "notes", 2000, "notes must be 2000 characters or fewer."),
+    avatarUrl: body.avatarUrl === undefined ? null : limited(body, "avatarUrl", 2000, "avatarUrl must be a URL."),
+    description: body.description === undefined ? null : limited(body, "description", 8000, "description must be 8000 characters or fewer."),
+    orgUserTitle: body.orgUserTitle === undefined ? null : limited(body, "orgUserTitle", 100, "orgUserTitle must be 100 characters or fewer."),
+    orgUserDescription:
+      body.orgUserDescription === undefined
+        ? null
+        : limited(body, "orgUserDescription", 8000, "orgUserDescription must be 8000 characters or fewer."),
     role: normalizeRole(requireString(body, "role")),
     departmentIds: ids(body, "departmentIds", true),
   };
@@ -166,6 +183,10 @@ export type UpdateOrgMembershipRequest = {
   phone: Optional<string | null>;
   zipCode: Optional<string | null>;
   notes: Optional<string | null>;
+  avatarUrl: Optional<string | null>;
+  description: Optional<string | null>;
+  orgUserTitle: Optional<string | null>;
+  orgUserDescription: Optional<string | null>;
   email: Optional<string>;
 };
 
@@ -191,6 +212,12 @@ export function parseUpdateOrgMembership(body: Body): UpdateOrgMembershipRequest
     phone: optional(body, "phone", (b, k) => limited(b, k, 40, "phone is required.")),
     zipCode: optional(body, "zipCode", (b, k) => limited(b, k, 20, "zipCode must be 20 characters or fewer.")),
     notes: optional(body, "notes", (b, k) => limited(b, k, 2000, "notes must be 2000 characters or fewer.")),
+    avatarUrl: optional(body, "avatarUrl", (b, k) => limited(b, k, 2000, "avatarUrl must be a URL.")),
+    description: optional(body, "description", (b, k) => limited(b, k, 8000, "description must be 8000 characters or fewer.")),
+    orgUserTitle: optional(body, "orgUserTitle", (b, k) => limited(b, k, 100, "orgUserTitle must be 100 characters or fewer.")),
+    orgUserDescription: optional(body, "orgUserDescription", (b, k) =>
+      limited(b, k, 8000, "orgUserDescription must be 8000 characters or fewer."),
+    ),
     email: optional(body, "email", (b, k) => normalizeEmail(requireString(b, k))),
   };
   if (
@@ -207,6 +234,10 @@ export function parseUpdateOrgMembership(body: Body): UpdateOrgMembershipRequest
     !request.phone.set &&
     !request.zipCode.set &&
     !request.notes.set &&
+    !request.avatarUrl.set &&
+    !request.description.set &&
+    !request.orgUserTitle.set &&
+    !request.orgUserDescription.set &&
     !request.email.set
   ) {
     validation("Provide at least one field to update.");
@@ -284,6 +315,8 @@ export async function createOrgMembership(access: Access, organizationId: string
               phone: request.phone,
               zipCode: request.zipCode,
               notes: request.notes,
+              avatarUrl: request.avatarUrl,
+              description: request.description,
             },
           },
         },
@@ -302,6 +335,8 @@ export async function createOrgMembership(access: Access, organizationId: string
           phone: request.phone ?? user.profile.phone,
           zipCode: request.zipCode ?? user.profile.zipCode,
           notes: request.notes ?? user.profile.notes,
+          avatarUrl: request.avatarUrl ?? user.profile.avatarUrl,
+          description: request.description ?? user.profile.description,
         },
       });
     }
@@ -319,6 +354,8 @@ export async function createOrgMembership(access: Access, organizationId: string
         rateType: organization.defaultRateType,
         isActive: true,
         primaryDepartmentId: request.departmentIds[0] ?? null,
+        orgUserTitle: request.orgUserTitle,
+        orgUserDescription: request.orgUserDescription,
       },
       include: membershipInclude,
     });
@@ -388,7 +425,9 @@ export async function updateOrgMembership(
       request.timezone.set ||
       request.phone.set ||
       request.zipCode.set ||
-      request.notes.set
+      request.notes.set ||
+      request.avatarUrl.set ||
+      request.description.set
     ) {
       await tx.userProfile.update({
         where: { userId: membership.userId },
@@ -400,6 +439,8 @@ export async function updateOrgMembership(
           phone: request.phone.set ? request.phone.value : undefined,
           zipCode: request.zipCode.set ? request.zipCode.value : undefined,
           notes: request.notes.set ? request.notes.value : undefined,
+          avatarUrl: request.avatarUrl.set ? request.avatarUrl.value : undefined,
+          description: request.description.set ? request.description.value : undefined,
         },
       });
     }
@@ -412,6 +453,8 @@ export async function updateOrgMembership(
         professionalBillingRate,
         isActive: request.isActive.set ? request.isActive.value : undefined,
         primaryDepartmentId,
+        orgUserTitle: request.orgUserTitle.set ? request.orgUserTitle.value : undefined,
+        orgUserDescription: request.orgUserDescription.set ? request.orgUserDescription.value : undefined,
       },
       include: membershipInclude,
     });

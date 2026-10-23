@@ -47,6 +47,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { PageSkeleton } from "@/components/skeletons";
+import { PersonProfileDialog } from "./person-profile-dialog";
 import { useActionMutation } from "@/hooks/use-action-mutation";
 import { useInvitations } from "@/hooks/use-invitations";
 import { useLabels } from "@/hooks/use-labels";
@@ -236,6 +237,7 @@ export function MembersView() {
   const [selected, setSelected] = useState<string[]>([]);
   const [addOpen, setAddOpen] = useState(false);
   const [editMember, setEditMember] = useState<Membership | null>(null);
+  const [profileMember, setProfileMember] = useState<Membership | null>(null);
   const [removeMember, setRemoveMember] = useState<Membership | null>(null);
   const [pendingRemoval, setPendingRemoval] = useState<Membership[] | null>(null);
   const [timeFor, setTimeFor] = useState<string[] | null>(null);
@@ -356,8 +358,14 @@ export function MembersView() {
                         aria-label={`Select ${personName(member)}`}
                       />
                     </TableCell>
-                    <TableCell className="font-medium whitespace-nowrap">
-                      {personName(member)}
+                    <TableCell className="whitespace-nowrap">
+                      <button
+                        type="button"
+                        className="font-medium hover:underline"
+                        onClick={() => setProfileMember(member)}
+                      >
+                        {personName(member)}
+                      </button>
                       {member.userId === viewer.id ? (
                         <span className="ml-1.5 text-xs font-normal text-muted-foreground">you</span>
                       ) : null}
@@ -426,8 +434,14 @@ export function MembersView() {
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
-                        <p className="font-medium">
-                          {personName(member)}
+                        <p>
+                          <button
+                            type="button"
+                            className="font-medium hover:underline"
+                            onClick={() => setProfileMember(member)}
+                          >
+                            {personName(member)}
+                          </button>
                           {member.userId === viewer.id ? (
                             <span className="ml-1.5 text-xs font-normal text-muted-foreground">you</span>
                           ) : null}
@@ -463,6 +477,14 @@ export function MembersView() {
           </div>
         </CardContent>
       </Card>
+      <PersonProfileDialog
+        member={profileMember}
+        departmentNames={profileMember ? departmentNames(profileMember, lookups.departments) : []}
+        timeZone={viewer.timezone}
+        onOpenChange={(open) => {
+          if (!open) setProfileMember(null);
+        }}
+      />
       <PersonDialog open={addOpen} onOpenChange={setAddOpen} />
       <PersonDialog
         open={Boolean(editMember)}

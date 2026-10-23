@@ -463,6 +463,10 @@ namespace ClockedIn.Api.Data.Migrations
                         .HasDefaultValue("Volunteer")
                         .HasColumnName("defaultRateType");
 
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
                     b.Property<string>("MarkUrl")
                         .HasColumnType("text")
                         .HasColumnName("markUrl");
@@ -483,6 +487,10 @@ namespace ClockedIn.Api.Data.Migrations
                         .HasColumnType("uuid")
                         .HasDefaultValue(new Guid("44444444-4444-4444-8444-444444444441"))
                         .HasColumnName("themeId");
+
+                    b.Property<string>("WebsiteUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("websiteUrl");
 
                     b.Property<string>("WordmarkOnLightUrl")
                         .HasColumnType("text")
@@ -587,6 +595,14 @@ namespace ClockedIn.Api.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("joinedAt")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("OrgUserDescription")
+                        .HasColumnType("text")
+                        .HasColumnName("orgUserDescription");
+
+                    b.Property<string>("OrgUserTitle")
+                        .HasColumnType("text")
+                        .HasColumnName("orgUserTitle");
 
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uuid")
@@ -1233,6 +1249,14 @@ namespace ClockedIn.Api.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<string>("AvatarUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("avatarUrl");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
 
                     b.Property<string>("DisplayName")
                         .HasColumnType("text")

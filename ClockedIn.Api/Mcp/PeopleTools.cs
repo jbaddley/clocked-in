@@ -13,7 +13,7 @@ public sealed class PeopleTools(MembershipsService memberships, InvitationsServi
     public Task<ListResponse<MembershipDto>> ListMembers(Guid organizationId, int? limit, int? offset, CancellationToken cancellationToken) =>
         McpCall.Run(() => memberships.ListOrganization(organizationId, new PageQuery(limit?.ToString(), offset?.ToString()), cancellationToken));
 
-    [McpServerTool, Description("Create a membership (existing or new person). Pass JSON with email, role, firstName, lastName, and optional username, password, departmentIds.")]
+    [McpServerTool, Description("Create a membership (existing or new person). Pass JSON with email, role, firstName, lastName, and optional username, password, departmentIds, avatarUrl, description, orgUserTitle, and orgUserDescription.")]
     public Task<MembershipDto> CreateMember(Guid organizationId, string body, CancellationToken cancellationToken) =>
         McpCall.Run(() => memberships.CreateOrganization(organizationId, CreateOrgMembershipRequest.Parse(McpCall.Object(body)), cancellationToken));
 

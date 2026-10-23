@@ -67,6 +67,8 @@ public sealed class MembershipsService(ClockedInDbContext db, Access access, Tim
                     Phone = request.Phone,
                     ZipCode = request.ZipCode,
                     Notes = request.Notes,
+                    AvatarUrl = request.AvatarUrl,
+                    Description = request.Description,
                 },
             };
             db.Users.Add(user);
@@ -88,6 +90,8 @@ public sealed class MembershipsService(ClockedInDbContext db, Access access, Tim
                 user.Profile.Phone = request.Phone ?? user.Profile.Phone;
                 user.Profile.ZipCode = request.ZipCode ?? user.Profile.ZipCode;
                 user.Profile.Notes = request.Notes ?? user.Profile.Notes;
+                user.Profile.AvatarUrl = request.AvatarUrl ?? user.Profile.AvatarUrl;
+                user.Profile.Description = request.Description ?? user.Profile.Description;
             }
         }
 
@@ -101,6 +105,8 @@ public sealed class MembershipsService(ClockedInDbContext db, Access access, Tim
             RateType = rateType,
             IsActive = true,
             JoinedAt = time.UtcNow(),
+            OrgUserTitle = request.OrgUserTitle,
+            OrgUserDescription = request.OrgUserDescription,
         };
         db.OrganizationMemberships.Add(membership);
         await SyncDepartments(organizationId, user.Id, request.DepartmentIds, cancellationToken);
@@ -176,7 +182,9 @@ public sealed class MembershipsService(ClockedInDbContext db, Access access, Tim
             || request.Timezone.HasValue
             || request.Phone.HasValue
             || request.ZipCode.HasValue
-            || request.Notes.HasValue)
+            || request.Notes.HasValue
+            || request.AvatarUrl.HasValue
+            || request.Description.HasValue)
         {
             if (membership.User.Profile is null)
             {
@@ -190,7 +198,12 @@ public sealed class MembershipsService(ClockedInDbContext db, Access access, Tim
             membership.User.Profile.Phone = request.Phone.Or(membership.User.Profile.Phone);
             membership.User.Profile.ZipCode = request.ZipCode.Or(membership.User.Profile.ZipCode);
             membership.User.Profile.Notes = request.Notes.Or(membership.User.Profile.Notes);
+            membership.User.Profile.AvatarUrl = request.AvatarUrl.Or(membership.User.Profile.AvatarUrl);
+            membership.User.Profile.Description = request.Description.Or(membership.User.Profile.Description);
         }
+
+        membership.OrgUserTitle = request.OrgUserTitle.Or(membership.OrgUserTitle);
+        membership.OrgUserDescription = request.OrgUserDescription.Or(membership.OrgUserDescription);
 
         await db.SaveOrThrowAsync(cancellationToken);
         await tx.CommitAsync(cancellationToken);

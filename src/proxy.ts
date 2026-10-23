@@ -101,7 +101,7 @@ export async function proxy(request: NextRequest) {
     const login = new URL("/login", request.url);
     login.searchParams.set("next", `${pathname}${search}`);
     response = NextResponse.redirect(login);
-  } else if (signedIn && (matches(pathname, guestOnly) || pathname === "/")) {
+  } else if (signedIn && matches(pathname, guestOnly)) {
     response = NextResponse.redirect(new URL("/dashboard", request.url));
   } else if (issued) {
     request.cookies.set(accessCookie, issued.accessToken);

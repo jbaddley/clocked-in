@@ -27,6 +27,8 @@ classDiagram
     string firstName
     string lastName
     string displayName
+    string avatarUrl
+    string description
     string timezone
     string phone
     string zipCode
@@ -41,6 +43,8 @@ classDiagram
   class Organization {
     uuid id
     string name
+    string description
+    string websiteUrl
     int rateSourceYear
     string defaultRateType
     json preferences
@@ -83,6 +87,8 @@ classDiagram
     string rateType
     decimal professionalBillingRate
     bool isActive
+    string orgUserTitle
+    string orgUserDescription
     datetime joinedAt
   }
   class Department {
@@ -219,7 +225,7 @@ Foreign keys below are the relationship ends from the diagram. Tag and project-e
 
 ### UserProfile
 
-One profile per user. `timezone` is an IANA name and defaults to `UTC`. `displayName`, `phone`, `zipCode`, and `notes` are optional. `firstName` and `lastName` are required. Rate type and professional rate live on `OrganizationMembership`, not on the profile. `memberNumber` is an optional Volunteer ID (`001`…).
+One profile per user. `timezone` is an IANA name and defaults to `UTC`. `displayName`, `avatarUrl`, `description`, `phone`, `zipCode`, and `notes` are optional. `description` is Markdown. `firstName` and `lastName` are required. Rate type and professional rate live on `OrganizationMembership`, not on the profile. `memberNumber` is an optional Volunteer ID (`001`…).
 
 | Field        | Required | Notes                                       |
 | ------------ | -------- | ------------------------------------------- |
@@ -228,6 +234,8 @@ One profile per user. `timezone` is an IANA name and defaults to `UTC`. `display
 | firstName    | yes      |                                             |
 | lastName     | yes      |                                             |
 | displayName  | no       |                                             |
+| avatarUrl    | no       |                                             |
+| description  | no       | Markdown                                    |
 | timezone     | yes      | IANA name, default `UTC`                    |
 | phone        | no       |                                             |
 | zipCode      | no       | Workbook Zip Code                           |
@@ -252,6 +260,8 @@ In-kind valuation catalogs live on `HourlyRate`. Creating an organization seeds 
 | ------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | id                 | yes      | UUID primary key                                                                                                                                                                                                                                                                                                             |
 | name               | yes      |                                                                                                                                                                                                                                                                                                                              |
+| description        | no       | Organization about information in Markdown                                                                                                                                                                                                                                                                                   |
+| websiteUrl         | no       |                                                                                                                                                                                                                                                                                                                              |
 | rateSourceYear     | yes      | Integer year, default `2025`                                                                                                                                                                                                                                                                                                 |
 | defaultRateType    | yes      | `Volunteer` or `Professional`, default `Volunteer`                                                                                                                                                                                                                                                                           |
 | preferences        | yes      | jsonb. `allowTimeEntryEditing` defaults to false. When false, a time entry update cannot change `startedAt`, `endedAt`, `durationMinutes`, or `occurredOn`. `entityLabels` holds display names for `organization`, `project`, `department`, and `taskCategory` (defaults: Organization, Project, Department, Task category). |
@@ -314,6 +324,8 @@ A user has at most one membership in a given organization. A person may belong t
 | professionalBillingRate | no       | decimal(10,2). Required and greater than zero when `Professional`; empty when `Volunteer` |
 | isActive                | yes      | Default true. Workbook Active? without deleting history                                   |
 | primaryDepartmentId     | no       | Foreign key to Department. Cleared when that department is deleted                        |
+| orgUserTitle            | no       | Title of the user for this organization                                                   |
+| orgUserDescription      | no       | Description of the user for this organization in Markdown                                 |
 | joinedAt                | yes      |                                                                                           |
 
 ### Department

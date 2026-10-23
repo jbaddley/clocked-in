@@ -15,8 +15,8 @@ export function PageHeader({
   className?: string;
 }) {
   const pathname = usePathname();
-  const { viewer } = useWorkspace();
-  const title = viewTitle(pathname, viewer.name);
+  const { viewer, organization } = useWorkspace();
+  const title = viewTitle(pathname, viewer.name, organization?.name);
   const hasSupport = Boolean(description || actions);
 
   return (

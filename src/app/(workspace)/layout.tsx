@@ -1,34 +1,11 @@
-import { cookies } from "next/headers";
 import { Suspense } from "react";
-import { OrganizationGate } from "@/components/organization-gate";
-import { AppShell, ShellSkeleton } from "@/components/shell/app-shell";
-import { WorkspaceProvider } from "@/hooks/use-workspace";
-import { canSeeReports } from "@/lib/roles";
-import { getWorkspace } from "@/lib/server/dal";
+import { ShellSkeleton } from "@/components/shell/app-shell";
+import { WorkspaceShell } from "@/components/shell/workspace-shell";
 
 export default function WorkspaceLayout({ children }: LayoutProps<"/">) {
   return (
     <Suspense fallback={<ShellSkeleton />}>
-      <Workspace>{children}</Workspace>
+      <WorkspaceShell>{children}</WorkspaceShell>
     </Suspense>
-  );
-}
-
-async function Workspace({ children }: { children: React.ReactNode }) {
-  const [workspace, store] = await Promise.all([getWorkspace(), cookies()]);
-
-  return (
-    <WorkspaceProvider value={workspace}>
-      <AppShell
-        organization={workspace.organization}
-        isAdmin={workspace.isAdmin}
-        isCoordinator={workspace.isCoordinator}
-        isSuperAdmin={workspace.viewer.isSuperAdmin}
-        showReports={canSeeReports(workspace)}
-        sidebarOpen={store.get("sidebar_state")?.value !== "false"}
-      >
-        <OrganizationGate>{children}</OrganizationGate>
-      </AppShell>
-    </WorkspaceProvider>
   );
 }

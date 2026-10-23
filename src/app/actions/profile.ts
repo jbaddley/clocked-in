@@ -25,6 +25,8 @@ export async function updateProfileAction(_: ActionResult | null, formData: Form
           phone: text(formData, "phone"),
           zipCode: text(formData, "zipCode"),
           notes: text(formData, "notes"),
+          avatarUrl: text(formData, "avatarUrl"),
+          description: text(formData, "description"),
         }),
       ),
       true,

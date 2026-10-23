@@ -50,6 +50,9 @@ model UserProfile {
   notes        String?
   zipCode      String?
   memberNumber String?
+  avatarUrl    String?
+  /// User description in Markdown.
+  description  String?
   user         User    @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_UserProfile_User_userId")
 }
 
@@ -77,6 +80,9 @@ model Organization {
   wordmarkUrl           String?
   themeId               String                   @default(dbgenerated("'44444444-4444-4444-8444-444444444441'::uuid")) @db.Uuid
   wordmarkOnLightUrl    String?
+  /// Organization about information in Markdown.
+  description           String?
+  websiteUrl            String?
   collectiveTimeEntries CollectiveTimeEntry[]
   departments           Department[]
   feedback              Feedback[]
@@ -105,6 +111,10 @@ model OrganizationMembership {
   /// Volunteer or Professional.
   rateType                String       @default("Volunteer")
   primaryDepartmentId     String?      @db.Uuid
+  /// Title of the user for this organization.
+  orgUserTitle            String?
+  /// Description of the user for this organization in Markdown.
+  orgUserDescription      String?
   primaryDepartment       Department?  @relation("PrimaryDepartment", fields: [primaryDepartmentId], references: [id], onUpdate: NoAction, map: "FK_OrganizationMembership_Department_primaryDepartmentId")
   organization            Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_OrganizationMembership_Organization_organizationId")
   role                    Role         @relation(fields: [roleId], references: [id], onUpdate: NoAction, map: "FK_OrganizationMembership_Role_roleId")

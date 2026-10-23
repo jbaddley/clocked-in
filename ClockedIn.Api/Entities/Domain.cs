@@ -105,6 +105,9 @@ public class UserProfile
     public string FirstName { get; set; } = null!;
     public string LastName { get; set; } = null!;
     public string? DisplayName { get; set; }
+    public string? AvatarUrl { get; set; }
+    // Description of the user in Markdown format
+    public string? Description { get; set; }
     public string Timezone { get; set; } = "UTC";
     public string? Phone { get; set; }
     public string? ZipCode { get; set; }
@@ -155,6 +158,9 @@ public class Organization
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = null!;
+    // Organization about information in Markdown format
+    public string? Description { get; set; }
+    public string? WebsiteUrl { get; set; }
     public int RateSourceYear { get; set; } = 2025;
     public RateType DefaultRateType { get; set; } = RateType.Volunteer;
     public OrganizationPreferences Preferences { get; set; } = new();
@@ -211,6 +217,10 @@ public class OrganizationMembership
     public Organization Organization { get; set; } = null!;
     public Role Role { get; set; } = null!;
     public Department? PrimaryDepartment { get; set; }
+    // Title of the user for this organization
+    public string? OrgUserTitle { get; set; }
+    // Description of the user for this organization in Markdown format
+    public string? OrgUserDescription { get; set; }
 }
 
 public class Theme

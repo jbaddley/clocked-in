@@ -158,6 +158,8 @@ export function assertUser(user, expected = {}) {
     "zipCode",
     "notes",
     "memberNumber",
+    "avatarUrl",
+    "description",
   ]);
   assertUuid(user.profile.id);
   if (expected.firstName) {
@@ -223,6 +225,8 @@ export function assertOrganization(org, name) {
     "wordmarkOnLightUrl",
     "markUrl",
     "accentImageUrl",
+    "description",
+    "websiteUrl",
   ]);
   assertUuid(org.id);
   assert.equal(org.name, name);
@@ -236,6 +240,8 @@ export function assertOrganization(org, name) {
   assert.equal(org.wordmarkOnLightUrl, null);
   assert.equal(org.markUrl, null);
   assert.equal(org.accentImageUrl, null);
+  assert.equal(org.description, null);
+  assert.equal(org.websiteUrl, null);
 }
 
 export function assertHourlyRate(rate, expected) {
@@ -278,6 +284,8 @@ export function assertMembership(membership, { organizationId, departmentId, rol
     "isActive",
     "primaryDepartmentId",
     "departmentIds",
+    "orgUserTitle",
+    "orgUserDescription",
     "user",
   ]);
   assertUuid(membership.id);

@@ -78,6 +78,8 @@ public sealed class OrganizationsService(ClockedInDbContext db, Access access, T
         organization.WordmarkOnLightUrl = request.WordmarkOnLightUrl.Or(organization.WordmarkOnLightUrl);
         organization.MarkUrl = request.MarkUrl.Or(organization.MarkUrl);
         organization.AccentImageUrl = request.AccentImageUrl.Or(organization.AccentImageUrl);
+        organization.Description = request.Description.Or(organization.Description);
+        organization.WebsiteUrl = request.WebsiteUrl.Or(organization.WebsiteUrl);
         if (request.VolunteerHourlyRate.HasValue)
         {
             var defaultRate = await db.HourlyRates.FirstOrDefaultAsync(

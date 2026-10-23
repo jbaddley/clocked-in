@@ -7,6 +7,7 @@ import { Field, FormMessage } from "@/components/field";
 import { SubmitButton } from "@/components/submit-button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useLabels } from "@/hooks/use-labels";
 import { useMembers } from "@/hooks/use-members";
 import { useOrganization } from "@/hooks/use-workspace";
@@ -34,7 +35,7 @@ function OrganizationFields() {
       <CardHeader>
         <CardTitle>{copy.organization}</CardTitle>
         <CardDescription>
-          Name, valuation year, time editing, and what to call {copy.projects.toLowerCase()} and{" "}
+          Name, website, description, valuation year, time editing, and what to call {copy.projects.toLowerCase()} and{" "}
           {copy.departments.toLowerCase()} are saved together.
         </CardDescription>
       </CardHeader>
@@ -42,6 +43,27 @@ function OrganizationFields() {
         <form action={action} className="grid gap-4 sm:grid-cols-2">
           <Field label="Name" htmlFor="name">
             <Input id="name" name="name" required defaultValue={organization.name} className="h-9" />
+          </Field>
+          <Field label="Website" htmlFor="websiteUrl" hint="Leave blank to remove the link.">
+            <Input
+              id="websiteUrl"
+              name="websiteUrl"
+              type="url"
+              inputMode="url"
+              maxLength={2000}
+              defaultValue={organization.websiteUrl ?? ""}
+              placeholder="https://"
+              className="h-9"
+            />
+          </Field>
+          <Field label="Description" htmlFor="description" hint="Markdown. Shown on the home page." className="sm:col-span-2">
+            <Textarea
+              id="description"
+              name="description"
+              maxLength={8000}
+              defaultValue={organization.description ?? ""}
+              className="min-h-32"
+            />
           </Field>
           <Field label="Rate source year" htmlFor="rateSourceYear">
             <Input

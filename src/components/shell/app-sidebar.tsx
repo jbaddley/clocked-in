@@ -73,7 +73,7 @@ export function AppSidebar({
   return (
     <Sidebar collapsible='icon'>
       <SidebarHeader className='h-16 flex-row items-center gap-0 overflow-hidden border-b border-sidebar-border px-2 py-0'>
-        <Link href='/dashboard' className='flex min-w-0 items-center gap-2.5'>
+        <Link href='/' className='flex min-w-0 items-center gap-2.5'>
           {markUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={markUrl} alt='' width={32} height={32} className='size-8 shrink-0 rounded-md object-contain' />

@@ -7,6 +7,7 @@ import {
     Body,
     has,
     ids,
+    limited,
     list,
     normalizeRateType,
     optional,
@@ -140,6 +141,8 @@ export function organizationJson(
     wordmarkOnLightUrl: string | null;
     markUrl: string | null;
     accentImageUrl: string | null;
+    description: string | null;
+    websiteUrl: string | null;
   },
   volunteerHourlyRate: number,
 ) {
@@ -156,6 +159,8 @@ export function organizationJson(
     wordmarkOnLightUrl: organization.wordmarkOnLightUrl,
     markUrl: organization.markUrl,
     accentImageUrl: organization.accentImageUrl,
+    description: organization.description,
+    websiteUrl: organization.websiteUrl,
   };
 }
 
@@ -176,6 +181,8 @@ export type UpdateOrganizationRequest = {
   wordmarkOnLightUrl: Optional<string | null>;
   markUrl: Optional<string | null>;
   accentImageUrl: Optional<string | null>;
+  description: Optional<string | null>;
+  websiteUrl: Optional<string | null>;
 };
 
 export function parseUpdateOrganization(body: Body): UpdateOrganizationRequest {
@@ -197,6 +204,8 @@ export function parseUpdateOrganization(body: Body): UpdateOrganizationRequest {
     wordmarkOnLightUrl: optional(body, "wordmarkOnLightUrl", brandUrl),
     markUrl: optional(body, "markUrl", brandUrl),
     accentImageUrl: optional(body, "accentImageUrl", brandUrl),
+    description: optional(body, "description", (b, k) => limited(b, k, 8000, "description must be 8000 characters or fewer.")),
+    websiteUrl: optional(body, "websiteUrl", (b, k) => limited(b, k, 2000, "websiteUrl must be a URL.")),
   };
   if (
     !request.name.set &&
@@ -208,7 +217,9 @@ export function parseUpdateOrganization(body: Body): UpdateOrganizationRequest {
     !request.wordmarkUrl.set &&
     !request.wordmarkOnLightUrl.set &&
     !request.markUrl.set &&
-    !request.accentImageUrl.set
+    !request.accentImageUrl.set &&
+    !request.description.set &&
+    !request.websiteUrl.set
   ) {
     validation("Provide at least one field to update.");
   }
@@ -303,6 +314,8 @@ export async function updateOrganization(access: Access, organizationId: string,
         wordmarkOnLightUrl: request.wordmarkOnLightUrl.set ? request.wordmarkOnLightUrl.value : undefined,
         markUrl: request.markUrl.set ? request.markUrl.value : undefined,
         accentImageUrl: request.accentImageUrl.set ? request.accentImageUrl.value : undefined,
+        description: request.description.set ? request.description.value : undefined,
+        websiteUrl: request.websiteUrl.set ? request.websiteUrl.value : undefined,
         preferences: nextPreferences,
       },
     });
