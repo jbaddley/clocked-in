@@ -19,7 +19,7 @@ child.stderr.on("data", (chunk) => {
   logs += chunk.toString();
 });
 
-const deadline = Date.now() + 90_000;
+const deadline = Date.now() + 240_000;
 let body = null;
 while (Date.now() < deadline) {
   if (child.exitCode !== null) break;
