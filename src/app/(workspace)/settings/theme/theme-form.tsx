@@ -371,7 +371,7 @@ function ThemeFields() {
               />
             </Field>
             <div className="sm:col-span-2 grid gap-4">
-              <Field label="Base chart color" htmlFor="chartColor" hint="Every chart uses this color">
+              <Field label="Base chart color" htmlFor="chartColor" hint="Used by the single-color chart palette">
                 <div className="flex items-center gap-2">
                   <input
                     id="chartColor"

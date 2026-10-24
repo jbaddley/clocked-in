@@ -6,7 +6,7 @@ import { ImagePlusIcon, Loader2Icon, UploadIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const maxBytes = 4 * 1024 * 1024;
-const accept = "image/png,image/jpeg,image/webp,image/gif";
+export const imageAccept = "image/png,image/jpeg,image/webp,image/gif";
 const allowedTypes = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
 const allowedExtensions = [".png", ".jpg", ".jpeg", ".webp", ".gif"];
 
@@ -15,7 +15,7 @@ export const imageUploaderHint = "PNG, JPEG, WebP, or GIF. 4 MB or smaller.";
 type Surface = "muted" | "dark" | "light";
 type Shape = "square" | "wide";
 
-function validateImageFile(file: File) {
+export function validateImageFile(file: File) {
   if (file.size <= 0) return "Choose an image to upload.";
   if (file.size > maxBytes) return "Image must be 4 MB or smaller.";
   if (file.type) {
@@ -158,7 +158,7 @@ export function ImageUploader({
           ref={inputRef}
           id={inputId}
           type="file"
-          accept={accept}
+          accept={imageAccept}
           disabled={busy}
           aria-label={shown ? "Replace image" : emptyLabel}
           aria-describedby={error ? `${hintId} ${errorId}` : hintId}

@@ -1,12 +1,14 @@
 "use client";
 
 import { startTransition, useActionState, useEffect, useRef, useState } from "react";
-import { safeHttpUrl } from "@/lib/url";
+import { useQueryClient } from "@tanstack/react-query";
 import { changePasswordAction, updateProfileAction } from "@/app/actions/profile";
+import { AvatarField } from "@/components/avatar-field";
 import { Field, FormMessage } from "@/components/field";
 import { SubmitButton } from "@/components/submit-button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { MarkdownEditor } from "@/components/markdown-editor";
 import { Textarea } from "@/components/ui/textarea";
 
 const selectClass =
@@ -20,6 +22,7 @@ function timezoneChoices(current: string) {
 }
 
 export type EditableProfile = {
+  id: string;
   username: string;
   email: string;
   profile: {
@@ -36,15 +39,27 @@ export type EditableProfile = {
 };
 
 export function ProfileForm({ user }: { user: EditableProfile }) {
+  const queryClient = useQueryClient();
   const [result, action] = useActionState(updateProfileAction, null);
   const profile = user.profile;
   const [avatarUrl, setAvatarUrl] = useState(profile.avatarUrl ?? "");
-  const avatarSrc = safeHttpUrl(avatarUrl);
+  const [appliedResult, setAppliedResult] = useState(result);
   const [zones, setZones] = useState<string[]>(() => [profile.timezone || "UTC"]);
+  if (result !== appliedResult) {
+    setAppliedResult(result);
+    if (result?.ok && typeof result.data === "string") {
+      setAvatarUrl(result.data);
+    }
+  }
 
   useEffect(() => {
     setZones(timezoneChoices(profile.timezone || "UTC"));
   }, [profile.timezone]);
+
+  useEffect(() => {
+    if (!result?.ok) return;
+    void queryClient.invalidateQueries({ queryKey: ["user"] });
+  }, [queryClient, result]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -77,36 +92,14 @@ export function ProfileForm({ user }: { user: EditableProfile }) {
               className="h-9"
             />
           </Field>
-          <Field label="Avatar URL" htmlFor="avatarUrl" hint="A link to an image. Leave blank to remove it." className="sm:col-span-2">
-            <div className="flex items-center gap-3">
-              {avatarSrc ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={avatarSrc} alt="" className="size-12 shrink-0 rounded-full object-cover" />
-              ) : (
-                <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-muted text-xs text-muted-foreground">
-                  None
-                </span>
-              )}
-              <Input
-                id="avatarUrl"
-                name="avatarUrl"
-                type="url"
-                inputMode="url"
-                maxLength={2000}
-                value={avatarUrl}
-                onChange={(event) => setAvatarUrl(event.target.value)}
-                placeholder="https://"
-                className="h-9"
-              />
-            </div>
-          </Field>
-          <Field label="Description" htmlFor="description" hint="Markdown. Shown on your profile." className="sm:col-span-2">
-            <Textarea
+          <AvatarField userId={user.id} value={avatarUrl} onChange={setAvatarUrl} />
+          <Field label="Description" htmlFor="description" hint="Shown on your profile." className="sm:col-span-2">
+            <MarkdownEditor
               id="description"
               name="description"
+              label="Description"
               maxLength={8000}
               defaultValue={profile.description ?? ""}
-              className="min-h-32"
             />
           </Field>
           <Field label="Display name" htmlFor="displayName" hint="Leave blank to use your first and last name." className="sm:col-span-2">

@@ -15,6 +15,9 @@ const nextConfig: NextConfig = {
   ...(deploymentId ? { deploymentId } : {}),
   experimental: {
     appNavFailHandling: true,
+    serverActions: {
+      bodySizeLimit: "4mb",
+    },
   },
   turbopack: {
     root: path.dirname(fileURLToPath(import.meta.url)),

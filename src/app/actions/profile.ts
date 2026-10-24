@@ -3,35 +3,61 @@
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { logIn, parseLogIn } from "@/lib/api/features/auth";
-import { parseUpdateUser, updateUser } from "@/lib/api/features/users";
+import { getUser, parseUpdateUser, updateUser } from "@/lib/api/features/users";
 import { body, run, safeNext, text } from "@/lib/server/action";
+import { deleteAvatarAsset, uploadAvatar } from "@/lib/server/avatar-assets";
 import { requireAccess, setSessionCookies } from "@/lib/server/session";
 import type { ActionResult } from "@/lib/types";
 
-export async function updateProfileAction(_: ActionResult | null, formData: FormData): Promise<ActionResult> {
+export async function updateProfileAction(_: ActionResult | null, formData: FormData): Promise<ActionResult<string>> {
   return run(async () => {
     const access = await requireAccess();
-    await updateUser(
-      access,
-      access.caller.id,
-      parseUpdateUser(
-        body({
-          username: text(formData, "username"),
-          email: text(formData, "email"),
-          firstName: text(formData, "firstName"),
-          lastName: text(formData, "lastName"),
-          displayName: text(formData, "displayName"),
-          timezone: text(formData, "timezone"),
-          phone: text(formData, "phone"),
-          zipCode: text(formData, "zipCode"),
-          notes: text(formData, "notes"),
-          avatarUrl: text(formData, "avatarUrl"),
-          description: text(formData, "description"),
-        }),
-      ),
-      true,
+    const current = await getUser(access, access.caller.id);
+    const previous = current.profile?.avatarUrl ?? null;
+    const request = parseUpdateUser(
+      body({
+        username: text(formData, "username"),
+        email: text(formData, "email"),
+        firstName: text(formData, "firstName"),
+        lastName: text(formData, "lastName"),
+        displayName: text(formData, "displayName"),
+        timezone: text(formData, "timezone"),
+        phone: text(formData, "phone"),
+        zipCode: text(formData, "zipCode"),
+        notes: text(formData, "notes"),
+        avatarUrl: text(formData, "avatarUrl"),
+        description: text(formData, "description"),
+      }),
     );
+    const file = formData.get("avatar");
+    let uploaded: string | null = null;
+    if (file instanceof File && file.size > 0) {
+      uploaded = await uploadAvatar(access.caller.id, file);
+      request.avatarUrl = { set: true, value: uploaded };
+    }
+
+    let updated: Awaited<ReturnType<typeof updateUser>>;
+    try {
+      updated = await updateUser(access, access.caller.id, request, true);
+    } catch (error) {
+      if (uploaded) {
+        await deleteAvatarAsset(access.caller.id, uploaded);
+      }
+
+      throw error;
+    }
+
+    const next = updated.profile?.avatarUrl ?? null;
+    if (previous && previous !== next) {
+      try {
+        await deleteAvatarAsset(access.caller.id, previous);
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
     refresh();
+    return next ?? "";
   }, "Profile saved.");
 }
 

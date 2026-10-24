@@ -142,6 +142,7 @@ export function openPunchQuery(userId: string) {
 }
 
 export type MeUser = {
+  id: string;
   username: string;
   email: string;
   profile: {

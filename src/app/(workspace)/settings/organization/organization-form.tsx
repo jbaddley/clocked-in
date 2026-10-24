@@ -7,7 +7,7 @@ import { Field, FormMessage } from "@/components/field";
 import { SubmitButton } from "@/components/submit-button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { MarkdownEditor } from "@/components/markdown-editor";
 import { useLabels } from "@/hooks/use-labels";
 import { useMembers } from "@/hooks/use-members";
 import { useOrganization } from "@/hooks/use-workspace";
@@ -56,13 +56,13 @@ function OrganizationFields() {
               className="h-9"
             />
           </Field>
-          <Field label="Description" htmlFor="description" hint="Markdown. Shown on the home page." className="sm:col-span-2">
-            <Textarea
+          <Field label="Description" htmlFor="description" hint="Shown on the home page." className="sm:col-span-2">
+            <MarkdownEditor
               id="description"
               name="description"
+              label="Description"
               maxLength={8000}
               defaultValue={organization.description ?? ""}
-              className="min-h-32"
             />
           </Field>
           <Field label="Rate source year" htmlFor="rateSourceYear">

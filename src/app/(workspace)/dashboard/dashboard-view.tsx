@@ -2,7 +2,7 @@
 
 import { ArrowRightIcon, ClockIcon, HandCoinsIcon, InboxIcon, UserRoundIcon, UsersIcon } from "lucide-react";
 import Link from "next/link";
-import { HoursBars, HoursDonut } from "@/components/charts";
+import { ChartCard } from "@/components/chart-card";
 import { EmptyState } from "@/components/empty-state";
 import { EntryList, EntryRow } from "@/components/entry-row";
 import { ShareBar } from "@/components/share-bar";
@@ -84,32 +84,20 @@ export function DashboardView() {
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Hours by {copy.taskCategory.toLowerCase()}</CardTitle>
-            <CardDescription>All time</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {people.byCategory.length ? (
-              <HoursDonut rows={people.byCategory} total={people.hours} />
-            ) : (
-              <p className="text-sm text-muted-foreground">{copy.taskCategories} appear once time is logged.</p>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Hours by {copy.department.toLowerCase()}</CardTitle>
-            <CardDescription>All time</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {people.byDepartment.length ? (
-              <HoursBars rows={people.byDepartment} />
-            ) : (
-              <p className="text-sm text-muted-foreground">{copy.departments} appear once time is logged.</p>
-            )}
-          </CardContent>
-        </Card>
+        <ChartCard
+          title={`Hours by ${copy.taskCategory.toLowerCase()}`}
+          description="All time"
+          rows={people.byCategory}
+          chartType="donut"
+          empty={`${copy.taskCategories} appear once time is logged.`}
+        />
+        <ChartCard
+          title={`Hours by ${copy.department.toLowerCase()}`}
+          description="All time"
+          rows={people.byDepartment}
+          chartType="bar"
+          empty={`${copy.departments} appear once time is logged.`}
+        />
       </div>
 
       <Card className="pb-0">

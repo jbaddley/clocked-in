@@ -5,7 +5,7 @@ import { MarkdownView } from "@/components/markdown-view";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { fetchJson } from "@/lib/fetch-json";
 import { formatInstant } from "@/lib/format";
-import { safeHttpUrl } from "@/lib/url";
+import { avatarImageSrc } from "@/lib/avatar";
 import type { Membership } from "@/lib/types";
 
 type UserProfile = {
@@ -66,7 +66,7 @@ export function PersonProfileDialog({
   });
   const profile = profileQuery.data?.profile;
   const name = member ? personName(member, profile) : "";
-  const avatarSrc = safeHttpUrl(profile?.avatarUrl);
+  const avatarSrc = member ? avatarImageSrc(member.userId, profile?.avatarUrl) : null;
 
   return (
     <Dialog open={Boolean(member)} onOpenChange={onOpenChange}>

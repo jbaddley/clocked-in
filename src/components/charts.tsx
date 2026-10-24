@@ -2,63 +2,22 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Label, Pie, PieChart, Text, XAxis, YAxis } from "recharts";
+import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart";
+import { seriesColor, type ChartType } from "@/lib/chart-palette";
 import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from "@/components/ui/chart";
-import { chartColor, chartColorCount } from "@/lib/brand";
-import { abbreviateChartLabel, formatCompactCurrency, formatCompactNumber, formatCurrency, formatHours, formatNumber } from "@/lib/format";
+  abbreviateChartLabel,
+  formatCompactCurrency,
+  formatCompactNumber,
+  formatCurrency,
+  formatHours,
+  formatNumber,
+} from "@/lib/format";
 import type { ReportGroup } from "@/lib/types";
 
-function configFor(rows: ReportGroup[]): ChartConfig {
-  return Object.fromEntries(rows.map((row, index) => [row.id, { label: row.label, color: chartColor(index) }]));
-}
-
-export function HoursDonut({ rows, total }: { rows: ReportGroup[]; total: number }) {
-  const data = rows.slice(0, chartColorCount).map((row, index) => ({ ...row, fill: chartColor(index) }));
-  return (
-    <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
-      <ChartContainer config={configFor(rows)} className="aspect-square w-full max-w-[220px] shrink-0">
-        <PieChart>
-          <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel nameKey="id" />} />
-          <Pie data={data} dataKey="hours" nameKey="id" innerRadius="62%" strokeWidth={2}>
-            {data.map((row) => (
-              <Cell key={row.id} fill={row.fill} />
-            ))}
-            <Label
-              content={({ viewBox }) =>
-                viewBox && "cx" in viewBox ? (
-                  <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
-                    <tspan x={viewBox.cx} y={viewBox.cy} className="fill-foreground text-2xl font-semibold">
-                      {formatNumber(total)}
-                    </tspan>
-                    <tspan x={viewBox.cx} y={(viewBox.cy ?? 0) + 20} className="fill-muted-foreground text-xs">
-                      hours
-                    </tspan>
-                  </text>
-                ) : null
-              }
-            />
-          </Pie>
-        </PieChart>
-      </ChartContainer>
-      <ul className="flex w-full min-w-0 flex-col gap-2 text-sm">
-        {data.map((row) => (
-          <li key={row.id} className="flex items-center gap-2">
-            <span className="size-2.5 shrink-0 rounded-sm" style={{ background: row.fill }} />
-            <span className="min-w-0 flex-1 truncate">{row.label}</span>
-            <span className="text-muted-foreground tabular-nums">{formatHours(row.hours)}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
+function configFor(rows: ReportGroup[], colors: string[]): ChartConfig {
+  return Object.fromEntries(
+    rows.map((row, index) => [row.id, { label: row.label, color: seriesColor(colors, index) }]),
   );
-}
-
-export function HoursBars({ rows }: { rows: ReportGroup[] }) {
-  return <SummaryBars rows={rows} />;
 }
 
 function estimateWrappedLines(label: string, width: number) {
@@ -121,16 +80,16 @@ function CategoryTick({
 function ValueTooltip({
   active,
   payload,
-  format,
+  valueKey,
 }: {
   active?: boolean;
   payload?: ReadonlyArray<{ payload?: ReportGroup }>;
-  format: "hours" | "currency";
+  valueKey: "hours" | "inKind";
 }) {
   const row = payload?.[0]?.payload;
   if (!active || !row) return null;
 
-  const exact = format === "currency" ? formatCurrency(row.inKind) : formatNumber(row.hours);
+  const exact = valueKey === "inKind" ? formatCurrency(row.inKind) : formatNumber(row.hours);
   return (
     <div className="grid min-w-32 gap-1 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl">
       <div className="font-medium">{row.label}</div>
@@ -139,13 +98,105 @@ function ValueTooltip({
   );
 }
 
-export function SummaryBars({
+export function ChartPlot({
   rows,
+  chartType,
+  colors,
+  valueKey = "hours",
+  format = "hours",
+}: {
+  rows: ReportGroup[];
+  chartType: ChartType;
+  colors: string[];
+  valueKey?: "hours" | "inKind";
+  format?: "hours" | "currency";
+}) {
+  if (chartType === "donut" || chartType === "pie") {
+    return <ArcChart rows={rows} colors={colors} valueKey={valueKey} format={format} donut={chartType === "donut"} />;
+  }
+
+  return (
+    <SummaryBars
+      rows={rows}
+      colors={colors}
+      valueKey={valueKey}
+      format={format}
+      orientation={chartType === "bar" ? "horizontal" : "vertical"}
+    />
+  );
+}
+
+function ArcChart({
+  rows,
+  colors,
+  valueKey,
+  format,
+  donut,
+}: {
+  rows: ReportGroup[];
+  colors: string[];
+  valueKey: "hours" | "inKind";
+  format: "hours" | "currency";
+  donut: boolean;
+}) {
+  const data = rows.map((row, index) => ({ ...row, fill: seriesColor(colors, index) }));
+  const total = data.reduce((sum, row) => sum + row[valueKey], 0);
+  const fullTotal = format === "currency" ? formatCurrency(total) : formatNumber(total);
+  const totalLabel =
+    fullTotal.length <= 10 ? fullTotal : format === "currency" ? formatCompactCurrency(total) : formatCompactNumber(total);
+  const caption = format === "currency" ? "in-kind" : "hours";
+  const valueLabel = (value: number) => (format === "currency" ? formatCurrency(value) : formatHours(value));
+
+  return (
+    <div className="flex h-full min-h-56 w-full flex-1 flex-col items-center justify-center gap-4 sm:flex-row sm:items-center">
+      <ChartContainer config={configFor(rows, colors)} className="aspect-square w-full max-w-56 shrink-0">
+        <PieChart>
+          <ChartTooltip cursor={false} content={<ValueTooltip valueKey={valueKey} />} />
+          <Pie data={data} dataKey={valueKey} nameKey="id" innerRadius={donut ? "62%" : 0} strokeWidth={2}>
+            {data.map((row) => (
+              <Cell key={row.id} fill={row.fill} />
+            ))}
+            {donut ? (
+              <Label
+                content={({ viewBox }) =>
+                  viewBox && "cx" in viewBox ? (
+                    <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
+                      <tspan x={viewBox.cx} y={viewBox.cy} className="fill-foreground text-2xl font-semibold">
+                        {totalLabel}
+                      </tspan>
+                      <tspan x={viewBox.cx} y={(viewBox.cy ?? 0) + 20} className="fill-muted-foreground text-xs">
+                        {caption}
+                      </tspan>
+                    </text>
+                  ) : null
+                }
+              />
+            ) : null}
+          </Pie>
+        </PieChart>
+      </ChartContainer>
+      <ul className="flex max-h-72 w-full min-w-0 flex-col gap-2 overflow-y-auto text-sm">
+        {data.map((row) => (
+          <li key={row.id} className="flex items-center gap-2">
+            <span className="size-2.5 shrink-0 rounded-sm" style={{ background: row.fill }} />
+            <span className="min-w-0 flex-1 truncate">{row.label}</span>
+            <span className="text-muted-foreground tabular-nums">{valueLabel(row[valueKey])}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function SummaryBars({
+  rows,
+  colors,
   valueKey = "hours",
   format = "hours",
   orientation = "horizontal",
 }: {
   rows: ReportGroup[];
+  colors: string[];
   valueKey?: "hours" | "inKind";
   format?: "hours" | "currency";
   orientation?: "horizontal" | "vertical";
@@ -164,7 +215,7 @@ export function SummaryBars({
     return () => observer.disconnect();
   }, []);
 
-  const data = rows.map((row, index) => ({ ...row, fill: chartColor(index) }));
+  const data = rows.map((row, index) => ({ ...row, fill: seriesColor(colors, index) }));
   const horizontal = orientation === "horizontal";
   const valueAxisWidth = format === "currency" ? 58 : 42;
   const categoryAxisWidth = 156;
@@ -181,8 +232,8 @@ export function SummaryBars({
   };
 
   return (
-    <div ref={frame}>
-      <ChartContainer config={configFor(rows)} className="aspect-auto w-full" style={{ height }}>
+    <div ref={frame} className="flex h-full min-h-0 w-full flex-1 flex-col">
+      <ChartContainer config={configFor(rows, colors)} className="aspect-auto h-full w-full flex-1" style={{ minHeight: height }}>
         <BarChart
           data={data}
           layout={horizontal ? "vertical" : "horizontal"}
@@ -199,18 +250,9 @@ export function SummaryBars({
                 interval={0}
                 width={categoryAxisWidth}
                 tickMargin={8}
-                tick={(props) => (
-                  <CategoryTick {...props} width={labelWidth} textAnchor="end" verticalAnchor="middle" />
-                )}
+                tick={(props) => <CategoryTick {...props} width={labelWidth} textAnchor="end" verticalAnchor="middle" />}
               />
-              <XAxis
-                type="number"
-                dataKey={valueKey}
-                tickLine={false}
-                axisLine={false}
-                domain={[0, "auto"]}
-                tickFormatter={tickValue}
-              />
+              <XAxis type="number" dataKey={valueKey} tickLine={false} axisLine={false} domain={[0, "auto"]} tickFormatter={tickValue} />
             </>
           ) : (
             <>
@@ -221,9 +263,7 @@ export function SummaryBars({
                 axisLine={false}
                 interval={0}
                 tickMargin={8}
-                tick={(props) => (
-                  <CategoryTick {...props} width={labelWidth} textAnchor="middle" verticalAnchor="start" />
-                )}
+                tick={(props) => <CategoryTick {...props} width={labelWidth} textAnchor="middle" verticalAnchor="start" />}
               />
               <YAxis
                 type="number"
@@ -237,7 +277,7 @@ export function SummaryBars({
               />
             </>
           )}
-          <ChartTooltip cursor={false} content={<ValueTooltip format={format} />} />
+          <ChartTooltip cursor={false} content={<ValueTooltip valueKey={valueKey} />} />
           <Bar dataKey={valueKey} radius={6} maxBarSize={28}>
             {data.map((row) => (
               <Cell key={row.id} fill={row.fill} />

@@ -3,15 +3,13 @@
 import { ClockIcon, DownloadIcon, HandCoinsIcon, ListChecksIcon, UsersIcon } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import type { ReactNode } from "react";
-import { SummaryBars } from "@/components/charts";
+import { ChartCard } from "@/components/chart-card";
 import { DateRangeFilter, rangeFromSearch } from "@/components/date-range-filter";
 import { CardSkeleton, StatsSkeleton } from "@/components/skeletons";
 import { GroupTable } from "@/components/group-table";
 import { PageHeader } from "@/components/page-header";
 import { StatCard } from "@/components/stat-card";
 import { buttonVariants } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLabels } from "@/hooks/use-labels";
 import { useReport } from "@/hooks/use-report";
@@ -19,26 +17,13 @@ import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
 import { canLogGroupTime } from "@/lib/roles";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/format";
 import { csvUrl, summaryCsvUrl } from "@/lib/queries";
-import type { DateRange, ReportGroup } from "@/lib/types";
+import type { DateRange } from "@/lib/types";
 
 function describe(range: DateRange) {
   if (range.from && range.to) return `${formatDate(range.from)} to ${formatDate(range.to)}`;
   if (range.from) return `Since ${formatDate(range.from)}`;
   if (range.to) return `Through ${formatDate(range.to)}`;
   return "All time";
-}
-
-function ChartCard({ title, rows, children }: { title: string; rows: ReportGroup[]; children: ReactNode }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {rows.length ? children : <p className="text-sm text-muted-foreground">No hours in this range.</p>}
-      </CardContent>
-    </Card>
-  );
 }
 
 export function ReportsView() {
@@ -103,24 +88,18 @@ export function ReportsView() {
               <StatCard icon={ListChecksIcon} tone="accent" label="Entries" value={report.user.entries} />
             </div>
             <div className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-3">
-              <ChartCard title={`Hours by ${copy.department.toLowerCase()}`} rows={report.user.byDepartment}>
-                <SummaryBars rows={report.user.byDepartment} orientation="vertical" />
-              </ChartCard>
-              <ChartCard title={`Hours by ${copy.taskCategory.toLowerCase()}`} rows={report.user.byCategory}>
-                <SummaryBars rows={report.user.byCategory} orientation="vertical" />
-              </ChartCard>
-              <ChartCard title="In-kind by month" rows={report.user.byMonth}>
-                <SummaryBars rows={report.user.byMonth} valueKey="inKind" format="currency" orientation="vertical" />
-              </ChartCard>
-              <ChartCard title="Hours by volunteer" rows={report.user.byVolunteer}>
-                <SummaryBars rows={report.user.byVolunteer} />
-              </ChartCard>
-              <ChartCard title="Hours by month" rows={report.user.byMonth}>
-                <SummaryBars rows={report.user.byMonth} orientation="vertical" />
-              </ChartCard>
-              <ChartCard title={`Hours by ${copy.project.toLowerCase()}`} rows={report.user.byProject}>
-                <SummaryBars rows={report.user.byProject} />
-              </ChartCard>
+              <ChartCard title={`Hours by ${copy.department.toLowerCase()}`} rows={report.user.byDepartment} chartType="column" />
+              <ChartCard title={`Hours by ${copy.taskCategory.toLowerCase()}`} rows={report.user.byCategory} chartType="column" />
+              <ChartCard
+                title="In-kind by month"
+                rows={report.user.byMonth}
+                chartType="column"
+                valueKey="inKind"
+                format="currency"
+              />
+              <ChartCard title="Hours by volunteer" rows={report.user.byVolunteer} chartType="bar" />
+              <ChartCard title="Hours by month" rows={report.user.byMonth} chartType="column" />
+              <ChartCard title={`Hours by ${copy.project.toLowerCase()}`} rows={report.user.byProject} chartType="bar" />
             </div>
           </TabsContent>
           <TabsContent value="people" className="flex flex-col gap-6">
