@@ -41,6 +41,7 @@ public static class FeatureRegistration
         services.AddScoped<TimeEntriesService>();
         services.AddScoped<CollectiveService>();
         services.AddScoped<ReportsService>();
+        services.AddScoped<SavedReportsService>();
         services.AddScoped<ThemesService>();
         services.AddScoped<FeedbackService>();
         services.AddScoped<OrganizationApiKeysService>();
@@ -57,6 +58,7 @@ public static class FeatureRegistration
         app.MapOrganizationsEndpoints();
         app.MapHourlyRatesEndpoints();
         app.MapReportsEndpoints();
+        app.MapSavedReportEndpoints();
         app.MapDepartmentsEndpoints();
         app.MapTagsEndpoints();
         app.MapTaskCategoriesEndpoints();

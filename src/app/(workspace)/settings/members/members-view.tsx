@@ -47,6 +47,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { PageSkeleton } from "@/components/skeletons";
+import { ConnectionsCard } from "./connections-card";
 import { PersonProfileDialog } from "./person-profile-dialog";
 import { useActionMutation } from "@/hooks/use-action-mutation";
 import { useInvitations } from "@/hooks/use-invitations";
@@ -284,6 +285,7 @@ export function MembersView() {
   return (
     <div className="flex flex-col gap-6">
       <InviteForm />
+      {isAdmin ? <ConnectionsCard /> : null}
       <Card>
         <CardHeader>
           <CardTitle>People</CardTitle>

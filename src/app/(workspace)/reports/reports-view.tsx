@@ -18,6 +18,7 @@ import { canLogGroupTime } from "@/lib/roles";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/format";
 import { csvUrl, summaryCsvUrl } from "@/lib/queries";
 import type { DateRange } from "@/lib/types";
+import { ReportSwitcher } from "./report-switcher";
 
 function describe(range: DateRange) {
   if (range.from && range.to) return `${formatDate(range.from)} to ${formatDate(range.to)}`;
@@ -39,6 +40,7 @@ export function ReportsView() {
         description={`${describe(range)} · valued at ${formatCurrency(organization.volunteerHourlyRate)}/h (${organization.rateSourceYear})`}
         actions={
           <div className="flex flex-wrap gap-2">
+            <ReportSwitcher active="standard" />
             <a href={csvUrl(organization.id, range)} download="volunteer-log.csv" className={buttonVariants({ variant: "outline", className: "h-9" })}>
               <DownloadIcon />
               Volunteer Log

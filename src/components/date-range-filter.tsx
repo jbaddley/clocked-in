@@ -95,13 +95,27 @@ export function DateRangeFilter({
   range,
   params = {},
   stacked = false,
+  onChange,
 }: {
   range: DateRange;
   params?: Record<string, string | undefined>;
   /** Stack the preset and dates until the filter itself is wide enough for one row. */
   stacked?: boolean;
+  onChange?: (range: DateRange) => void;
 }) {
-  const { update, pending } = useUrlParams({ ...params, from: range.from, to: range.to });
+  const url = useUrlParams({ ...params, from: range.from, to: range.to });
+  const update = (changes: Record<string, string | undefined>) => {
+    if (!onChange) {
+      url.update(changes);
+      return;
+    }
+
+    onChange({
+      from: "from" in changes ? changes.from : range.from,
+      to: "to" in changes ? changes.to : range.to,
+    });
+  };
+  const pending = onChange ? false : url.pending;
   const preset = presetFor(range);
   const fields = (
     <>

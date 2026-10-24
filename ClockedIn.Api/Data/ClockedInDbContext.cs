@@ -30,6 +30,7 @@ public class ClockedInDbContext(DbContextOptions<ClockedInDbContext> options, Ti
     public DbSet<FeedbackAction> FeedbackActions => Set<FeedbackAction>();
     public DbSet<OrganizationApiKey> OrganizationApiKeys => Set<OrganizationApiKey>();
     public DbSet<PlatformApiKey> PlatformApiKeys => Set<PlatformApiKey>();
+    public DbSet<Report> Reports => Set<Report>();
 
     public override int SaveChanges()
     {
@@ -206,6 +207,32 @@ public class ClockedInDbContext(DbContextOptions<ClockedInDbContext> options, Ti
                   )
                 )
                 """));
+        });
+
+        modelBuilder.Entity<Report>(entity =>
+        {
+            entity.Property(report => report.Name).HasColumnType("citext");
+            entity.Property(report => report.IsDefault).HasDefaultValue(false);
+            entity.Property(report => report.Layout)
+                .HasColumnType("jsonb")
+                .HasDefaultValueSql("""'{"version":1,"cards":[]}'::jsonb""");
+            entity.Property(report => report.Filters)
+                .HasColumnType("jsonb")
+                .HasDefaultValueSql("'{}'::jsonb");
+            entity.Property(report => report.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(report => report.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.HasIndex(report => new { report.OrganizationId, report.Name }).IsUnique();
+            entity.HasIndex(report => report.OrganizationId)
+                .IsUnique()
+                .HasFilter("\"isDefault\" = TRUE")
+                .HasDatabaseName("Report_one_default");
+            entity.HasOne(report => report.Organization)
+                .WithMany(organization => organization.Reports)
+                .HasForeignKey(report => report.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.ToTable(table => table.HasCheckConstraint(
+                "Report_name_check",
+                """char_length(btrim("name"::text)) BETWEEN 1 AND 80"""));
         });
 
         modelBuilder.Entity<MemberConnection>(entity =>

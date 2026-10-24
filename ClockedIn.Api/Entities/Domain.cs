@@ -200,6 +200,21 @@ public class Organization
     public ICollection<Feedback> Feedback { get; set; } = [];
     public ICollection<OrganizationApiKey> ApiKeys { get; set; } = [];
     public ICollection<MemberConnection> Connections { get; set; } = [];
+    public ICollection<Report> Reports { get; set; } = [];
+}
+
+public class Report
+{
+    public Guid Id { get; set; }
+    public Guid OrganizationId { get; set; }
+    public string Name { get; set; } = null!;
+    public bool IsDefault { get; set; }
+    public string Layout { get; set; } = """{"version":1,"cards":[]}""";
+    public string Filters { get; set; } = "{}";
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+
+    public Organization Organization { get; set; } = null!;
 }
 
 public class MemberConnection

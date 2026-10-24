@@ -1,6 +1,8 @@
 import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 import { fetchJson } from "@/lib/fetch-json";
 import type { MemberConnectionRecord } from "@/lib/member-connection";
+import type { ReportFilters } from "@/lib/report-layout";
+import type { SavedReport } from "@/lib/api/features/saved-reports";
 import type {
   DateRange,
   GroupSession,
@@ -38,8 +40,11 @@ export const keys = {
   entries: (organizationId: string, userId: string, range: DateRange) =>
     ["org", organizationId, "entries", userId, range.from ?? "", range.to ?? ""] as const,
   groupSessions: (organizationId: string) => ["org", organizationId, "group-sessions"] as const,
-  report: (organizationId: string, range: DateRange) =>
-    ["org", organizationId, "report", range.from ?? "", range.to ?? ""] as const,
+  report: (organizationId: string, filter: ReportFilters) => ["org", organizationId, "report", filter] as const,
+  savedReports: (organizationId: string) => ["org", organizationId, "saved-reports"] as const,
+  savedReport: (organizationId: string, reportId: string) => ["org", organizationId, "saved-reports", reportId] as const,
+  savedReportData: (organizationId: string, reportId: string, filter: ReportFilters) =>
+    ["org", organizationId, "saved-report-data", reportId, filter] as const,
   themes: (organizationId: string) => ["org", organizationId, "themes"] as const,
   openPunch: (userId: string) => ["user", userId, "open-punch"] as const,
   me: () => ["user", "me"] as const,
@@ -134,11 +139,36 @@ export function themesQuery(organizationId: string) {
   });
 }
 
-export function reportQuery(organizationId: string, range: DateRange) {
+export function reportQuery(organizationId: string, filter: ReportFilters) {
   return queryOptions({
-    queryKey: keys.report(organizationId, range),
+    queryKey: keys.report(organizationId, filter),
+    queryFn: ({ signal }) => fetchJson<Report>(`/organizations/${organizationId}/report${query({ ...filter })}`, signal),
+  });
+}
+
+export function savedReportsQuery(organizationId: string) {
+  return queryOptions({
+    queryKey: keys.savedReports(organizationId),
+    queryFn: async ({ signal }) =>
+      (await fetchJson<Paged<SavedReport>>(`/organizations/${organizationId}/reports?limit=100`, signal)).items,
+  });
+}
+
+export function savedReportQuery(organizationId: string, reportId: string) {
+  return queryOptions({
+    queryKey: keys.savedReport(organizationId, reportId),
+    queryFn: ({ signal }) => fetchJson<SavedReport>(`/organizations/${organizationId}/reports/${reportId}`, signal),
+  });
+}
+
+export function savedReportDataQuery(organizationId: string, reportId: string, filter: Pick<ReportFilters, "from" | "to">) {
+  return queryOptions({
+    queryKey: keys.savedReportData(organizationId, reportId, filter),
     queryFn: ({ signal }) =>
-      fetchJson<Report>(`/organizations/${organizationId}/report${query({ ...range })}`, signal),
+      fetchJson<Report>(
+        `/organizations/${organizationId}/reports/${reportId}/data${query({ ...filter, clearDates: "true" })}`,
+        signal,
+      ),
   });
 }
 

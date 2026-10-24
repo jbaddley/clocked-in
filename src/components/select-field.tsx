@@ -29,7 +29,7 @@ export function SelectField({
   return (
     <Select
       items={options}
-      value={value}
+      value={value || null}
       onValueChange={(next) => onValueChange((next as string | null) ?? "")}
       disabled={disabled}
     >

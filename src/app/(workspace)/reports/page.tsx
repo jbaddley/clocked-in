@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { canSeeReports } from "@/lib/roles";
 import { getWorkspace } from "@/lib/server/dal";
-import { ReportsView } from "./reports-view";
+import { ReportsHome } from "./reports-home";
 
 export const metadata: Metadata = { title: "Reports" };
 
@@ -15,7 +15,7 @@ export default async function ReportsPage() {
 
   return (
     <Suspense>
-      <ReportsView />
+      <ReportsHome />
     </Suspense>
   );
 }

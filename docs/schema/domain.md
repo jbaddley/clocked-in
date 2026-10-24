@@ -162,6 +162,15 @@ classDiagram
     datetime usedAt
     datetime createdAt
   }
+  class Report {
+    uuid id
+    string name
+    bool isDefault
+    json layout
+    json filters
+    datetime createdAt
+    datetime updatedAt
+  }
 
   User "1" --> "1" UserProfile
   User "1" --> "*" RefreshToken
@@ -181,6 +190,7 @@ classDiagram
   Organization "1" --> "*" Tag
   Organization "1" --> "*" TaskCategory
   Organization "1" --> "*" Project
+  Organization "1" --> "*" Report
   Department "0..1" --> "*" Project
   User "1" --> "*" Project : owner
   Project "*" --> "*" User : editors
@@ -341,6 +351,21 @@ One relationship between two members of an organization. `userAId` is the lower 
 | relationship    | yes      | `Parent`, `Child`, `Spouse`, `Sibling`, `Grandparent`, `Grandchild`, `Guardian`, `Dependent`, `Friend`, `Colleague`, or `Associate`            |
 | createdByUserId | yes      | Foreign key to User. The person who recorded the connection                                                                                    |
 | createdAt       | yes      |                                                                                                                                                |
+
+### Report
+
+A named report design for one organization. `layout` is the card grid. `filters` is the saved report query (`departmentId`, `taskCategoryId`, `projectId`, `userId`, `from`, `to`). Names are unique within the organization, compared case-insensitively. At most one report per organization has `isDefault` true.
+
+| Field          | Required | Notes                                                                                  |
+| -------------- | -------- | -------------------------------------------------------------------------------------- |
+| id             | yes      | UUID primary key                                                                       |
+| organizationId | yes      | Foreign key to Organization. Cascade delete                                            |
+| name           | yes      | Unique per organization, case-insensitive. 1–80 characters                             |
+| isDefault      | yes      | Default false. Partial unique index allows one default per organization               |
+| layout         | yes      | jsonb. Versioned card grid                                                             |
+| filters        | yes      | jsonb. Saved report query. Empty object means no extra filter                         |
+| createdAt      | yes      |                                                                                        |
+| updatedAt      | yes      |                                                                                        |
 
 ### Department
 
@@ -531,7 +556,7 @@ A user entry always has an organization. `departmentId` is empty for organizatio
 - Deleting an organization, department, project, task category, or user is restricted while time entries still reference them.
 - Deleting a user is restricted while they own a project, appear as `userId` or `enteredByUserId` on user entries, or as `recordedByUserId` on collective entries.
 - Profile, memberships, refresh tokens, password reset codes, invitations sent by the user, and project editor rows for that user delete with the user.
-- Organization cascade deletes departments, tags, task categories, projects, and org-saved themes when no restricting time entries remain. Global themes stay. The active `themeId` cannot be deleted while organizations still point at it.
+- Organization cascade deletes departments, tags, task categories, projects, saved reports, and org-saved themes when no restricting time entries remain. Global themes stay. The active `themeId` cannot be deleted while organizations still point at it.
 - Deleting a department clears `primaryDepartmentId` on memberships that pointed at it.
 - Departments cascade with their organization when no time entries remain.
 - Projects cascade with their organization or department when no time entries remain.
@@ -544,7 +569,7 @@ A user entry always has an organization. `departmentId` is empty for organizatio
 - Locally both apps use the same Postgres. `DATABASE_URL` (Prisma / Next.js) and `EF_DATABASE_URL` (.NET) point at that instance.
 - Entity names, field names, and nullability stay aligned so HTTP contracts can match.
 - Use UUID primary keys and `timestamptz` for instants.
-- Enforce the unique pairs in the database: `(username)`, `(email)`, `(Role.code)`, `(userId, organizationId)`, `(userId, departmentId)`, department name per organization, tag name per organization, task category name per organization, project title per organization, hourly rate name per organization, one default volunteer `HourlyRate` per organization, `UserTimeEntry.sourceRef` when set, and one pending invitation per email and target.
+- Enforce the unique pairs in the database: `(username)`, `(email)`, `(Role.code)`, `(userId, organizationId)`, `(userId, departmentId)`, department name per organization, tag name per organization, task category name per organization, project title per organization, hourly rate name per organization, one default volunteer `HourlyRate` per organization, report name per organization, one default `Report` per organization, `UserTimeEntry.sourceRef` when set, and one pending invitation per email and target.
 - Index user entries on `(organizationId, occurredOn)` and `(userId, occurredOn)`. Index collective entries on `(organizationId, startedAt)`.
 - Enforce check constraints for rate types, access types, membership professional rate, project department/access pairing, date order, hourly rates (catalog greater than zero, time-entry snapshots zero or greater), user entry modes (Punch and Duration 1–1440 minutes, Total 1–59940), theme hex colors, palette JSON, font keys, and in-kind nullability.
 - Enforce “one open punch per user”, “department membership requires organization membership”, and project/category organization match in the API. Those rules depend on more than a single foreign key.

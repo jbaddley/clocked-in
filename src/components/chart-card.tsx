@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MoreVerticalIcon } from "lucide-react";
 import { cn } from "cn";
 import { ChartPlot } from "@/components/charts";
@@ -44,6 +44,9 @@ export function ChartCard({
   format = "hours",
   empty = "No hours in this range.",
   className,
+  configurable = true,
+  onChartTypeChange,
+  onPaletteChange,
 }: {
   title: string;
   description?: string;
@@ -54,10 +57,19 @@ export function ChartCard({
   format?: "hours" | "currency";
   empty?: string;
   className?: string;
+  configurable?: boolean;
+  onChartTypeChange?: (chartType: ChartType) => void;
+  onPaletteChange?: (palette: PaletteType) => void;
 }) {
   const { theme } = useOrganization();
-  const [chartType, setChartType] = useState(chartTypeProp);
-  const [palette, setPalette] = useState<PaletteType>(() => defaultPalette(chartTypeProp, paletteProp));
+  const [chartTypeState, setChartType] = useState(chartTypeProp);
+  const [paletteState, setPalette] = useState<PaletteType>(() => defaultPalette(chartTypeProp, paletteProp));
+  useEffect(() => {
+    setChartType(chartTypeProp);
+    setPalette(defaultPalette(chartTypeProp, paletteProp));
+  }, [chartTypeProp, paletteProp]);
+  const chartType = configurable ? chartTypeState : chartTypeProp;
+  const palette = configurable ? paletteState : defaultPalette(chartTypeProp, paletteProp);
   const activePalette = paletteForChart(chartType, palette);
   const colors = colorsForPalette(theme, activePalette);
   const paletteChoices = paletteTypes.filter((type) => paletteForChart(chartType, type) === type);
@@ -67,6 +79,7 @@ export function ChartCard({
       <CardHeader>
         <CardTitle>{title}</CardTitle>
         {description ? <CardDescription>{description}</CardDescription> : null}
+        {configurable ? (
         <CardAction>
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -81,8 +94,11 @@ export function ChartCard({
                   value={chartType}
                   onValueChange={(value) => {
                     if (!isChartType(value)) return;
+                    const nextPalette = paletteForChart(value, palette);
                     setChartType(value);
-                    setPalette((current) => paletteForChart(value, current));
+                    setPalette(nextPalette);
+                    onChartTypeChange?.(value);
+                    onPaletteChange?.(nextPalette);
                   }}
                 >
                   {chartTypes.map((type) => (
@@ -99,7 +115,9 @@ export function ChartCard({
                   value={activePalette}
                   onValueChange={(value) => {
                     if (!isPaletteType(value)) return;
-                    setPalette(paletteForChart(chartType, value));
+                    const nextPalette = paletteForChart(chartType, value);
+                    setPalette(nextPalette);
+                    onPaletteChange?.(nextPalette);
                   }}
                 >
                   {paletteChoices.map((type) => (
@@ -113,6 +131,7 @@ export function ChartCard({
             </DropdownMenuContent>
           </DropdownMenu>
         </CardAction>
+        ) : null}
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col">
         {rows.length ? (

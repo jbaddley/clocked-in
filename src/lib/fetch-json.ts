@@ -27,3 +27,22 @@ export async function fetchJson<T>(path: string, signal?: AbortSignal): Promise<
 
   return body as T;
 }
+
+export async function sendJson<T>(path: string, method: "POST" | "PATCH" | "DELETE", body?: unknown): Promise<T> {
+  const response = await fetch(path, {
+    method,
+    credentials: "same-origin",
+    headers: {
+      accept: "application/json",
+      ...(body === undefined ? {} : { "content-type": "application/json" }),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await response.text();
+  const payload = text ? JSON.parse(text) : null;
+  if (!response.ok) {
+    throw new HttpError(response.status, payload?.message ?? "Request failed.");
+  }
+
+  return payload as T;
+}

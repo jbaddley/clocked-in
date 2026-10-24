@@ -905,6 +905,70 @@ namespace ClockedIn.Api.Data.Migrations
                     b.ToTable("RefreshToken");
                 });
 
+            modelBuilder.Entity("ClockedIn.Api.Entities.Report", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("createdAt")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("Filters")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("filters")
+                        .HasDefaultValueSql("'{}'::jsonb");
+
+                    b.Property<bool>("IsDefault")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("isDefault");
+
+                    b.Property<string>("Layout")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("layout")
+                        .HasDefaultValueSql("'{\"version\":1,\"cards\":[]}'::jsonb");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("citext")
+                        .HasColumnName("name");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("organizationId");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updatedAt")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId")
+                        .IsUnique()
+                        .HasDatabaseName("Report_one_default")
+                        .HasFilter("\"isDefault\" = TRUE");
+
+                    b.HasIndex("OrganizationId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("Report", t =>
+                        {
+                            t.HasCheckConstraint("Report_name_check", "char_length(btrim(\"name\"::text)) BETWEEN 1 AND 80");
+                        });
+                });
+
             modelBuilder.Entity("ClockedIn.Api.Entities.Role", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1901,6 +1965,17 @@ namespace ClockedIn.Api.Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("ClockedIn.Api.Entities.Report", b =>
+                {
+                    b.HasOne("ClockedIn.Api.Entities.Organization", "Organization")
+                        .WithMany("Reports")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Organization");
+                });
+
             modelBuilder.Entity("ClockedIn.Api.Entities.Tag", b =>
                 {
                     b.HasOne("ClockedIn.Api.Entities.Organization", "Organization")
@@ -2092,6 +2167,8 @@ namespace ClockedIn.Api.Data.Migrations
                     b.Navigation("Memberships");
 
                     b.Navigation("Projects");
+
+                    b.Navigation("Reports");
 
                     b.Navigation("Tags");
 
