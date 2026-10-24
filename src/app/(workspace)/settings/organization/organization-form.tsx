@@ -35,8 +35,8 @@ function OrganizationFields() {
       <CardHeader>
         <CardTitle>{copy.organization}</CardTitle>
         <CardDescription>
-          Name, website, description, valuation year, time editing, and what to call {copy.projects.toLowerCase()} and{" "}
-          {copy.departments.toLowerCase()} are saved together.
+          Name, website, description, valuation year, time editing, volunteer connections, and what to call{" "}
+          {copy.projects.toLowerCase()} and {copy.departments.toLowerCase()} are saved together.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -88,6 +88,18 @@ function OrganizationFields() {
           </label>
           <p className="text-sm text-muted-foreground sm:col-span-2">
             When this is off, saved entries keep their start, end, and duration. {copy.project}, {copy.taskCategory.toLowerCase()}, and notes can still change.
+          </p>
+          <label className="flex items-center gap-2 text-sm sm:col-span-2">
+            <input
+              type="checkbox"
+              name="allowVolunteersToAddVolunteers"
+              defaultChecked={organization.preferences.allowVolunteersToAddVolunteers}
+              className="size-4 rounded border"
+            />
+            Allow volunteers to add volunteers
+          </label>
+          <p className="text-sm text-muted-foreground sm:col-span-2">
+            When this is on, a volunteer can create another volunteer and record how they are related. Volunteers can log time for people they are connected to.
           </p>
           <Field label={`${copy.organization} label`} htmlFor="labelOrganization">
             <Input id="labelOrganization" name="labelOrganization" required defaultValue={labels.organization} className="h-9" />

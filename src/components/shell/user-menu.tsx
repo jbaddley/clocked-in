@@ -2,8 +2,9 @@
 
 import { LogOutIcon, MailOpenIcon, UserRoundIcon } from "lucide-react";
 import Link from "next/link";
+import { avatarImageSrc } from "@/lib/avatar";
 import { signOut } from "@/lib/lookup-persistence";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -18,12 +19,14 @@ import { useWorkspace } from "@/hooks/use-workspace";
 
 export function UserMenu() {
   const { viewer, isAdmin, isCoordinator } = useWorkspace();
+  const avatarSrc = avatarImageSrc(viewer.id, viewer.avatarUrl);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         render={<Button variant="ghost" size="icon" className="size-9 rounded-full" aria-label="Account menu" />}
       >
         <Avatar className="size-8">
+          {avatarSrc ? <AvatarImage src={avatarSrc} alt="" /> : null}
           <AvatarFallback className="bg-primary text-xs font-semibold text-primary-foreground">
             {viewer.initials}
           </AvatarFallback>

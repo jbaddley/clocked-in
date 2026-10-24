@@ -28,6 +28,7 @@
     "test:contract": "node --test --test-concurrency=1 \"tests/http/*.test.mjs\"",
     "email:dev": "email dev --dir emails --port 3030",
     "email:render": "tsx emails/render.ts",
+    "openapi": "node scripts/export-openapi.mjs",
     "postinstall": "node scripts/with-env.mjs -- prisma generate"
   },
   "dependencies": {

@@ -36,7 +36,7 @@ export function MemberTimeView() {
             <CalendarClockIcon className="size-4 text-muted-foreground" />
             Add time for a member
           </CardTitle>
-          <CardDescription>Choose an active member, then log start and end times or total hours. Add days to save that same entry on each one.</CardDescription>
+          <CardDescription>Choose an active member, then log a start time and duration or a total as HH:MM. Add days to save that same entry on each one.</CardDescription>
         </CardHeader>
         <CardContent>
           {isPending ? (

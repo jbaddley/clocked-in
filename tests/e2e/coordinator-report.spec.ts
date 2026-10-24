@@ -56,7 +56,7 @@ test("coordinator logs for a group member and sees only that group on Reports", 
   await page.getByRole("combobox", { name: /person/i }).click();
   await page.getByRole("option", { name: "E2e Grouped" }).click();
   await page.getByRole("button", { name: "Total hours" }).click();
-  await page.getByLabel("Hours").fill("1");
+  await page.getByLabel("Hours").fill("1:00");
   await page.getByLabel("Notes").fill(`e2e-coord ${stamp}`);
   await page.getByRole("button", { name: "Save time" }).click();
   await expect(page.getByText("Time saved.")).toBeVisible();

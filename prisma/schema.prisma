@@ -27,6 +27,9 @@ model User {
   feedback                   Feedback[]
   feedbackActionsTaken       FeedbackAction[]         @relation("FeedbackActionTakenBy")
   invitationsSent            Invitation[]             @relation("InvitationInvitedBy")
+  connectionsCreated         MemberConnection[]       @relation("MemberConnectionCreatedBy")
+  connectionsAsUserA         MemberConnection[]       @relation("MemberConnectionUserA")
+  connectionsAsUserB         MemberConnection[]       @relation("MemberConnectionUserB")
   organizationApiKeysCreated OrganizationApiKey[]
   platformApiKeysCreated     PlatformApiKey[]
   organizationMemberships    OrganizationMembership[]
@@ -88,6 +91,7 @@ model Organization {
   feedback              Feedback[]
   hourlyRates           HourlyRate[]
   invitations           Invitation[]
+  connections           MemberConnection[]
   theme                 Theme                    @relation("OrganizationTheme", fields: [themeId], references: [id], onUpdate: NoAction, map: "FK_Organization_Theme_themeId")
   apiKeys               OrganizationApiKey[]
   memberships           OrganizationMembership[]
@@ -477,6 +481,26 @@ model PlatformApiKey {
 
   @@index([createdByUserId], map: "IX_PlatformApiKey_createdByUserId")
   @@index([prefix], map: "IX_PlatformApiKey_prefix")
+}
+
+/// One relationship between two members of an organization. userAId is the lower id. relationship is how user B relates to user A.
+model MemberConnection {
+  id              String       @id(map: "PK_MemberConnection") @db.Uuid
+  organizationId  String       @db.Uuid
+  userAId         String       @db.Uuid
+  userBId         String       @db.Uuid
+  relationship    String
+  createdByUserId String       @db.Uuid
+  createdAt       DateTime     @default(now()) @db.Timestamptz(6)
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_MemberConnection_Organization_organizationId")
+  createdBy       User         @relation("MemberConnectionCreatedBy", fields: [createdByUserId], references: [id], onUpdate: NoAction, map: "FK_MemberConnection_User_createdByUserId")
+  userA           User         @relation("MemberConnectionUserA", fields: [userAId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_MemberConnection_User_userAId")
+  userB           User         @relation("MemberConnectionUserB", fields: [userBId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_MemberConnection_User_userBId")
+
+  @@unique([organizationId, userAId, userBId], map: "MemberConnection_pair_key")
+  @@index([createdByUserId], map: "IX_MemberConnection_createdByUserId")
+  @@index([userAId], map: "IX_MemberConnection_userAId")
+  @@index([userBId], map: "IX_MemberConnection_userBId")
 }
 
 enum TimeEntryMode {

@@ -143,6 +143,7 @@ describe("organizations", suite, () => {
     assert.equal(updated.json.wordmarkOnLightUrl, "https://example.com/wordmark-on-light.svg");
     assert.deepEqual(updated.json.preferences, {
       allowTimeEntryEditing: false,
+      allowVolunteersToAddVolunteers: false,
       entityLabels: labels,
       feedbackNotifyUserIds: [],
     });

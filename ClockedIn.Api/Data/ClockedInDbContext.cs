@@ -15,6 +15,7 @@ public class ClockedInDbContext(DbContextOptions<ClockedInDbContext> options, Ti
     public DbSet<Theme> Themes => Set<Theme>();
     public DbSet<HourlyRate> HourlyRates => Set<HourlyRate>();
     public DbSet<OrganizationMembership> OrganizationMemberships => Set<OrganizationMembership>();
+    public DbSet<MemberConnection> MemberConnections => Set<MemberConnection>();
     public DbSet<Department> Departments => Set<Department>();
     public DbSet<DepartmentMembership> DepartmentMemberships => Set<DepartmentMembership>();
     public DbSet<Tag> Tags => Set<Tag>();
@@ -203,6 +204,41 @@ public class ClockedInDbContext(DbContextOptions<ClockedInDbContext> options, Ti
                     AND "professionalBillingRate" IS NOT NULL
                     AND "professionalBillingRate" > 0
                   )
+                )
+                """));
+        });
+
+        modelBuilder.Entity<MemberConnection>(entity =>
+        {
+            entity.Property(connection => connection.Relationship).HasConversion<string>();
+            entity.Property(connection => connection.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.HasIndex(connection => new { connection.OrganizationId, connection.UserAId, connection.UserBId })
+                .IsUnique()
+                .HasDatabaseName("MemberConnection_pair_key");
+            entity.HasOne(connection => connection.Organization)
+                .WithMany(organization => organization.Connections)
+                .HasForeignKey(connection => connection.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(connection => connection.UserA)
+                .WithMany()
+                .HasForeignKey(connection => connection.UserAId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(connection => connection.UserB)
+                .WithMany()
+                .HasForeignKey(connection => connection.UserBId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(connection => connection.CreatedBy)
+                .WithMany()
+                .HasForeignKey(connection => connection.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.ToTable(table => table.HasCheckConstraint(
+                "MemberConnection_pair_check",
+                """
+                "userAId" <> "userBId"
+                AND "userAId"::text < "userBId"::text
+                AND "relationship" IN (
+                  'Parent', 'Child', 'Spouse', 'Sibling', 'Grandparent', 'Grandchild',
+                  'Guardian', 'Dependent', 'Friend', 'Colleague', 'Associate'
                 )
                 """));
         });

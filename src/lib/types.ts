@@ -50,6 +50,7 @@ export type Viewer = {
   isSuperAdmin: boolean;
   name: string;
   initials: string;
+  avatarUrl: string | null;
   timezone: string;
 };
 

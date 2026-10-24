@@ -1,12 +1,13 @@
 using ClockedIn.Api.Data;
 using ClockedIn.Api.Entities;
+using ClockedIn.Api.Features.Connections;
 using ClockedIn.Api.Features.Shared;
 using ClockedIn.Api.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace ClockedIn.Api.Features.TimeEntries;
 
-public sealed class EntryRules(ClockedInDbContext db, Access access)
+public sealed class EntryRules(ClockedInDbContext db, Access access, ConnectionsService connections)
 {
     public async Task AssertCanWriteUserEntry(Guid userId, Guid organizationId, Guid? departmentId, CancellationToken cancellationToken)
     {
@@ -20,15 +21,11 @@ public sealed class EntryRules(ClockedInDbContext db, Access access)
             return;
         }
 
-        if (!access.IsSuperAdmin && access.ActorUserId != userId && await access.IsOrgVolunteer(organizationId, cancellationToken))
-        {
-            throw ApiException.Forbidden();
-        }
-
         if (access.ActorUserId == userId
             || access.IsSuperAdmin
             || await access.IsOrgAdmin(organizationId, cancellationToken)
-            || (departmentId is Guid id && await access.IsDepartmentAdmin(id, cancellationToken)))
+            || (departmentId is Guid id && await access.IsDepartmentAdmin(id, cancellationToken))
+            || await connections.VolunteerConnectedTo(organizationId, userId, cancellationToken))
         {
             return;
         }
@@ -131,7 +128,7 @@ public sealed class EntryRules(ClockedInDbContext db, Access access)
         Guid? hourlyRateId,
         CancellationToken cancellationToken)
     {
-        var lockToDefault = !access.IsApiKey && access.ActorUserId == userId && await access.IsOrgVolunteer(organizationId, cancellationToken);
+        var lockToDefault = !access.IsApiKey && !access.IsSuperAdmin && await access.IsOrgVolunteer(organizationId, cancellationToken);
         if (lockToDefault || hourlyRateId is null)
         {
             return await DefaultVolunteerRate(organizationId, cancellationToken);

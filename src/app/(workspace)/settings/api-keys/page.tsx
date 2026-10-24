@@ -1,8 +1,5 @@
-import type { Metadata } from "next";
-import { ApiKeysView } from "./api-keys-view";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "API keys" };
-
-export default function ApiKeysPage() {
-  return <ApiKeysView />;
+export default function ApiKeysRedirect() {
+  redirect("/developer/api-keys");
 }

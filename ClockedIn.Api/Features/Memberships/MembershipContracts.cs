@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using ClockedIn.Api.Entities;
+using ClockedIn.Api.Features.Connections;
 using ClockedIn.Api.Features.Users;
 using ClockedIn.Api.Http;
 
@@ -92,7 +93,8 @@ public sealed record CreateOrgMembershipRequest(
     string? OrgUserTitle,
     string? OrgUserDescription,
     RoleCode Role,
-    List<Guid> DepartmentIds)
+    List<Guid> DepartmentIds,
+    MemberRelationship? Relationship)
 {
     public static async ValueTask<CreateOrgMembershipRequest?> BindAsync(HttpContext context) => Parse(await Body.Read(context));
 
@@ -125,9 +127,12 @@ public sealed record CreateOrgMembershipRequest(
             : null;
         var role = Fields.NormalizeRole(Fields.RequiredString(body, "role"));
         var departmentIds = Fields.Ids(body, "departmentIds", optional: true);
+        var relationship = Fields.Has(body, "relationship")
+            ? MemberConnectionRules.Parse(Fields.RequiredString(body, "relationship"))
+            : (MemberRelationship?)null;
         return new CreateOrgMembershipRequest(
             email, username, password, firstName, lastName, displayName, zone, phone, zipCode, notes,
-            avatarUrl, description, orgUserTitle, orgUserDescription, role, departmentIds);
+            avatarUrl, description, orgUserTitle, orgUserDescription, role, departmentIds, relationship);
     }
 }
 

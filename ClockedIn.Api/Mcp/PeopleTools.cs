@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using ClockedIn.Api.Features.Connections;
 using ClockedIn.Api.Features.Invitations;
 using ClockedIn.Api.Features.Memberships;
 using ClockedIn.Api.Http;
@@ -7,13 +8,13 @@ using ModelContextProtocol.Server;
 namespace ClockedIn.Api.Mcp;
 
 [McpServerToolType]
-public sealed class PeopleTools(MembershipsService memberships, InvitationsService invitations)
+public sealed class PeopleTools(MembershipsService memberships, InvitationsService invitations, ConnectionsService connections)
 {
     [McpServerTool, Description("List organization memberships.")]
     public Task<ListResponse<MembershipDto>> ListMembers(Guid organizationId, int? limit, int? offset, CancellationToken cancellationToken) =>
         McpCall.Run(() => memberships.ListOrganization(organizationId, new PageQuery(limit?.ToString(), offset?.ToString()), cancellationToken));
 
-    [McpServerTool, Description("Create a membership (existing or new person). Pass JSON with email, role, firstName, lastName, and optional username, password, departmentIds, avatarUrl, description, orgUserTitle, and orgUserDescription.")]
+    [McpServerTool, Description("Create a membership (existing or new person). Pass JSON with email, role, firstName, lastName, and optional username, password, departmentIds, avatarUrl, description, orgUserTitle, and orgUserDescription. When Allow volunteers to add volunteers is on, a volunteer can create another volunteer and must include relationship.")]
     public Task<MembershipDto> CreateMember(Guid organizationId, string body, CancellationToken cancellationToken) =>
         McpCall.Run(() => memberships.CreateOrganization(organizationId, CreateOrgMembershipRequest.Parse(McpCall.Object(body)), cancellationToken));
 
@@ -51,4 +52,24 @@ public sealed class PeopleTools(MembershipsService memberships, InvitationsServi
     [McpServerTool, Description("Revoke an organization invitation.")]
     public Task<InvitationDto> RevokeInvitation(Guid organizationId, Guid invitationId, CancellationToken cancellationToken) =>
         McpCall.Run(() => invitations.RevokeForOrganization(organizationId, invitationId, cancellationToken));
+
+    [McpServerTool, Description("List member connections. Admins see every connection. Other members see only their own. relationship is how user B relates to user A.")]
+    public Task<ListResponse<ConnectionDto>> ListConnections(Guid organizationId, int? limit, int? offset, CancellationToken cancellationToken) =>
+        McpCall.Run(() => connections.List(organizationId, new PageQuery(limit?.ToString(), offset?.ToString()), cancellationToken));
+
+    [McpServerTool, Description("Connect two active members. relationship is how connectedUserId relates to userId. Organization admin only.")]
+    public Task<ConnectionDto> CreateConnection(Guid organizationId, string body, CancellationToken cancellationToken) =>
+        McpCall.Run(() => connections.Create(organizationId, CreateConnectionRequest.Parse(McpCall.Object(body)), cancellationToken));
+
+    [McpServerTool, Description("Change a connection. Pass JSON with userId and relationship from that person's point of view. Organization admin only.")]
+    public Task<ConnectionDto> UpdateConnection(Guid organizationId, Guid connectionId, string body, CancellationToken cancellationToken) =>
+        McpCall.Run(() => connections.Update(organizationId, connectionId, UpdateConnectionRequest.Parse(McpCall.Object(body)), cancellationToken));
+
+    [McpServerTool, Description("Remove a member connection. Organization admin only.")]
+    public Task<string> DeleteConnection(Guid organizationId, Guid connectionId, CancellationToken cancellationToken) =>
+        McpCall.Run(async () =>
+        {
+            await connections.Delete(organizationId, connectionId, cancellationToken);
+            return "deleted";
+        });
 }

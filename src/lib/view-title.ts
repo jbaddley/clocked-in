@@ -11,6 +11,7 @@ export function viewTitle(pathname: string, name: string, organizationName?: str
   if (pathname.startsWith("/reports")) return "Reports";
   if (pathname.startsWith("/profile")) return "Profile";
   if (pathname.startsWith("/settings")) return "Settings";
+  if (pathname.startsWith("/developer")) return "Developer";
   if (pathname.startsWith("/about-prototype")) return "Guide";
   if (pathname.startsWith("/feedback")) return "Feedback";
   return "";

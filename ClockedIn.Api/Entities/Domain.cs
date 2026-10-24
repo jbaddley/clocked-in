@@ -34,6 +34,21 @@ public enum RoleCode
     ADMIN,
 }
 
+public enum MemberRelationship
+{
+    Parent,
+    Child,
+    Spouse,
+    Sibling,
+    Grandparent,
+    Grandchild,
+    Guardian,
+    Dependent,
+    Friend,
+    Colleague,
+    Associate,
+}
+
 public enum FeedbackType
 {
     Bug,
@@ -150,6 +165,7 @@ public class EntityLabels
 public class OrganizationPreferences
 {
     public bool AllowTimeEntryEditing { get; set; }
+    public bool AllowVolunteersToAddVolunteers { get; set; }
     public EntityLabels EntityLabels { get; set; } = new();
     public List<Guid> FeedbackNotifyUserIds { get; set; } = [];
 }
@@ -183,6 +199,23 @@ public class Organization
     public ICollection<Invitation> Invitations { get; set; } = [];
     public ICollection<Feedback> Feedback { get; set; } = [];
     public ICollection<OrganizationApiKey> ApiKeys { get; set; } = [];
+    public ICollection<MemberConnection> Connections { get; set; } = [];
+}
+
+public class MemberConnection
+{
+    public Guid Id { get; set; }
+    public Guid OrganizationId { get; set; }
+    public Guid UserAId { get; set; }
+    public Guid UserBId { get; set; }
+    public MemberRelationship Relationship { get; set; }
+    public Guid CreatedByUserId { get; set; }
+    public DateTime CreatedAt { get; set; }
+
+    public Organization Organization { get; set; } = null!;
+    public User UserA { get; set; } = null!;
+    public User UserB { get; set; } = null!;
+    public User CreatedBy { get; set; } = null!;
 }
 
 public class HourlyRate

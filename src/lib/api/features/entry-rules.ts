@@ -1,5 +1,6 @@
 import { Access } from "@/lib/api/access";
 import { forbidden, notFound, validation } from "@/lib/api/errors";
+import { volunteerConnectedTo } from "@/lib/api/features/connections";
 import { defaultVolunteerRate } from "@/lib/api/features/hourly-rates";
 import { prisma } from "@/lib/prisma";
 
@@ -17,15 +18,12 @@ export async function assertCanWriteUserEntry(
     return;
   }
 
-  if (!access.isSuperAdmin && access.actorUserId !== userId && (await access.isOrgVolunteer(organizationId))) {
-    forbidden();
-  }
-
   if (
     access.actorUserId === userId ||
     access.isSuperAdmin ||
     (await access.isOrgAdmin(organizationId)) ||
-    (departmentId !== null && (await access.isDepartmentAdmin(departmentId)))
+    (departmentId !== null && (await access.isDepartmentAdmin(departmentId))) ||
+    (await volunteerConnectedTo(access, organizationId, userId))
   ) {
     return;
   }
@@ -157,7 +155,7 @@ export async function resolveHourlyRate(
   organizationId: string,
   hourlyRateId: string | null | undefined,
 ) {
-  const lockToDefault = !access.isApiKey && access.actorUserId === userId && (await access.isOrgVolunteer(organizationId));
+  const lockToDefault = !access.isApiKey && !access.isSuperAdmin && (await access.isOrgVolunteer(organizationId));
   if (lockToDefault || !hourlyRateId) {
     return defaultVolunteerRate(organizationId);
   }

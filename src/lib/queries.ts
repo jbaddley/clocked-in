@@ -1,5 +1,6 @@
 import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 import { fetchJson } from "@/lib/fetch-json";
+import type { MemberConnectionRecord } from "@/lib/member-connection";
 import type {
   DateRange,
   GroupSession,
@@ -30,6 +31,7 @@ export const keys = {
   organization: (organizationId: string) => ["org", organizationId] as const,
   lookups: (organizationId: string) => ["org", organizationId, "lookups"] as const,
   members: (organizationId: string) => ["org", organizationId, "members"] as const,
+  connections: (organizationId: string) => ["org", organizationId, "connections"] as const,
   invitations: (organizationId: string) => ["org", organizationId, "invitations"] as const,
   departmentInvitations: (departmentId: string) => ["department", departmentId, "invitations"] as const,
   apiKeys: (organizationId: string) => ["org", organizationId, "api-keys"] as const,
@@ -62,6 +64,15 @@ export function membersQuery(organizationId: string) {
     queryKey: keys.members(organizationId),
     queryFn: async ({ signal }) =>
       (await fetchJson<Paged<Membership>>(`/organizations/${organizationId}/memberships?limit=100`, signal)).items,
+  });
+}
+
+export function connectionsQuery(organizationId: string) {
+  return queryOptions({
+    queryKey: keys.connections(organizationId),
+    queryFn: async ({ signal }) =>
+      (await fetchJson<Paged<MemberConnectionRecord>>(`/organizations/${organizationId}/connections?limit=100`, signal))
+        .items,
   });
 }
 

@@ -445,6 +445,58 @@ namespace ClockedIn.Api.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("ClockedIn.Api.Entities.MemberConnection", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("createdAt")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("createdByUserId");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("organizationId");
+
+                    b.Property<string>("Relationship")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("relationship");
+
+                    b.Property<Guid>("UserAId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("userAId");
+
+                    b.Property<Guid>("UserBId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("userBId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("UserAId");
+
+                    b.HasIndex("UserBId");
+
+                    b.HasIndex("OrganizationId", "UserAId", "UserBId")
+                        .IsUnique()
+                        .HasDatabaseName("MemberConnection_pair_key");
+
+                    b.ToTable("MemberConnection", t =>
+                        {
+                            t.HasCheckConstraint("MemberConnection_pair_check", "\"userAId\" <> \"userBId\"\r\nAND \"userAId\"::text < \"userBId\"::text\r\nAND \"relationship\" IN (\r\n  'Parent', 'Child', 'Spouse', 'Sibling', 'Grandparent', 'Grandchild',\r\n  'Guardian', 'Dependent', 'Friend', 'Colleague', 'Associate'\r\n)");
+                        });
+                });
+
             modelBuilder.Entity("ClockedIn.Api.Entities.Organization", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1631,6 +1683,41 @@ namespace ClockedIn.Api.Data.Migrations
                     b.Navigation("Role");
                 });
 
+            modelBuilder.Entity("ClockedIn.Api.Entities.MemberConnection", b =>
+                {
+                    b.HasOne("ClockedIn.Api.Entities.User", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ClockedIn.Api.Entities.Organization", "Organization")
+                        .WithMany("Connections")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ClockedIn.Api.Entities.User", "UserA")
+                        .WithMany()
+                        .HasForeignKey("UserAId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ClockedIn.Api.Entities.User", "UserB")
+                        .WithMany()
+                        .HasForeignKey("UserBId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("Organization");
+
+                    b.Navigation("UserA");
+
+                    b.Navigation("UserB");
+                });
+
             modelBuilder.Entity("ClockedIn.Api.Entities.Organization", b =>
                 {
                     b.HasOne("ClockedIn.Api.Entities.Theme", "Theme")
@@ -1645,6 +1732,9 @@ namespace ClockedIn.Api.Data.Migrations
 
                             b1.Property<bool>("AllowTimeEntryEditing")
                                 .HasJsonPropertyName("allowTimeEntryEditing");
+
+                            b1.Property<bool>("AllowVolunteersToAddVolunteers")
+                                .HasJsonPropertyName("allowVolunteersToAddVolunteers");
 
                             b1.PrimitiveCollection<string>("FeedbackNotifyUserIds")
                                 .IsRequired()
@@ -1988,6 +2078,8 @@ namespace ClockedIn.Api.Data.Migrations
                     b.Navigation("ApiKeys");
 
                     b.Navigation("CollectiveTimeEntries");
+
+                    b.Navigation("Connections");
 
                     b.Navigation("Departments");
 

@@ -12,6 +12,19 @@ export function canLogMemberTime(isAdmin: boolean, groupDepartments: GroupDepart
   return isAdmin || isCoordinator(groupDepartments);
 }
 
+export function canLogConnectionTime(input: {
+  role: string | null;
+  isAdmin: boolean;
+  allowVolunteersToAddVolunteers: boolean;
+  connectionCount: number;
+}) {
+  if (input.role === "VOLUNTEER" && (input.allowVolunteersToAddVolunteers || input.connectionCount > 0)) {
+    return true;
+  }
+
+  return input.isAdmin && input.connectionCount > 0;
+}
+
 export function canSeeReports(input: { role: string | null; isAdmin: boolean; isCoordinator: boolean }) {
   return input.isAdmin || input.isCoordinator || input.role === "MEMBER";
 }

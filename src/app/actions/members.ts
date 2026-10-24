@@ -49,6 +49,7 @@ export type NewPerson = {
   notes?: string | null;
   role: string;
   departmentIds?: string[];
+  relationship?: string;
 };
 
 export async function createPersonAction(organizationId: string, input: NewPerson) {

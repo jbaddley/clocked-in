@@ -264,7 +264,7 @@ In-kind valuation catalogs live on `HourlyRate`. Creating an organization seeds 
 | websiteUrl         | no       |                                                                                                                                                                                                                                                                                                                              |
 | rateSourceYear     | yes      | Integer year, default `2025`                                                                                                                                                                                                                                                                                                 |
 | defaultRateType    | yes      | `Volunteer` or `Professional`, default `Volunteer`                                                                                                                                                                                                                                                                           |
-| preferences        | yes      | jsonb. `allowTimeEntryEditing` defaults to false. When false, a time entry update cannot change `startedAt`, `endedAt`, `durationMinutes`, or `occurredOn`. `entityLabels` holds display names for `organization`, `project`, `department`, and `taskCategory` (defaults: Organization, Project, Department, Task category). |
+| preferences        | yes      | jsonb. `allowTimeEntryEditing` defaults to false. When false, a time entry update cannot change `startedAt`, `endedAt`, `durationMinutes`, or `occurredOn`. `allowVolunteersToAddVolunteers` defaults to false. When true, a volunteer can create another volunteer and must record a relationship. `entityLabels` holds display names for `organization`, `project`, `department`, and `taskCategory` (defaults: Organization, Project, Department, Task category). |
 | themeId            | yes      | Foreign key to Theme. Defaults to the seeded VolunTime global theme.                                                                                                                                                                                                                                                         |
 | wordmarkUrl        | no       | Light-on-dark sidebar wordmark. Stays on the organization so switching themes does not wipe marks. Uploads are resized to fit 800×200, stored privately, and served at `/brand/wordmark` for members.                                                                                                                        |
 | wordmarkOnLightUrl | no       | Dark-on-light wordmark for light surfaces. Same resize and private storage as `wordmarkUrl`, served at `/brand/wordmarkOnLight`.                                                                                                                                                                                             |
@@ -327,6 +327,20 @@ A user has at most one membership in a given organization. A person may belong t
 | orgUserTitle            | no       | Title of the user for this organization                                                   |
 | orgUserDescription      | no       | Description of the user for this organization in Markdown                                 |
 | joinedAt                | yes      |                                                                                           |
+
+### MemberConnection
+
+One relationship between two members of an organization. `userAId` is the lower user id as text. `relationship` is how user B relates to user A. Callers send the label from one person's point of view (`Child` means the other person is their child) and the API stores the inverse when it swaps the pair. A pair can be connected once. Turning off `allowVolunteersToAddVolunteers` does not remove connections.
+
+| Field           | Required | Notes                                                                                                                                          |
+| --------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| id              | yes      | UUID primary key                                                                                                                               |
+| organizationId  | yes      | Foreign key to Organization                                                                                                                    |
+| userAId         | yes      | Foreign key to User. Lower than `userBId`                                                                                                      |
+| userBId         | yes      | Foreign key to User                                                                                                                            |
+| relationship    | yes      | `Parent`, `Child`, `Spouse`, `Sibling`, `Grandparent`, `Grandchild`, `Guardian`, `Dependent`, `Friend`, `Colleague`, or `Associate`            |
+| createdByUserId | yes      | Foreign key to User. The person who recorded the connection                                                                                    |
+| createdAt       | yes      |                                                                                                                                                |
 
 ### Department
 

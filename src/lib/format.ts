@@ -71,6 +71,29 @@ export function formatMinutes(minutes: number | null) {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
+/** Whole minutes as `H:MM`, such as `1:30` or `999:00`. */
+export function formatDurationInput(minutes: number) {
+  const whole = Math.max(0, Math.trunc(minutes));
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
+}
+
+/**
+ * Reads a duration typed as `HH:MM` or as decimal hours (`1.5`).
+ * Returns whole minutes, the unit stored for a time entry.
+ */
+export function minutesFromDurationInput(value: string): number | null {
+  const text = value.trim();
+  if (!text) return null;
+
+  const clock = /^(\d{1,3}):([0-5]?\d)$/.exec(text);
+  if (clock) return Number(clock[1]) * 60 + Number(clock[2]);
+
+  if (!/^\d{1,3}(\.\d+)?$/.test(text)) return null;
+  const hours = Number(text);
+  if (!Number.isFinite(hours)) return null;
+  return Math.round(hours * 60);
+}
+
 export function formatClock(ms: number) {
   const total = Math.floor(ms / 1000);
   const parts = [Math.floor(total / 3600), Math.floor((total % 3600) / 60), total % 60];

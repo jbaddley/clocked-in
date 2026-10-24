@@ -1,5 +1,6 @@
 import { Prisma } from "@/generated/prisma/client";
 import { Access, Account, accountInclude } from "@/lib/api/access";
+import { volunteerConnectedOrganizationIds, volunteerConnectedTo } from "@/lib/api/features/connections";
 import { readPreferences } from "@/lib/api/features/organizations";
 import { guard, lockUser, transaction } from "@/lib/api/db";
 import { conflict, forbidden, notFound, validation } from "@/lib/api/errors";
@@ -514,16 +515,13 @@ async function owned(access: Access, entryId: string, write: boolean) {
     return entry;
   }
 
-  if (!access.isSuperAdmin && entry.userId !== access.actorUserId && (await access.isOrgVolunteer(entry.organizationId))) {
-    forbidden();
-  }
-
   if (
     entry.userId === access.actorUserId ||
     entry.enteredByUserId === access.actorUserId ||
     access.isSuperAdmin ||
     (await access.isOrgAdmin(entry.organizationId)) ||
-    (entry.departmentId !== null && (await access.isDepartmentAdmin(entry.departmentId)))
+    (entry.departmentId !== null && (await access.isDepartmentAdmin(entry.departmentId))) ||
+    (await volunteerConnectedTo(access, entry.organizationId, entry.userId))
   ) {
     return entry;
   }
@@ -542,7 +540,9 @@ export async function listTimeEntries(access: Access, userId: string, params: UR
     visible = await access.activeOrganizationIds();
   } else if (access.actorUserId !== userId && !access.isSuperAdmin) {
     const shared = new Set(await access.sharedOrganizationIds(userId));
-    visible = (await access.organizationsWhereCallerCanReadOthers()).filter((organizationId) => shared.has(organizationId));
+    const readable = new Set(await access.organizationsWhereCallerCanReadOthers());
+    const connected = new Set(await volunteerConnectedOrganizationIds(access, userId));
+    visible = [...shared].filter((organizationId) => readable.has(organizationId) || connected.has(organizationId));
     if (visible.length === 0) {
       forbidden();
     }

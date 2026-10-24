@@ -50,6 +50,7 @@ export async function updateOrganizationSettingsAction(
     const access = await requireAccess();
     const preferences: OrganizationPreferences = {
       allowTimeEntryEditing: formData.get("allowTimeEntryEditing") === "on",
+      allowVolunteersToAddVolunteers: formData.get("allowVolunteersToAddVolunteers") === "on",
       entityLabels: {
         organization: text(formData, "labelOrganization"),
         project: text(formData, "labelProject"),

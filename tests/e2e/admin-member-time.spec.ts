@@ -38,7 +38,7 @@ test("admin logs member time and Entered By is not the volunteer", async ({ page
   await page.getByRole("combobox", { name: /person/i }).click();
   await page.getByRole("option", { name: "E2e Memberlog" }).click();
   await page.getByRole("button", { name: "Total hours" }).click();
-  await page.getByLabel("Hours").fill("1.5");
+  await page.getByLabel("Hours").fill("1:30");
   await page.getByLabel("Notes").fill(`e2e-member-log ${stamp}`);
   await page.getByRole("button", { name: "Save time" }).click();
   await expect(page.getByText("Time saved.")).toBeVisible();

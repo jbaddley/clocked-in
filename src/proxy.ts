@@ -11,6 +11,7 @@ const protectedPrefixes = [
   "/groups",
   "/reports",
   "/settings",
+  "/developer",
   "/about-prototype",
   "/profile",
   "/change-password",

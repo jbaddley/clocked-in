@@ -189,12 +189,25 @@ export function AboutPrototypeView() {
           title: "Organization setup",
           href: "/settings/organization",
           where: "Manage · Settings",
-          summary: `Name, rate year, labels, the time-edit lock, and who is emailed when someone sends feedback. The hourly-rate catalog holds the volunteer default and professional rates. ${copy.departments} are the teams hours roll up to. Themes set colors and fonts, including this page. Brand uploads the mark and wordmarks. API keys let a script read, write, or administer; the secret is shown once.`,
+          summary: `Name, rate year, labels, the time-edit lock, and who is emailed when someone sends feedback. The hourly-rate catalog holds the volunteer default and professional rates. ${copy.departments} are the teams hours roll up to. Themes set colors and fonts, including this page. Brand uploads the mark and wordmarks.`,
           access: {
             volunteer: "—",
             staff: "—",
             coordinator: "—",
-            admin: "Organization, rates, groups, theme, brand, API keys",
+            admin: "Organization, rates, groups, theme, and brand",
+          },
+        },
+        {
+          title: "Developer",
+          href: "/developer/api-keys",
+          where: "Manage · Developer",
+          summary:
+            "Create organization API keys, copy the MCP client config and tool list, and try HTTP routes with your signed-in session. A key secret is shown only when the key is created or rotated.",
+          access: {
+            volunteer: "—",
+            staff: "—",
+            coordinator: "—",
+            admin: "API keys, MCP, and the HTTP explorer",
           },
         },
       ],
@@ -295,7 +308,7 @@ export function AboutPrototypeView() {
             icon={ShieldIcon}
             tone="primary"
             title="Admin"
-            body={`Covers every ${group}, plus organization settings, rates, theme, brand, and API keys. You are reading this because you are an admin.`}
+            body={`Covers every ${group}, plus organization settings, rates, theme, brand, and Developer. You are reading this because you are an admin.`}
           />
         </div>
       </section>

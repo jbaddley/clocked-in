@@ -29,6 +29,7 @@ import { prisma } from "@/lib/prisma";
 
 export type OrganizationPreferences = {
   allowTimeEntryEditing: boolean;
+  allowVolunteersToAddVolunteers: boolean;
   entityLabels: EntityLabels;
   feedbackNotifyUserIds: string[];
 };
@@ -41,7 +42,12 @@ function labelValue(value: unknown, fallback: string) {
 
 export function readPreferences(value: Prisma.JsonValue | null | undefined): OrganizationPreferences {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return { allowTimeEntryEditing: false, entityLabels: defaultEntityLabels, feedbackNotifyUserIds: [] };
+    return {
+      allowTimeEntryEditing: false,
+      allowVolunteersToAddVolunteers: false,
+      entityLabels: defaultEntityLabels,
+      feedbackNotifyUserIds: [],
+    };
   }
 
   const record = value as Record<string, unknown>;
@@ -49,6 +55,7 @@ export function readPreferences(value: Prisma.JsonValue | null | undefined): Org
   const source = labels && typeof labels === "object" && !Array.isArray(labels) ? (labels as Record<string, unknown>) : {};
   return {
     allowTimeEntryEditing: record.allowTimeEntryEditing === true,
+    allowVolunteersToAddVolunteers: record.allowVolunteersToAddVolunteers === true,
     entityLabels: {
       organization: labelValue(source.organization, defaultEntityLabels.organization),
       project: labelValue(source.project, defaultEntityLabels.project),
@@ -108,6 +115,9 @@ function parsePreferences(value: unknown): OrganizationPreferences {
   const body = value as Body;
   return {
     allowTimeEntryEditing: requireBool(body, "allowTimeEntryEditing"),
+    allowVolunteersToAddVolunteers: has(body, "allowVolunteersToAddVolunteers")
+      ? requireBool(body, "allowVolunteersToAddVolunteers")
+      : false,
     entityLabels: has(body, "entityLabels") ? parseEntityLabels(body.entityLabels) : defaultEntityLabels,
     feedbackNotifyUserIds: has(body, "feedbackNotifyUserIds")
       ? [...new Set(ids(body, "feedbackNotifyUserIds", false))]
@@ -299,6 +309,7 @@ export async function updateOrganization(access: Access, organizationId: string,
       ? {
           ...preferenceRecord(current.preferences),
           allowTimeEntryEditing: request.preferences.value.allowTimeEntryEditing,
+          allowVolunteersToAddVolunteers: request.preferences.value.allowVolunteersToAddVolunteers,
           entityLabels: request.preferences.value.entityLabels,
           feedbackNotifyUserIds: request.preferences.value.feedbackNotifyUserIds,
         }

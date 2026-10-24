@@ -1,12 +1,13 @@
 using ClockedIn.Api.Data;
 using ClockedIn.Api.Entities;
+using ClockedIn.Api.Features.Connections;
 using ClockedIn.Api.Features.Shared;
 using ClockedIn.Api.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace ClockedIn.Api.Features.TimeEntries;
 
-public sealed class TimeEntriesService(ClockedInDbContext db, Access access, EntryRules rules, TimeProvider time)
+public sealed class TimeEntriesService(ClockedInDbContext db, Access access, EntryRules rules, TimeProvider time, ConnectionsService connections)
 {
     public async Task<ListResponse<TimeEntryDto>> List(Guid userId, TimeEntryFilter filter, CancellationToken cancellationToken)
     {
@@ -24,7 +25,8 @@ public sealed class TimeEntriesService(ClockedInDbContext db, Access access, Ent
         {
             var shared = await access.SharedOrganizationIds(userId, cancellationToken);
             var readable = await access.OrganizationsWhereCallerCanReadOthers(cancellationToken);
-            visible = shared.Intersect(readable).ToList();
+            var connected = await connections.VolunteerConnectedOrganizationIds(userId, cancellationToken);
+            visible = shared.Where(id => readable.Contains(id) || connected.Contains(id)).ToList();
             if (visible.Count == 0)
             {
                 throw ApiException.Forbidden();
@@ -320,16 +322,12 @@ public sealed class TimeEntriesService(ClockedInDbContext db, Access access, Ent
             return entry;
         }
 
-        if (!access.IsSuperAdmin && entry.UserId != access.ActorUserId && await access.IsOrgVolunteer(entry.OrganizationId, cancellationToken))
-        {
-            throw ApiException.Forbidden();
-        }
-
         if (entry.UserId == access.ActorUserId
             || entry.EnteredByUserId == access.ActorUserId
             || access.IsSuperAdmin
             || await access.IsOrgAdmin(entry.OrganizationId, cancellationToken)
-            || (entry.DepartmentId is Guid departmentId && await access.IsDepartmentAdmin(departmentId, cancellationToken)))
+            || (entry.DepartmentId is Guid departmentId && await access.IsDepartmentAdmin(departmentId, cancellationToken))
+            || await connections.VolunteerConnectedTo(entry.OrganizationId, entry.UserId, cancellationToken))
         {
             return entry;
         }

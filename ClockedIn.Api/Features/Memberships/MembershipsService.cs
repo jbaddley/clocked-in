@@ -1,5 +1,6 @@
 using ClockedIn.Api.Data;
 using ClockedIn.Api.Entities;
+using ClockedIn.Api.Features.Connections;
 using ClockedIn.Api.Features.Shared;
 using ClockedIn.Api.Http;
 using ClockedIn.Api.Security;
@@ -7,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ClockedIn.Api.Features.Memberships;
 
-public sealed class MembershipsService(ClockedInDbContext db, Access access, TimeProvider time)
+public sealed class MembershipsService(ClockedInDbContext db, Access access, TimeProvider time, ConnectionsService connections)
 {
     public async Task<ListResponse<RoleDto>> ListRoles(PageQuery query, CancellationToken cancellationToken)
     {
@@ -38,7 +39,44 @@ public sealed class MembershipsService(ClockedInDbContext db, Access access, Tim
 
     public async Task<MembershipDto> CreateOrganization(Guid organizationId, CreateOrgMembershipRequest request, CancellationToken cancellationToken)
     {
-        await access.RequireOrganizationAdmin(organizationId, cancellationToken);
+        var admin = access.IsSuperAdmin || await access.IsOrgAdmin(organizationId, cancellationToken);
+        var volunteerAdd = false;
+        if (admin)
+        {
+            await access.RequireOrganizationAdmin(organizationId, cancellationToken);
+        }
+        else if (await access.IsOrgVolunteer(organizationId, cancellationToken))
+        {
+            var preferences = await db.Organizations.AsNoTracking()
+                .Where(item => item.Id == organizationId)
+                .Select(item => item.Preferences)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (preferences is null || !preferences.AllowVolunteersToAddVolunteers)
+            {
+                throw ApiException.Forbidden();
+            }
+
+            if (request.Role != RoleCode.VOLUNTEER)
+            {
+                throw ApiException.Validation("Volunteers can only add volunteers.");
+            }
+
+            if (request.DepartmentIds.Count > 0)
+            {
+                throw ApiException.Validation("Volunteers cannot assign departments.");
+            }
+
+            if (request.Relationship is null)
+            {
+                throw ApiException.Validation("relationship is required.");
+            }
+
+            volunteerAdd = true;
+        }
+        else
+        {
+            await access.RequireOrganizationAdmin(organizationId, cancellationToken);
+        }
         await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
         await db.LockOrganizationAsync(organizationId, cancellationToken);
         var existing = await db.UsersWithProfile().FirstOrDefaultAsync(user => user.Email == request.Email, cancellationToken);
@@ -77,7 +115,9 @@ public sealed class MembershipsService(ClockedInDbContext db, Access access, Tim
         {
             if (await db.OrganizationMemberships.AnyAsync(item => item.UserId == existing.Id && item.OrganizationId == organizationId, cancellationToken))
             {
-                throw ApiException.Conflict("This person is already in the organization.");
+                throw ApiException.Conflict(volunteerAdd
+                    ? "This person is already a member. Ask an admin to connect you."
+                    : "This person is already in the organization.");
             }
 
             user = existing;
@@ -112,6 +152,11 @@ public sealed class MembershipsService(ClockedInDbContext db, Access access, Tim
         await SyncDepartments(organizationId, user.Id, request.DepartmentIds, cancellationToken);
         membership.PrimaryDepartmentId = request.DepartmentIds.Count > 0 ? request.DepartmentIds[0] : null;
         await db.SaveOrThrowAsync(cancellationToken);
+        if (volunteerAdd && request.Relationship is MemberRelationship relationship)
+        {
+            await connections.Insert(organizationId, access.ActorUserId, user.Id, relationship, access.ActorUserId, cancellationToken);
+        }
+
         await tx.CommitAsync(cancellationToken);
         return await MapOrganization(membership.Id, cancellationToken);
     }

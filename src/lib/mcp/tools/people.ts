@@ -2,6 +2,14 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { parseCreateInvitation, listOrganizationInvitations, createOrganizationInvitation, revokeOrganizationInvitation } from "@/lib/api/features/invitations";
 import {
+  createConnection,
+  deleteConnection,
+  listConnections,
+  parseCreateConnection,
+  parseUpdateConnection,
+  updateConnection,
+} from "@/lib/api/features/connections";
+import {
   createOrgMembership,
   deleteOrgMembership,
   deleteOrgMemberships,
@@ -24,7 +32,7 @@ export function registerPeopleTools(server: McpServer) {
   tool(
     server,
     "create_member",
-    "Create a membership (existing or new person). Pass JSON with email, role, firstName, lastName, and optional username, password, departmentIds, avatarUrl, description, orgUserTitle, and orgUserDescription.",
+    "Create a membership (existing or new person). Pass JSON with email, role, firstName, lastName, and optional username, password, departmentIds, avatarUrl, description, orgUserTitle, and orgUserDescription. When Allow volunteers to add volunteers is on, a volunteer can create another volunteer and must include relationship.",
     { organizationId: guid, body: z.string() },
     ({ organizationId, body }) => createOrgMembership(mcpAccess(), organizationId, parseCreateOrgMembership(jsonBody(body))),
   );
@@ -83,5 +91,41 @@ export function registerPeopleTools(server: McpServer) {
     "Revoke an organization invitation.",
     { organizationId: guid, invitationId: guid },
     ({ organizationId, invitationId }) => revokeOrganizationInvitation(mcpAccess(), organizationId, invitationId),
+  );
+
+  tool(
+    server,
+    "list_connections",
+    "List member connections. Admins see every connection. Other members see only their own. relationship is how user B relates to user A.",
+    { organizationId: guid, ...page },
+    ({ organizationId, limit, offset }) => listConnections(mcpAccess(), organizationId, query({ limit, offset })),
+  );
+
+  tool(
+    server,
+    "create_connection",
+    "Connect two active members. JSON body has userId, connectedUserId, and relationship (how connectedUserId relates to userId). Organization admin only.",
+    { organizationId: guid, body: z.string() },
+    ({ organizationId, body }) => createConnection(mcpAccess(), organizationId, parseCreateConnection(jsonBody(body))),
+  );
+
+  tool(
+    server,
+    "update_connection",
+    "Change a connection. JSON body has userId and relationship from that person's point of view. Organization admin only.",
+    { organizationId: guid, connectionId: guid, body: z.string() },
+    ({ organizationId, connectionId, body }) =>
+      updateConnection(mcpAccess(), organizationId, connectionId, parseUpdateConnection(jsonBody(body))),
+  );
+
+  tool(
+    server,
+    "delete_connection",
+    "Remove a member connection. Organization admin only.",
+    { organizationId: guid, connectionId: guid },
+    async ({ organizationId, connectionId }) => {
+      await deleteConnection(mcpAccess(), organizationId, connectionId);
+      return "deleted";
+    },
   );
 }

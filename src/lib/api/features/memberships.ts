@@ -28,6 +28,8 @@ import {
   roundMoney,
 } from "@/lib/api/json";
 import { hashPassword } from "@/lib/api/security";
+import { allowsVolunteerAdds, insertConnection, normalizeRelationship } from "@/lib/api/features/connections";
+import type { MemberRelationship } from "@/lib/member-connection";
 import { prisma } from "@/lib/prisma";
 
 type RoleRow = { id: string; code: string; name: string };
@@ -138,6 +140,7 @@ export type CreateOrgMembershipRequest = {
   orgUserDescription: string | null;
   role: RoleCode;
   departmentIds: string[];
+  relationship: MemberRelationship | null;
 };
 
 export function parseCreateOrgMembership(body: Body): CreateOrgMembershipRequest {
@@ -166,6 +169,7 @@ export function parseCreateOrgMembership(body: Body): CreateOrgMembershipRequest
         : limited(body, "orgUserDescription", 8000, "orgUserDescription must be 8000 characters or fewer."),
     role: normalizeRole(requireString(body, "role")),
     departmentIds: ids(body, "departmentIds", true),
+    relationship: body.relationship === undefined ? null : normalizeRelationship(requireString(body, "relationship")),
   };
 }
 
@@ -285,7 +289,35 @@ async function assertAnotherAdmin(tx: Prisma.TransactionClient, organizationId: 
 }
 
 export async function createOrgMembership(access: Access, organizationId: string, request: CreateOrgMembershipRequest) {
-  await access.requireOrganizationAdmin(organizationId);
+  const admin = access.isSuperAdmin || (await access.isOrgAdmin(organizationId));
+  let volunteerAdd = false;
+  if (admin) {
+    await access.requireOrganizationAdmin(organizationId);
+  } else if (await access.isOrgVolunteer(organizationId)) {
+    const organization = await prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { preferences: true },
+    });
+    if (!organization || !allowsVolunteerAdds(organization.preferences)) {
+      forbidden();
+    }
+
+    if (request.role !== "VOLUNTEER") {
+      validation("Volunteers can only add volunteers.");
+    }
+
+    if (request.departmentIds.length > 0) {
+      validation("Volunteers cannot assign departments.");
+    }
+
+    if (!request.relationship) {
+      validation("relationship is required.");
+    }
+
+    volunteerAdd = true;
+  } else {
+    await access.requireOrganizationAdmin(organizationId);
+  }
   // Resolve outside the transaction. The production pool has one connection, so a
   // query on the global client while the transaction holds it times out.
   const resolvedRoleId = await roleId(request.role);
@@ -323,7 +355,11 @@ export async function createOrgMembership(access: Access, organizationId: string
         include: { profile: true },
       });
     } else if (await tx.organizationMembership.findUnique({ where: { userId_organizationId: { userId: user.id, organizationId } } })) {
-      conflict("This person is already in the organization.");
+      conflict(
+        volunteerAdd
+          ? "This person is already a member. Ask an admin to connect you."
+          : "This person is already in the organization.",
+      );
     } else if (user.profile) {
       await tx.userProfile.update({
         where: { userId: user.id },
@@ -359,6 +395,16 @@ export async function createOrgMembership(access: Access, organizationId: string
       },
       include: membershipInclude,
     });
+    if (volunteerAdd && request.relationship) {
+      await insertConnection(tx, {
+        organizationId,
+        fromUserId: access.actorUserId,
+        toUserId: user.id,
+        relationship: request.relationship,
+        createdByUserId: access.actorUserId,
+      });
+    }
+
     return orgMembershipJson(saved, request.departmentIds);
   });
 }

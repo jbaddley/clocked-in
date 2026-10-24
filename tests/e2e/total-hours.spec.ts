@@ -19,7 +19,7 @@ test("total hours saves a Total row without clock times", async ({ page }) => {
 
   const notes = `e2e-total ${Date.now().toString(36)}`;
   await page.getByLabel("Notes").fill(notes);
-  await page.getByLabel("Hours").fill("2.5");
+  await page.getByLabel("Hours").fill("2:30");
   await page.getByRole("button", { name: "Save time" }).click();
   await expect(page.getByText("Time saved.")).toBeVisible();
   await expect(page.getByText(notes, { exact: true })).toBeVisible();

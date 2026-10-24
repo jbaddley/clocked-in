@@ -205,6 +205,7 @@ export const defaultEntityLabels = {
 export function defaultPreferences(overrides = {}) {
   return {
     allowTimeEntryEditing: false,
+    allowVolunteersToAddVolunteers: false,
     entityLabels: defaultEntityLabels,
     feedbackNotifyUserIds: [],
     ...overrides,

@@ -288,8 +288,8 @@ export function MembersView() {
         <CardHeader>
           <CardTitle>People</CardTitle>
           <CardDescription>
-            Volunteers can only log their own time. Admins can log time for others. Removing someone leaves the account
-            and their history.
+            Volunteers log their own time, and time for people they are connected to. Admins can log time for others.
+            Removing someone leaves the account and their history.
           </CardDescription>
           <CardAction className="flex flex-col items-end gap-2">
             {isAdmin ? (

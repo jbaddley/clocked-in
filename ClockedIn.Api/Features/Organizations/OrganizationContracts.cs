@@ -57,12 +57,14 @@ public sealed record EntityLabelsDto(string Organization, string Project, string
 
 public sealed record OrganizationPreferencesDto(
     bool AllowTimeEntryEditing,
+    bool AllowVolunteersToAddVolunteers,
     EntityLabelsDto EntityLabels,
     IReadOnlyList<Guid> FeedbackNotifyUserIds)
 {
     public static OrganizationPreferencesDto From(OrganizationPreferences? preferences) =>
         new(
             preferences?.AllowTimeEntryEditing ?? false,
+            preferences?.AllowVolunteersToAddVolunteers ?? false,
             EntityLabelsDto.From(preferences?.EntityLabels),
             preferences?.FeedbackNotifyUserIds ?? []);
 
@@ -75,6 +77,9 @@ public sealed record OrganizationPreferencesDto(
 
         return new(
             Fields.RequiredBool(body, "allowTimeEntryEditing"),
+            Fields.Has(body, "allowVolunteersToAddVolunteers")
+                ? Fields.RequiredBool(body, "allowVolunteersToAddVolunteers")
+                : false,
             Fields.Has(body, "entityLabels")
                 ? EntityLabelsDto.Parse(body["entityLabels"])
                 : EntityLabelsDto.From(null),

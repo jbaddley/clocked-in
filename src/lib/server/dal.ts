@@ -42,6 +42,7 @@ export const getViewer = cache(async (): Promise<Viewer> => {
     isSuperAdmin: caller.isSuperAdmin,
     name,
     initials,
+    avatarUrl: profile?.avatarUrl?.trim() || null,
     timezone: profile?.timezone?.trim() || "UTC",
   };
 });

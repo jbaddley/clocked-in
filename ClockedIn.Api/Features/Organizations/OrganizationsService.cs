@@ -100,6 +100,7 @@ public sealed class OrganizationsService(ClockedInDbContext db, Access access, T
         {
             var preferences = request.Preferences.Value;
             organization.Preferences.AllowTimeEntryEditing = preferences.AllowTimeEntryEditing;
+            organization.Preferences.AllowVolunteersToAddVolunteers = preferences.AllowVolunteersToAddVolunteers;
             organization.Preferences.EntityLabels = preferences.EntityLabels.ToEntity();
             await AssertNotifyUsers(organizationId, preferences.FeedbackNotifyUserIds, cancellationToken);
             organization.Preferences.FeedbackNotifyUserIds = preferences.FeedbackNotifyUserIds.ToList();

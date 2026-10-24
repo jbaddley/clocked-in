@@ -35,14 +35,14 @@ test("volunteer logs Duration and Total and does not see Reports", async ({ page
   await page.goto("/log/own");
   await expect(page.getByText("Add time manually")).toBeVisible();
 
-  await page.getByRole("button", { name: "Start and end" }).click();
-  await page.getByLabel("Hours").fill("1");
+  await page.getByRole("button", { name: "Start and duration" }).click();
+  await page.getByLabel("Duration").fill("1:00");
   await page.getByLabel("Notes").fill(`e2e-volunteer-duration ${stamp}`);
   await page.getByRole("button", { name: "Save time" }).click();
   await expect(page.getByText("Time saved.")).toBeVisible();
 
   await page.getByRole("button", { name: "Total hours" }).click();
-  await page.getByLabel("Hours").fill("2");
+  await page.getByLabel("Hours").fill("2:00");
   await page.getByLabel("Notes").fill(`e2e-volunteer-total ${stamp}`);
   await page.getByRole("button", { name: "Save time" }).click();
   await expect(page.getByText("Time saved.")).toBeVisible();

@@ -120,7 +120,7 @@ function ManualEntryCard() {
           <CalendarClockIcon className="size-4 text-muted-foreground" />
           Add time manually
         </CardTitle>
-        <CardDescription>Start and end times, or total hours for a period. Add days to save that same entry on each one.</CardDescription>
+        <CardDescription>A start time and duration, or a total as HH:MM. Add days to save that same entry on each one.</CardDescription>
       </CardHeader>
       <CardContent>
         <TimeEntryForm userId={viewer.id} />

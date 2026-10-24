@@ -16,7 +16,8 @@ import { useLookups } from "@/hooks/use-lookups";
 import { EntityFormDialog } from "@/components/entity-forms/entity-form-dialog";
 import { Field } from "@/components/field";
 import { PersonSelect, selectableMembers } from "@/components/person-select";
-import { alignedEntryGridClass, PlacementFields } from "@/components/placement-fields";
+import { SelectField } from "@/components/select-field";
+import { PlacementFields } from "@/components/placement-fields";
 import { SubmitButton } from "@/components/submit-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +27,7 @@ import { useActionMutation } from "@/hooks/use-action-mutation";
 import { useMembers } from "@/hooks/use-members";
 import { organizationWide, usePlacement, type PlacementPreference } from "@/hooks/use-placement";
 import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
-import { today } from "@/lib/format";
+import { formatDurationInput, minutesFromDurationInput, today } from "@/lib/format";
 import { keys } from "@/lib/queries";
 import type { TimeEntry } from "@/lib/types";
 
@@ -36,9 +37,9 @@ function localTime(value: string | null, fallback: string) {
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
-function hoursFromMinutes(minutes: number | null) {
+function durationFieldValue(minutes: number | null) {
   if (!minutes) return "";
-  return String(Math.round((minutes / 60) * 100) / 100);
+  return formatDurationInput(minutes);
 }
 
 function localDateValue(date: Date) {
@@ -46,6 +47,7 @@ function localDateValue(date: Date) {
 }
 
 const maxDays = 31;
+const entryGridClass = "grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]";
 
 function previousOpenDay(dates: string[]) {
   const used = new Set(dates.filter(Boolean));
@@ -86,6 +88,7 @@ export function TimeEntryForm({
   userId: lockedUserId,
   userIds,
   people,
+  candidates,
 }: {
   entry?: TimeEntry;
   preferred?: PlacementPreference;
@@ -95,6 +98,7 @@ export function TimeEntryForm({
   userId?: string;
   userIds?: string[];
   people?: { excludeSelf?: boolean; activeOnly?: boolean };
+  candidates?: { userId: string; label: string }[];
 }) {
   const organization = useOrganization();
   const { viewer, isAdmin, isCoordinator, canSelectRate, groupDepartments } = useWorkspace();
@@ -103,13 +107,19 @@ export function TimeEntryForm({
   const excludeSelf = people?.excludeSelf ?? false;
   const activeOnly = people?.activeOnly ?? false;
   const batch = Boolean(userIds && userIds.length > 0);
-  const { members } = useMembers({ enabled: (isAdmin || isCoordinator) && !entry && !lockedUserId && !batch });
+  const { members } = useMembers({
+    enabled: !candidates && (isAdmin || isCoordinator) && !entry && !lockedUserId && !batch,
+  });
   const eligible = useMemo(() => {
+    if (candidates) {
+      return candidates.map((candidate) => ({ userId: candidate.userId }));
+    }
+
     const scoped = isCoordinator
       ? members.filter((member) => (member.departmentIds ?? []).some((id) => groupDepartments.includes(id)))
       : members;
     return selectableMembers(scoped, viewer.id, { excludeSelf, activeOnly });
-  }, [activeOnly, excludeSelf, groupDepartments, isCoordinator, members, viewer.id]);
+  }, [activeOnly, candidates, excludeSelf, groupDepartments, isCoordinator, members, viewer.id]);
   const punch = entry?.mode === "Punch";
   const [method, setMethod] = useState<"Duration" | "Total">(entry?.mode === "Total" ? "Total" : "Duration");
   const total = entry ? entry.mode === "Total" : method === "Total";
@@ -124,21 +134,19 @@ export function TimeEntryForm({
         }
       : preferred,
   );
-  const [personId, setPersonId] = useState(lockedUserId ?? entry?.userId ?? (excludeSelf || activeOnly ? "" : viewer.id));
-  const selectedPersonId =
-    excludeSelf || activeOnly
-      ? eligible.some((member) => member.userId === personId)
-        ? personId
-        : (eligible[0]?.userId ?? "")
-      : personId;
+  const pickingSomeoneElse = Boolean(candidates) || excludeSelf || activeOnly;
+  const [personId, setPersonId] = useState(lockedUserId ?? entry?.userId ?? (pickingSomeoneElse ? "" : viewer.id));
+  const selectedPersonId = pickingSomeoneElse
+    ? eligible.some((member) => member.userId === personId)
+      ? personId
+      : (eligible[0]?.userId ?? "")
+    : personId;
   const [chosenRateId, setChosenRateId] = useState<string | null>(entry?.hourlyRateId ?? null);
   const hourlyRateId = chosenRateId ?? defaultVolunteerRateId(lookups.hourlyRates);
   const [occurredOn, setOccurredOn] = useState(entry?.occurredOn ?? today());
   const [extraDates, setExtraDates] = useState<string[]>([]);
-  const [hours, setHours] = useState(entry ? hoursFromMinutes(entry.durationMinutes) : "1");
+  const [hours, setHours] = useState(entry ? durationFieldValue(entry.durationMinutes) : "1:00");
   const [start, setStart] = useState(localTime(entry?.startedAt ?? null, entry ? "" : "09:00"));
-  const [end, setEnd] = useState(localTime(entry?.endedAt ?? null, entry ? "" : "10:00"));
-  const [driver, setDriver] = useState<"end" | "duration">(entry?.endedAt || !entry ? "end" : "duration");
   const [notes, setNotes] = useState(entry?.description ?? "");
   const [error, setError] = useState("");
 
@@ -180,24 +188,6 @@ export function TimeEntryForm({
     },
   });
 
-  function applyStart(value: string, nextDate = occurredOn, nextDriver = driver, nextHours = hours, nextEnd = end) {
-    setStart(value);
-    if (!value) return;
-    if (nextDriver === "duration" && nextHours.trim()) {
-      const minutes = Math.round(Number(nextHours) * 60);
-      const startedAt = new Date(`${nextDate}T${value}`);
-      if (Number.isFinite(minutes) && minutes >= 1 && !Number.isNaN(startedAt.getTime())) {
-        setEnd(localTime(new Date(startedAt.getTime() + minutes * 60000).toISOString(), ""));
-      }
-      return;
-    }
-
-    if (nextEnd) {
-      const minutes = Math.floor((new Date(`${nextDate}T${nextEnd}`).getTime() - new Date(`${nextDate}T${value}`).getTime()) / 60000);
-      setHours(minutes >= 1 ? hoursFromMinutes(minutes) : "");
-    }
-  }
-
   function span(): { occurredOn: string; durationMinutes: number; startedAt: string; endedAt: string } | null {
     if (!start) {
       setError("Start time is required.");
@@ -210,41 +200,23 @@ export function TimeEntryForm({
       return null;
     }
 
-    if (driver === "duration" && hours.trim()) {
-      const minutes = Math.round(Number(hours) * 60);
-      if (!Number.isFinite(minutes) || minutes < 1 || minutes > 1440) {
-        setError("Duration must be from 1 minute to 24 hours.");
-        return null;
-      }
-
-      setError("");
-      return {
-        occurredOn,
-        durationMinutes: minutes,
-        startedAt: startedAt.toISOString(),
-        endedAt: new Date(startedAt.getTime() + minutes * 60000).toISOString(),
-      };
+    const minutes = minutesFromDurationInput(hours);
+    if (minutes === null) {
+      setError("Enter a duration as HH:MM.");
+      return null;
+    }
+    if (minutes < 1 || minutes > 1440) {
+      setError("Duration must be from 1 minute to 24 hours.");
+      return null;
     }
 
-    if (end) {
-      const endedAt = new Date(`${occurredOn}T${end}`);
-      const minutes = Math.floor((endedAt.getTime() - startedAt.getTime()) / 60000);
-      if (minutes < 1 || minutes > 1440) {
-        setError(minutes > 1440 ? "Duration must be 24 hours or less." : "End time must be after start time.");
-        return null;
-      }
-
-      setError("");
-      return {
-        occurredOn,
-        durationMinutes: minutes,
-        startedAt: startedAt.toISOString(),
-        endedAt: endedAt.toISOString(),
-      };
-    }
-
-    setError("Add an end time or a duration.");
-    return null;
+    setError("");
+    return {
+      occurredOn,
+      durationMinutes: minutes,
+      startedAt: startedAt.toISOString(),
+      endedAt: new Date(startedAt.getTime() + minutes * 60000).toISOString(),
+    };
   }
 
   function collectDays(): DayEntry[] | null {
@@ -265,8 +237,12 @@ export function TimeEntryForm({
     }
 
     if (total) {
-      const minutes = Math.round(Number(hours) * 60);
-      if (!Number.isFinite(minutes) || minutes < 1 || minutes > 59940) {
+      const minutes = minutesFromDurationInput(hours);
+      if (minutes === null) {
+        setError("Enter a duration as HH:MM.");
+        return null;
+      }
+      if (minutes < 1 || minutes > 59940) {
         setError("Duration must be from 1 minute to 999 hours.");
         return null;
       }
@@ -283,8 +259,12 @@ export function TimeEntryForm({
   function timePatch(): EntryPatch | null {
     if (!canEditTimes) return {};
     if (total) {
-      const minutes = Math.round(Number(hours) * 60);
-      if (!Number.isFinite(minutes) || minutes < 1 || minutes > 59940) {
+      const minutes = minutesFromDurationInput(hours);
+      if (minutes === null) {
+        setError("Enter a duration as HH:MM.");
+        return null;
+      }
+      if (minutes < 1 || minutes > 59940) {
         setError("Duration must be from 1 minute to 999 hours.");
         return null;
       }
@@ -293,7 +273,7 @@ export function TimeEntryForm({
       return { occurredOn, durationMinutes: minutes };
     }
 
-    if (punch && !end && !hours.trim()) {
+    if (punch && !hours.trim()) {
       if (!start) {
         setError("Start time is required.");
         return null;
@@ -310,8 +290,12 @@ export function TimeEntryForm({
     }
 
     if (!start && entry?.mode === "Duration" && !entry.startedAt) {
-      const minutes = Math.round(Number(hours) * 60);
-      if (!Number.isFinite(minutes) || minutes < 1 || minutes > 1440) {
+      const minutes = minutesFromDurationInput(hours);
+      if (minutes === null) {
+        setError("Enter a duration as HH:MM.");
+        return null;
+      }
+      if (minutes < 1 || minutes > 1440) {
         setError("Duration must be from 1 minute to 24 hours.");
         return null;
       }
@@ -323,18 +307,14 @@ export function TimeEntryForm({
     return span();
   }
 
-  const showPerson = !(entry || !(isAdmin || isCoordinator) || lockedUserId || batch);
+  const showPerson = Boolean(candidates) ? !(entry || lockedUserId || batch) : !(entry || !(isAdmin || isCoordinator) || lockedUserId || batch);
   const showRate = canSelectRate || lookups.hourlyRates.some((rate) => rate.isDefault);
-  const endsNextDay =
-    driver === "duration" &&
-    Boolean(start) &&
-    Boolean(hours.trim()) &&
-    (() => {
-      const minutes = Math.round(Number(hours) * 60);
-      const startedAt = new Date(`${occurredOn}T${start}`);
-      if (!Number.isFinite(minutes) || minutes < 1 || Number.isNaN(startedAt.getTime())) return false;
-      return localDateValue(new Date(startedAt.getTime() + minutes * 60000)) !== occurredOn;
-    })();
+  const typedMinutes = minutesFromDurationInput(hours);
+  const endsNextDay = Boolean(start) && typedMinutes !== null && typedMinutes >= 1 && (() => {
+    const startedAt = new Date(`${occurredOn}T${start}`);
+    if (Number.isNaN(startedAt.getTime())) return false;
+    return localDateValue(new Date(startedAt.getTime() + typedMinutes * 60000)) !== occurredOn;
+  })();
 
   return (
     <form
@@ -374,14 +354,25 @@ export function TimeEntryForm({
         <div className={showPerson && showRate ? "grid gap-4 sm:grid-cols-2" : "grid gap-4"}>
           {showPerson ? (
             <Field label="Person">
-              <PersonSelect
-                value={selectedPersonId}
-                onValueChange={setPersonId}
-                className="h-10"
-                excludeSelf={excludeSelf}
-                activeOnly={activeOnly}
-                placeholder={excludeSelf ? "Select a member" : undefined}
-              />
+              {candidates ? (
+                <SelectField
+                  aria-label="Person"
+                  className="h-10"
+                  value={selectedPersonId}
+                  onValueChange={setPersonId}
+                  options={candidates.map((candidate) => ({ value: candidate.userId, label: candidate.label }))}
+                  placeholder="Select a person"
+                />
+              ) : (
+                <PersonSelect
+                  value={selectedPersonId}
+                  onValueChange={setPersonId}
+                  className="h-10"
+                  excludeSelf={excludeSelf}
+                  activeOnly={activeOnly}
+                  placeholder={excludeSelf ? "Select a member" : undefined}
+                />
+              )}
             </Field>
           ) : null}
           {showRate ? (
@@ -402,7 +393,7 @@ export function TimeEntryForm({
             className="w-full sm:w-fit"
           >
             <ToggleGroupItem value="Duration" className="flex-1 sm:flex-none">
-              Start and end
+              Start and duration
             </ToggleGroupItem>
             <ToggleGroupItem value="Total" className="flex-1 sm:flex-none">
               Total hours
@@ -410,7 +401,7 @@ export function TimeEntryForm({
           </ToggleGroup>
         </Field>
       ) : null}
-      <div className={alignedEntryGridClass}>
+      <div className={entryGridClass}>
         {punch && !canEditTimes ? (
           <p className="col-span-full text-sm text-muted-foreground">
             Timer times cannot be changed here. Update the project, category, and notes, or stop the timer.
@@ -448,19 +439,22 @@ export function TimeEntryForm({
                 className="h-10"
               />
             </Field>
-            <Field label="Hours" htmlFor={`${idPrefix}-hours`} error={error || null} className="sm:col-start-4">
+            <Field label="Hours" htmlFor={`${idPrefix}-hours`} hint="HH:MM" error={error || null} className="sm:col-start-3">
               <Input
                 id={`${idPrefix}-hours`}
-                type="number"
-                inputMode="decimal"
-                min="0.25"
-                max="999"
-                step="0.25"
+                inputMode="text"
+                placeholder="0:00"
+                autoComplete="off"
+                spellCheck={false}
                 value={hours}
                 onChange={(event) => setHours(event.target.value)}
+                onBlur={(event) => {
+                  const minutes = minutesFromDurationInput(event.currentTarget.value);
+                  if (minutes !== null) setHours(formatDurationInput(minutes));
+                }}
                 required
                 disabled={!canEditTimes}
-                className="h-10 px-2 text-center"
+                className="h-10 px-2 text-center font-mono tabular-nums"
               />
             </Field>
           </>
@@ -491,11 +485,7 @@ export function TimeEntryForm({
                 type="date"
                 value={occurredOn}
                 max={today()}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  setOccurredOn(value);
-                  applyStart(start, value);
-                }}
+                onChange={(event) => setOccurredOn(event.target.value)}
                 required
                 disabled={!canEditTimes}
                 className="h-10"
@@ -506,59 +496,32 @@ export function TimeEntryForm({
                 id={`${idPrefix}-start`}
                 type="time"
                 value={start}
-                onChange={(event) => applyStart(event.target.value)}
+                onChange={(event) => setStart(event.target.value)}
                 required={!entry || Boolean(entry.startedAt) || punch}
                 disabled={!canEditTimes}
                 className="h-10"
               />
             </Field>
-            <Field label="End" htmlFor={`${idPrefix}-end`} error={extraDates.length > 0 ? null : error || null}>
-              <Input
-                id={`${idPrefix}-end`}
-                type="time"
-                value={end}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  setEnd(value);
-                  setDriver("end");
-                  if (!start || !value) {
-                    if (!value) setHours("");
-                    return;
-                  }
-
-                  const minutes = Math.floor(
-                    (new Date(`${occurredOn}T${value}`).getTime() - new Date(`${occurredOn}T${start}`).getTime()) / 60000,
-                  );
-                  setHours(minutes >= 1 ? hoursFromMinutes(minutes) : "");
-                }}
-                disabled={!canEditTimes}
-                className="h-10"
-              />
-            </Field>
-            <Field label="Duration" htmlFor={`${idPrefix}-hours`}>
+            <Field
+              label="Duration"
+              htmlFor={`${idPrefix}-hours`}
+              hint="HH:MM"
+              error={extraDates.length > 0 ? null : error || null}
+            >
               <Input
                 id={`${idPrefix}-hours`}
-                type="number"
-                inputMode="decimal"
-                min="0.25"
-                step="0.25"
+                inputMode="text"
+                placeholder="0:00"
+                autoComplete="off"
+                spellCheck={false}
                 value={hours}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  setHours(value);
-                  setDriver("duration");
-                  const minutes = Math.round(Number(value) * 60);
-                  if (!start || !Number.isFinite(minutes) || minutes < 1) {
-                    if (!value.trim()) setEnd("");
-                    return;
-                  }
-
-                  const startedAt = new Date(`${occurredOn}T${start}`);
-                  if (Number.isNaN(startedAt.getTime())) return;
-                  setEnd(localTime(new Date(startedAt.getTime() + minutes * 60000).toISOString(), ""));
+                onChange={(event) => setHours(event.target.value)}
+                onBlur={(event) => {
+                  const minutes = minutesFromDurationInput(event.currentTarget.value);
+                  if (minutes !== null) setHours(formatDurationInput(minutes));
                 }}
                 disabled={!canEditTimes}
-                className="h-10 px-2 text-center"
+                className="h-10 px-2 text-center font-mono tabular-nums"
               />
             </Field>
           </>
@@ -653,11 +616,11 @@ export function TimeEntryDialog({
       description={
         entry
           ? canEditTimes
-            ? "Change the start, then the end or the duration."
+            ? "Change the start time or the duration."
             : "You can update the project, category, and notes."
             : userIds && userIds.length > 1
             ? `This saves the same entry for ${userIds.length} people. Add days to record it on each one.`
-            : "Start and end times, or total hours for a period. Add days to record the same entry on each one."
+            : "A start time and duration, or a total as HH:MM. Add days to record the same entry on each one."
       }
       className="sm:max-w-xl"
     >
