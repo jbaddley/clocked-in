@@ -1269,11 +1269,7 @@
           "content": {
             "application/json": {
               "schema": {
-<<<<<<< Updated upstream
-                "$ref": "#/components/schemas/SaveReportBody"
-=======
                 "$ref": "#/components/schemas/JsonElement"
->>>>>>> Stashed changes
               }
             }
           },
@@ -1359,11 +1355,7 @@
           "content": {
             "application/json": {
               "schema": {
-<<<<<<< Updated upstream
-                "$ref": "#/components/schemas/SaveReportBody"
-=======
                 "$ref": "#/components/schemas/JsonElement"
->>>>>>> Stashed changes
               }
             }
           },
@@ -4092,11 +4084,7 @@
           }
         }
       },
-<<<<<<< Updated upstream
       "JsonElement": {},
-=======
-      "JsonElement": { },
->>>>>>> Stashed changes
       "ListResponseOfCollectiveEntryDto": {
         "required": [
           "items",
@@ -5317,38 +5305,6 @@
           }
         }
       },
-<<<<<<< Updated upstream
-      "SaveReportBody": {
-        "required": [
-          "name",
-          "isDefault",
-          "layout",
-          "filters"
-        ],
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "isDefault": {
-            "type": [
-              "null",
-              "boolean"
-            ]
-          },
-          "layout": {
-            "$ref": "#/components/schemas/JsonElement"
-          },
-          "filters": {
-            "$ref": "#/components/schemas/JsonElement"
-          }
-        }
-      },
-=======
->>>>>>> Stashed changes
       "SessionDto": {
         "required": [
           "accessToken",
