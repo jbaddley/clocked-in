@@ -2,7 +2,7 @@
 
 import { BuildingIcon } from "lucide-react";
 import Link from "next/link";
-import { NewOrganizationForm } from "@/components/shell/org-switcher";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function NoOrganization() {
@@ -22,7 +22,9 @@ export function NoOrganization() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <NewOrganizationForm />
+        <Link href="/organization/new" className={buttonVariants({ size: "lg" })}>
+          Create organization
+        </Link>
       </CardContent>
     </Card>
   );

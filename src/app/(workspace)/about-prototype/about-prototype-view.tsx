@@ -43,9 +43,9 @@ export function AboutPrototypeView() {
   const steps = [
     {
       title: `Name this ${copy.organization.toLowerCase()}`,
-      body: `Set the name, the words you want for ${groups} and ${projects}, the volunteer rate, and whether saved times can still be edited.`,
-      href: "/settings/organization",
-      label: "Organization",
+      body: "Set the name, website, and description people see on the home page.",
+      href: "/organization",
+      label: copy.organization,
     },
     {
       title: `Add a ${project} and a ${category}`,
@@ -189,7 +189,7 @@ export function AboutPrototypeView() {
           title: "Organization setup",
           href: "/settings/organization",
           where: "Manage · Settings",
-          summary: `Name, rate year, labels, the time-edit lock, and who is emailed when someone sends feedback. The hourly-rate catalog holds the volunteer default and professional rates. ${copy.departments} are the teams hours roll up to. Themes set colors and fonts, including this page. Brand uploads the mark and wordmarks.`,
+          summary: `Rate year, labels, the time-edit lock, and who is emailed when someone sends feedback. Name, website, and description are on the ${copy.organization.toLowerCase()} page in the account menu. The hourly-rate catalog holds the volunteer default and professional rates. ${copy.departments} are the teams hours roll up to. Themes set colors and fonts, including this page. Brand uploads the mark and wordmarks.`,
           access: {
             volunteer: "—",
             staff: "—",
@@ -220,7 +220,7 @@ export function AboutPrototypeView() {
           href: "/profile",
           where: "Account menu",
           summary:
-            "Name, display name, timezone, phone, ZIP, notes, and password. Punch dates use the timezone. Phone, ZIP, and notes stay on the profile. The same menu accepts an invite and signs out.",
+            "Name, display name, timezone, phone, ZIP, notes, and password. Punch dates use the timezone. Phone, ZIP, and notes stay on the profile. The same menu opens the current organization, accepts an invite, and signs out.",
           access: ownProfile,
         },
         {
@@ -238,7 +238,7 @@ export function AboutPrototypeView() {
         {
           title: "Switch organization",
           where: "Header",
-          summary: "Move between organizations you belong to, or create one. Creating an organization makes you its admin.",
+          summary: "Move between organizations you belong to, or create one. Creating an organization opens its own page and makes you its admin.",
           access: {
             volunteer: "Switch, or create and become admin",
             staff: "Switch, or create and become admin",

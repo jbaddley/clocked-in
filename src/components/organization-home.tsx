@@ -63,7 +63,7 @@ export function OrganizationHome() {
           </div>
         </div>
         {isAdmin ? (
-          <Link href="/settings/organization" className={buttonVariants({ variant: "outline" })}>
+          <Link href="/organization" className={buttonVariants({ variant: "outline" })}>
             Edit {copy.organization.toLowerCase()}
           </Link>
         ) : null}

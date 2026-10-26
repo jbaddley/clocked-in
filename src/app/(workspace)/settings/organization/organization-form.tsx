@@ -7,7 +7,6 @@ import { Field, FormMessage } from "@/components/field";
 import { SubmitButton } from "@/components/submit-button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { MarkdownEditor } from "@/components/markdown-editor";
 import { useLabels } from "@/hooks/use-labels";
 import { useMembers } from "@/hooks/use-members";
 import { useOrganization } from "@/hooks/use-workspace";
@@ -35,36 +34,12 @@ function OrganizationFields() {
       <CardHeader>
         <CardTitle>{copy.organization}</CardTitle>
         <CardDescription>
-          Name, website, description, valuation year, time editing, volunteer connections, and what to call{" "}
-          {copy.projects.toLowerCase()} and {copy.departments.toLowerCase()} are saved together.
+          Valuation year, time editing, volunteer connections, and what to call {copy.projects.toLowerCase()} and{" "}
+          {copy.departments.toLowerCase()} are saved together.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form action={action} className="grid gap-4 sm:grid-cols-2">
-          <Field label="Name" htmlFor="name">
-            <Input id="name" name="name" required defaultValue={organization.name} className="h-9" />
-          </Field>
-          <Field label="Website" htmlFor="websiteUrl" hint="Leave blank to remove the link.">
-            <Input
-              id="websiteUrl"
-              name="websiteUrl"
-              type="url"
-              inputMode="url"
-              maxLength={2000}
-              defaultValue={organization.websiteUrl ?? ""}
-              placeholder="https://"
-              className="h-9"
-            />
-          </Field>
-          <Field label="Description" htmlFor="description" hint="Shown on the home page." className="sm:col-span-2">
-            <MarkdownEditor
-              id="description"
-              name="description"
-              label="Description"
-              maxLength={8000}
-              defaultValue={organization.description ?? ""}
-            />
-          </Field>
           <Field label="Rate source year" htmlFor="rateSourceYear">
             <Input
               id="rateSourceYear"

@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOutIcon, MailOpenIcon, UserRoundIcon } from "lucide-react";
+import { BuildingIcon, LogOutIcon, MailOpenIcon, UserRoundIcon } from "lucide-react";
 import Link from "next/link";
 import { avatarImageSrc } from "@/lib/avatar";
 import { signOut } from "@/lib/lookup-persistence";
@@ -18,7 +18,7 @@ import {
 import { useWorkspace } from "@/hooks/use-workspace";
 
 export function UserMenu() {
-  const { viewer, isAdmin, isCoordinator } = useWorkspace();
+  const { viewer, organization, isAdmin, isCoordinator } = useWorkspace();
   const avatarSrc = avatarImageSrc(viewer.id, viewer.avatarUrl);
   return (
     <DropdownMenu>
@@ -46,6 +46,12 @@ export function UserMenu() {
           <UserRoundIcon />
           Profile
         </DropdownMenuItem>
+        {organization ? (
+          <DropdownMenuItem render={<Link href="/organization" />} className="min-w-0">
+            <BuildingIcon />
+            <span className="truncate">{organization.name}</span>
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuItem render={<Link href="/accept" />}>
           <MailOpenIcon />
           Accept an invite

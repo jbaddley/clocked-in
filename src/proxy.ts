@@ -14,6 +14,7 @@ const protectedPrefixes = [
   "/developer",
   "/about-prototype",
   "/profile",
+  "/organization",
   "/change-password",
   "/feedback",
 ];

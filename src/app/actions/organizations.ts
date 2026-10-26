@@ -2,6 +2,7 @@
 
 import { refresh } from "next/cache";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import {
   createOrganization,
   getOrganization,
@@ -33,12 +34,35 @@ export async function switchOrganizationAction(organizationId: string) {
 }
 
 export async function createOrganizationAction(_: ActionResult | null, formData: FormData): Promise<ActionResult> {
-  return run(async () => {
+  const result = await run(async () => {
     const access = await requireAccess();
     const created = await createOrganization(access, parseName({ name: text(formData, "name") }));
     writeOrganization(await cookies(), created.id);
-    refresh();
+    return created;
   }, "Organization created.");
+  if (!result.ok) return result;
+  refresh();
+  redirect("/organization");
+}
+
+export async function updateOrganizationDetailsAction(
+  organizationId: string,
+  _: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  return run(async () => {
+    const access = await requireAccess();
+    await updateOrganization(
+      access,
+      organizationId,
+      parseUpdateOrganization({
+        name: text(formData, "name"),
+        description: text(formData, "description"),
+        websiteUrl: text(formData, "websiteUrl"),
+      }),
+    );
+    refresh();
+  }, "Organization saved.");
 }
 
 export async function updateOrganizationSettingsAction(
@@ -66,10 +90,7 @@ export async function updateOrganizationSettingsAction(
       access,
       organizationId,
       parseUpdateOrganization({
-        name: text(formData, "name"),
         rateSourceYear: Number(text(formData, "rateSourceYear")),
-        description: text(formData, "description"),
-        websiteUrl: text(formData, "websiteUrl"),
         preferences,
       }),
     );
