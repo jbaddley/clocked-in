@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { render } from "@react-email/render";
 import { createElement } from "react";
+import AccountWelcomeEmail, { accountWelcome } from "./account-welcome";
 import FeedbackCompletedEmail, { feedbackCompleted } from "./feedback-completed";
 import FeedbackNotifyEmail, { feedbackNotify } from "./feedback-notify";
 import FeedbackReceivedEmail, { feedbackReceived } from "./feedback-received";
@@ -12,6 +13,15 @@ import PasswordResetEmail, { passwordReset } from "./password-reset";
 const codeLine = /Use this code to (?:reset your VolunTime password|accept the invite):\s*\{\{code\}\}/;
 
 const templates = [
+  {
+    ...accountWelcome,
+    element: createElement(AccountWelcomeEmail, {
+      organizationName: "{{organizationName}}",
+      username: "{{username}}",
+      password: "{{password}}",
+      url: "{{url}}",
+    }),
+  },
   {
     ...passwordReset,
     element: createElement(PasswordResetEmail, { code: "{{code}}", url: "{{url}}" }),

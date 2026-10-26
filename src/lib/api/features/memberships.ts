@@ -27,7 +27,8 @@ import {
   RoleCode,
   roundMoney,
 } from "@/lib/api/json";
-import { hashPassword } from "@/lib/api/security";
+import { sendEmail } from "@/lib/api/mail";
+import { appUrl, hashPassword } from "@/lib/api/security";
 import { allowsVolunteerAdds, insertConnection, normalizeRelationship } from "@/lib/api/features/connections";
 import type { MemberRelationship } from "@/lib/member-connection";
 import { prisma } from "@/lib/prisma";
@@ -141,6 +142,7 @@ export type CreateOrgMembershipRequest = {
   role: RoleCode;
   departmentIds: string[];
   relationship: MemberRelationship | null;
+  emailUser: boolean;
 };
 
 export function parseCreateOrgMembership(body: Body): CreateOrgMembershipRequest {
@@ -170,6 +172,7 @@ export function parseCreateOrgMembership(body: Body): CreateOrgMembershipRequest
     role: normalizeRole(requireString(body, "role")),
     departmentIds: ids(body, "departmentIds", true),
     relationship: body.relationship === undefined ? null : normalizeRelationship(requireString(body, "relationship")),
+    emailUser: body.emailUser === undefined ? false : requireBool(body, "emailUser"),
   };
 }
 
@@ -321,13 +324,16 @@ export async function createOrgMembership(access: Access, organizationId: string
   // Resolve outside the transaction. The production pool has one connection, so a
   // query on the global client while the transaction holds it times out.
   const resolvedRoleId = await roleId(request.role);
-  return transaction(async (tx) => {
+  let createdAccount = false;
+  let organizationName = "";
+  const membership = await transaction(async (tx) => {
     await lockOrganization(tx, organizationId);
     let user = await tx.user.findUnique({
       where: { email: request.email },
       include: { profile: true },
     });
     if (!user) {
+      createdAccount = true;
       if (!request.password || !request.username) {
         validation("username and password are required for a new person.");
       }
@@ -379,8 +385,9 @@ export async function createOrgMembership(access: Access, organizationId: string
 
     const organization = await tx.organization.findUniqueOrThrow({
       where: { id: organizationId },
-      select: { defaultRateType: true },
+      select: { defaultRateType: true, name: true },
     });
+    organizationName = organization.name;
     await syncDepartments(tx, organizationId, user.id, request.departmentIds);
     const saved = await tx.organizationMembership.create({
       data: {
@@ -407,6 +414,21 @@ export async function createOrgMembership(access: Access, organizationId: string
 
     return orgMembershipJson(saved, request.departmentIds);
   });
+  if (request.emailUser && createdAccount && request.username && request.password) {
+    try {
+      await sendEmail(request.email, "account-welcome", {
+        organizationName,
+        username: request.username,
+        password: request.password,
+        url: appUrl("/login"),
+      });
+    } catch (error) {
+      await prisma.user.delete({ where: { id: membership.userId } });
+      throw error;
+    }
+  }
+
+  return membership;
 }
 
 export async function updateOrgMembership(

@@ -1,4 +1,5 @@
 import { AppSidebar } from "@/components/shell/app-sidebar";
+import { ShellFrame } from "@/components/shell/shell-frame";
 import { OrgFavicon } from "@/components/shell/org-favicon";
 import { HeaderTitle } from "@/components/shell/page-title";
 import { OrgSwitcher } from "@/components/shell/org-switcher";
@@ -56,9 +57,7 @@ export function AppShell({
           </div>
           <div className="brand-rule" />
         </header>
-        <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col gap-6 overflow-y-auto overscroll-y-contain p-4 sm:p-6 lg:p-8">
-          {children}
-        </div>
+        <ShellFrame>{children}</ShellFrame>
       </SidebarInset>
     </SidebarProvider>
   );

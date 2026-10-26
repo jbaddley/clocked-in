@@ -15,14 +15,14 @@ type Drag =
   | { id: string; mode: "left"; right: number }
   | { id: string; mode: "bottom" };
 
-function cellFromPointer(grid: HTMLElement, clientX: number, clientY: number) {
+function cellFromPointer(grid: HTMLElement, clientX: number, clientY: number, gap: number, rowHeight: number) {
   const rect = grid.getBoundingClientRect();
-  const columnWidth = (rect.width - reportGridGap * (reportColumnCount - 1)) / reportColumnCount;
+  const columnWidth = (rect.width - gap * (reportColumnCount - 1)) / reportColumnCount;
   const column = Math.min(
     reportColumnCount,
-    Math.max(1, Math.floor((clientX - rect.left) / (columnWidth + reportGridGap)) + 1),
+    Math.max(1, Math.floor((clientX - rect.left) / (columnWidth + gap)) + 1),
   );
-  const row = Math.max(1, Math.floor((clientY - rect.top) / (reportRowHeight + reportGridGap)) + 1);
+  const row = Math.max(1, Math.floor((clientY - rect.top) / (rowHeight + gap)) + 1);
   return { column, row };
 }
 
@@ -47,6 +47,8 @@ export function ReportGrid({
   cards,
   data,
   editing = false,
+  scale = 1,
+  scroll = true,
   selectedId,
   onSelect,
   onChange,
@@ -54,6 +56,8 @@ export function ReportGrid({
   cards: ReportCard[];
   data: unknown;
   editing?: boolean;
+  scale?: number;
+  scroll?: boolean;
   selectedId?: string | null;
   onSelect?: (id: string) => void;
   onChange?: (cards: ReportCard[]) => void;
@@ -63,6 +67,8 @@ export function ReportGrid({
   const shown = draft ?? cards;
   const occupied = shown.reduce((max, card) => Math.max(max, card.row + card.rows - 1), 0);
   const rowCount = Math.max(occupied + (editing ? 1 : 0), editing ? 1 : occupied);
+  const gap = reportGridGap * scale;
+  const rowHeight = reportRowHeight * scale;
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
     if (!editing || event.button !== 0) return;
@@ -75,7 +81,7 @@ export function ReportGrid({
     const card = cards.find((item) => item.id === id);
     if (!card) return;
     onSelect?.(id);
-    const cell = cellFromPointer(event.currentTarget, event.clientX, event.clientY);
+    const cell = cellFromPointer(event.currentTarget, event.clientX, event.clientY, gap, rowHeight);
     dragRef.current =
       resize === "left"
         ? { id, mode: "left", right: card.column + card.columns - 1 }
@@ -96,7 +102,7 @@ export function ReportGrid({
   function onPointerMove(event: PointerEvent<HTMLDivElement>) {
     const drag = dragRef.current;
     if (!drag) return;
-    const cell = cellFromPointer(event.currentTarget, event.clientX, event.clientY);
+    const cell = cellFromPointer(event.currentTarget, event.clientX, event.clientY, gap, rowHeight);
     const card = cards.find((item) => item.id === drag.id);
     if (!card) return;
     const next = placed(card, drag, cell);
@@ -121,14 +127,14 @@ export function ReportGrid({
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className={cn(scroll && "overflow-x-auto")}>
       <div
         className={cn("grid", editing && "rounded-xl bg-muted/40 p-1 select-none")}
         style={{
-          gridTemplateColumns: `repeat(${reportColumnCount}, minmax(4.5rem, 1fr))`,
-          gridTemplateRows: `repeat(${Math.max(rowCount, 1)}, ${reportRowHeight}px)`,
-          gap: reportGridGap,
-          minWidth: reportColumnCount * 72 + (reportColumnCount - 1) * reportGridGap,
+          gridTemplateColumns: `repeat(${reportColumnCount}, minmax(${4.5 * scale}rem, 1fr))`,
+          gridTemplateRows: `repeat(${Math.max(rowCount, 1)}, ${rowHeight}px)`,
+          gap,
+          minWidth: reportColumnCount * 72 * scale + (reportColumnCount - 1) * gap,
         }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}

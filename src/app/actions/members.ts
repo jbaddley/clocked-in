@@ -50,6 +50,7 @@ export type NewPerson = {
   role: string;
   departmentIds?: string[];
   relationship?: string;
+  emailUser?: boolean;
 };
 
 export async function createPersonAction(organizationId: string, input: NewPerson) {

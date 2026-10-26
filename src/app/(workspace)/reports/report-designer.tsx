@@ -1,9 +1,10 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { PanelRightCloseIcon, PanelRightOpenIcon, ZoomInIcon, ZoomOutIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useSyncExternalStore, useState } from "react";
 import { DateRangeFilter } from "@/components/date-range-filter";
 import { Field } from "@/components/field";
 import { PageHeader } from "@/components/page-header";
@@ -42,6 +43,84 @@ import { chartTypes, paletteTypes, chartTypeLabel, paletteTypeLabel } from "@/li
 import type { SavedReport } from "@/lib/api/features/saved-reports";
 import { cn } from "cn";
 
+const designerPreferencesKey = "clocked-in.report-designer";
+const zoomSteps = [0.5, 0.75, 1, 1.25, 1.5, 2];
+const defaultDesignerPreferences = { editorOpen: true, zoom: 1 };
+
+type DesignerPreferences = { editorOpen: boolean; zoom: number };
+
+const preferenceListeners = new Set<() => void>();
+let designerPreferences: DesignerPreferences = defaultDesignerPreferences;
+let designerPreferencesLoaded = false;
+
+function readDesignerPreferences(): DesignerPreferences {
+  try {
+    const raw = window.localStorage.getItem(designerPreferencesKey);
+    if (!raw) return defaultDesignerPreferences;
+    const parsed = JSON.parse(raw) as Partial<DesignerPreferences>;
+    return {
+      editorOpen: parsed.editorOpen !== false,
+      zoom: zoomSteps.find((step) => step === parsed.zoom) ?? 1,
+    };
+  } catch {
+    return defaultDesignerPreferences;
+  }
+}
+
+function loadDesignerPreferences() {
+  if (!designerPreferencesLoaded) {
+    designerPreferencesLoaded = true;
+    designerPreferences = readDesignerPreferences();
+  }
+  return designerPreferences;
+}
+
+function subscribeDesignerPreferences(listener: () => void) {
+  preferenceListeners.add(listener);
+  return () => preferenceListeners.delete(listener);
+}
+
+function updateDesignerPreferences(change: Partial<DesignerPreferences>) {
+  designerPreferences = { ...loadDesignerPreferences(), ...change };
+  window.localStorage.setItem(designerPreferencesKey, JSON.stringify(designerPreferences));
+  preferenceListeners.forEach((listener) => listener());
+}
+
+function serverDesignerPreferences() {
+  return defaultDesignerPreferences;
+}
+
+function useDesignerPreferences() {
+  const preferences = useSyncExternalStore(subscribeDesignerPreferences, loadDesignerPreferences, serverDesignerPreferences);
+  const setEditorOpen = useCallback((editorOpen: boolean) => updateDesignerPreferences({ editorOpen }), []);
+  const setZoom = useCallback((zoom: number) => updateDesignerPreferences({ zoom }), []);
+  return { editorOpen: preferences.editorOpen, zoom: preferences.zoom, setEditorOpen, setZoom };
+}
+
+function PreviewZoom({ zoom, onZoom }: { zoom: number; onZoom: (zoom: number) => void }) {
+  const index = zoomSteps.indexOf(zoom);
+  return (
+    <div className="flex items-center gap-1" role="group" aria-label="Preview zoom">
+      <Button type="button" variant="outline" size="icon" aria-label="Zoom out" disabled={index <= 0} onClick={() => onZoom(zoomSteps[index - 1])}>
+        <ZoomOutIcon />
+      </Button>
+      <Button type="button" variant="outline" className="w-16 tabular-nums" aria-label="Reset zoom" onClick={() => onZoom(1)}>
+        {Math.round(zoom * 100)}%
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        size="icon"
+        aria-label="Zoom in"
+        disabled={index === -1 || index >= zoomSteps.length - 1}
+        onClick={() => onZoom(zoomSteps[index + 1])}
+      >
+        <ZoomInIcon />
+      </Button>
+    </div>
+  );
+}
+
 function personName(member: { user: { displayName: string | null; firstName: string | null; lastName: string | null; username: string } }) {
   const display = member.user.displayName?.trim();
   if (display) return display;
@@ -62,6 +141,23 @@ function DesignerForm({ initial }: { initial: SavedReport | null }) {
   const [filters, setFilters] = useState<ReportFilters>(initial?.filters ?? {});
   const [selectedId, setSelectedId] = useState<string | null>(initial?.layout.cards[0]?.id ?? null);
   const [error, setError] = useState<string | null>(null);
+  const { editorOpen, zoom, setEditorOpen, setZoom } = useDesignerPreferences();
+  const previewRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const node = previewRef.current;
+    if (!node) return;
+    function onWheel(event: WheelEvent) {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      const index = zoomSteps.indexOf(zoom);
+      if (index === -1) return;
+      const next = zoomSteps[index + (event.deltaY > 0 ? -1 : 1)];
+      if (next) setZoom(next);
+    }
+    node.addEventListener("wheel", onWheel, { passive: false });
+    return () => node.removeEventListener("wheel", onWheel);
+  }, [setZoom, zoom]);
   const preview = useQuery(reportQuery(organization.id, filters));
   const selected = layout.cards.find((card) => card.id === selectedId) ?? null;
 
@@ -153,7 +249,7 @@ function DesignerForm({ initial }: { initial: SavedReport | null }) {
   const paths = selected?.kind === "chart" ? seriesAccessors : scalarAccessors;
 
   return (
-    <>
+    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-y-contain">
       <PageHeader
         description="Drag a card to move it. Drag the left edge or the bottom edge to resize it."
         actions={
@@ -170,9 +266,7 @@ function DesignerForm({ initial }: { initial: SavedReport | null }) {
           </div>
         }
       />
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
-        <div className="flex min-w-0 flex-col gap-4">
-          <div className="grid gap-3 rounded-xl border bg-card p-3 md:grid-cols-[minmax(0,1fr)_auto]">
+      <div className="grid shrink-0 gap-3 rounded-xl border bg-card p-3 md:grid-cols-[minmax(0,1fr)_auto]">
             <Field label="Name" htmlFor="report-name">
               <Input id="report-name" value={name} maxLength={80} onChange={(event) => setName(event.target.value)} />
             </Field>
@@ -181,7 +275,7 @@ function DesignerForm({ initial }: { initial: SavedReport | null }) {
               Default report
             </label>
           </div>
-          <div className="flex flex-col gap-3 rounded-xl border bg-card p-3">
+          <div className="flex shrink-0 flex-col gap-3 rounded-xl border bg-card p-3">
             <DateRangeFilter
               range={{ from: filters.from, to: filters.to }}
               onChange={(range) =>
@@ -222,42 +316,77 @@ function DesignerForm({ initial }: { initial: SavedReport | null }) {
               />
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" onClick={() => addCard("value")}>
-              Value card
-            </Button>
-            <Button type="button" variant="outline" onClick={() => addCard("chart")}>
-              Chart card
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                const next = summaryLayout(copy);
-                setLayout(next);
-                setSelectedId(next.cards[0]?.id ?? null);
-                setError(null);
-              }}
-            >
-              Start from the summary report
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <Button type="button" variant="outline" onClick={() => addCard("value")}>
+          Value card
+        </Button>
+        <Button type="button" variant="outline" onClick={() => addCard("chart")}>
+          Chart card
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            const next = summaryLayout(copy);
+            setLayout(next);
+            setSelectedId(next.cards[0]?.id ?? null);
+            setError(null);
+          }}
+        >
+          Start from the summary report
+        </Button>
+      </div>
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {problem ? <p className="text-sm text-destructive">{problem}</p> : null}
+      <div
+        className={cn(
+          "grid min-h-96 flex-1 gap-4",
+          editorOpen
+            ? "grid-rows-[minmax(24rem,1fr)_auto] xl:grid-cols-[minmax(0,1fr)_18rem] xl:grid-rows-1"
+            : "grid-rows-[minmax(24rem,1fr)]",
+        )}
+      >
+        <section className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border bg-card">
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
+            <h2 className="text-sm font-medium">Preview</h2>
+            <div className="flex flex-wrap items-center gap-2">
+              {preview.isFetching ? <p className="text-xs text-muted-foreground">Updating…</p> : null}
+              {editorOpen ? null : (
+                <Button type="button" variant="outline" onClick={() => setEditorOpen(true)}>
+                  <PanelRightOpenIcon />
+                  Card editor
+                </Button>
+              )}
+              <PreviewZoom zoom={zoom} onZoom={setZoom} />
+            </div>
+          </div>
+          <div ref={previewRef} className="min-h-0 flex-1 overflow-auto bg-muted/40 p-3">
+            {layout.cards.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Add a card, or start from the summary report.</p>
+            ) : null}
+            <div style={{ width: `${zoom * 100}%` }}>
+              <ReportGrid
+                cards={layout.cards}
+                data={preview.data}
+                editing
+                scale={zoom}
+                scroll={false}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                onChange={(cards) => setLayout({ version: 1, cards })}
+              />
+            </div>
+          </div>
+        </section>
+        {editorOpen ? (
+        <aside className="flex min-h-0 flex-col gap-3 overflow-y-auto rounded-xl border bg-card p-3">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-medium">Card editor</h2>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setEditorOpen(false)}>
+              <PanelRightCloseIcon />
+              Hide
             </Button>
           </div>
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
-          {problem ? <p className="text-sm text-destructive">{problem}</p> : null}
-          {preview.isFetching ? <p className="text-xs text-muted-foreground">Updating…</p> : null}
-          {layout.cards.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Add a card, or start from the summary report.</p>
-          ) : null}
-          <ReportGrid
-            cards={layout.cards}
-            data={preview.data}
-            editing
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-            onChange={(cards) => setLayout({ version: 1, cards })}
-          />
-        </div>
-        <aside className="flex flex-col gap-3 rounded-xl border bg-card p-3">
           {selected ? (
             <>
               <Field label="Title" htmlFor="card-title">
@@ -364,8 +493,9 @@ function DesignerForm({ initial }: { initial: SavedReport | null }) {
             <p className="text-sm text-muted-foreground">Select a card to edit its title, color, and data.</p>
           )}
         </aside>
+        ) : null}
       </div>
-    </>
+    </div>
   );
 }
 

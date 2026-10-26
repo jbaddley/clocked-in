@@ -1,14 +1,23 @@
+using ClockedIn.Api.Configuration;
 using ClockedIn.Api.Data;
+using ClockedIn.Api.Email;
 using ClockedIn.Api.Entities;
 using ClockedIn.Api.Features.Connections;
 using ClockedIn.Api.Features.Shared;
 using ClockedIn.Api.Http;
 using ClockedIn.Api.Security;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace ClockedIn.Api.Features.Memberships;
 
-public sealed class MembershipsService(ClockedInDbContext db, Access access, TimeProvider time, ConnectionsService connections)
+public sealed class MembershipsService(
+    ClockedInDbContext db,
+    Access access,
+    TimeProvider time,
+    ConnectionsService connections,
+    IEmailSender mail,
+    IOptions<EmailOptions> emailOptions)
 {
     public async Task<ListResponse<RoleDto>> ListRoles(PageQuery query, CancellationToken cancellationToken)
     {
@@ -80,6 +89,7 @@ public sealed class MembershipsService(ClockedInDbContext db, Access access, Tim
         await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
         await db.LockOrganizationAsync(organizationId, cancellationToken);
         var existing = await db.UsersWithProfile().FirstOrDefaultAsync(user => user.Email == request.Email, cancellationToken);
+        var createdAccount = existing is null;
         User user;
         if (existing is null)
         {
@@ -135,14 +145,16 @@ public sealed class MembershipsService(ClockedInDbContext db, Access access, Tim
             }
         }
 
-        var rateType = await db.Organizations.Where(item => item.Id == organizationId).Select(item => item.DefaultRateType).FirstAsync(cancellationToken);
+        var organization = await db.Organizations.Where(item => item.Id == organizationId)
+            .Select(item => new { item.DefaultRateType, item.Name })
+            .FirstAsync(cancellationToken);
         var membership = new OrganizationMembership
         {
             Id = Guid.NewGuid(),
             UserId = user.Id,
             OrganizationId = organizationId,
             RoleId = Role.IdOf(request.Role),
-            RateType = rateType,
+            RateType = organization.DefaultRateType,
             IsActive = true,
             JoinedAt = time.UtcNow(),
             OrgUserTitle = request.OrgUserTitle,
@@ -158,7 +170,32 @@ public sealed class MembershipsService(ClockedInDbContext db, Access access, Tim
         }
 
         await tx.CommitAsync(cancellationToken);
-        return await MapOrganization(membership.Id, cancellationToken);
+        var mapped = await MapOrganization(membership.Id, cancellationToken);
+        if (request.EmailUser && createdAccount)
+        {
+            try
+            {
+                await mail.Send(
+                    request.Email,
+                    "account-welcome",
+                    new Dictionary<string, string>
+                    {
+                        ["organizationName"] = organization.Name,
+                        ["username"] = request.Username!,
+                        ["password"] = request.Password!,
+                        ["url"] = emailOptions.Value.Link("/login"),
+                    },
+                    cancellationToken);
+            }
+            catch
+            {
+                db.Users.Remove(user);
+                await db.SaveChangesAsync(cancellationToken);
+                throw;
+            }
+        }
+
+        return mapped;
     }
 
     public async Task<MembershipDto> UpdateOrganization(

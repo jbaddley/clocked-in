@@ -758,6 +758,7 @@ function AddPersonForm({ onCancel, onSaved }: { onCancel: () => void; onSaved: (
   const organization = useOrganization();
   const [role, setRole] = useState("VOLUNTEER");
   const [departmentIds, setDepartmentIds] = useState<string[]>([]);
+  const [emailUser, setEmailUser] = useState(true);
   const create = useActionMutation((input: NewPerson) => createPersonAction(organization.id, input), {
     invalidate: [keys.members(organization.id)],
     errorToast: false,
@@ -778,6 +779,7 @@ function AddPersonForm({ onCancel, onSaved }: { onCancel: () => void; onSaved: (
           lastName: String(data.get("lastName") ?? ""),
           role,
           departmentIds,
+          emailUser,
         });
       }}
     >
@@ -802,6 +804,15 @@ function AddPersonForm({ onCancel, onSaved }: { onCancel: () => void; onSaved: (
         >
           <Input id="add-password" name="password" type="password" required minLength={8} className="h-9" />
         </Field>
+        <div className="flex flex-col gap-1.5 sm:col-span-2">
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox checked={emailUser} onCheckedChange={(checked) => setEmailUser(checked === true)} />
+            Email user
+          </label>
+          <p className="text-xs text-muted-foreground">
+            They will get an email with their username and temporary password.
+          </p>
+        </div>
         <Field label="Role">
           <SelectField value={role} onValueChange={setRole} options={roles} className="h-9" />
         </Field>

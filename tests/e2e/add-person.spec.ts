@@ -33,6 +33,8 @@ test("add person closes on success and shows a conflict in the dialog", async ({
   await page.getByRole("button", { name: "Add person" }).click();
   const dialog = page.getByRole("dialog", { name: "Add person" });
   await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("checkbox", { name: "Email user" })).toBeChecked();
+  await dialog.getByRole("checkbox", { name: "Email user" }).click();
   await fillAddPerson(dialog, person);
   await dialog.getByRole("button", { name: "Add person" }).click();
   await expect(dialog).toBeHidden();

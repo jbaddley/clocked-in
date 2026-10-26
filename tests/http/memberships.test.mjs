@@ -14,7 +14,9 @@ import {
   remove,
   signUp,
   suite,
+  waitForEmails,
 } from "./client.mjs";
+import { mailSinkUrl } from "./fixture.mjs";
 
 describe("memberships", suite, () => {
   const ctx = {};
@@ -423,4 +425,69 @@ describe("memberships", suite, () => {
     });
     assert.equal(login.status, 200);
   });
+
+  test("emailUser sends a new account its temporary password", async () => {
+    const person = identity("emailed");
+    const created = await createJson(ctx.second.accessToken, `/organizations/${ctx.org.id}/memberships`, {
+      email: person.email,
+      username: person.username,
+      password: person.password,
+      firstName: "Mailed",
+      lastName: "Person",
+      role: "VOLUNTEER",
+      emailUser: true,
+    });
+    assert.equal(created.user.email, person.email);
+    const messages = await waitForEmails(person.email, 1);
+    assert.match(messages[0].subject, new RegExp(escapeRegExp(ctx.org.name)));
+    assert.match(messages[0].text, new RegExp(escapeRegExp(person.username)));
+    assert.match(messages[0].text, new RegExp(escapeRegExp(person.password)));
+    assert.match(messages[0].text, /\/login/);
+
+    const quiet = identity("quiet");
+    await createJson(ctx.second.accessToken, `/organizations/${ctx.org.id}/memberships`, {
+      email: quiet.email,
+      username: quiet.username,
+      password: quiet.password,
+      firstName: "Quiet",
+      lastName: "Person",
+      role: "VOLUNTEER",
+      emailUser: false,
+    });
+    const quietMail = await fetch(`${mailSinkUrl}/emails?to=${encodeURIComponent(quiet.email)}`);
+    assert.equal(quietMail.ok, true);
+    assert.deepEqual(await quietMail.json(), []);
+
+    const existing = await signUp("mailexisting");
+    await createJson(ctx.second.accessToken, `/organizations/${ctx.org.id}/memberships`, {
+      email: existing.email,
+      firstName: "Existing",
+      lastName: "Mail",
+      role: "MEMBER",
+      emailUser: true,
+    });
+    const existingMail = await fetch(`${mailSinkUrl}/emails?to=${encodeURIComponent(existing.email)}`);
+    assert.equal(existingMail.ok, true);
+    const existingMessages = await existingMail.json();
+    assert.equal(existingMessages.some((message) => String(message.text).includes("Temporary password")), false);
+
+    const invalid = await callApi(`/organizations/${ctx.org.id}/memberships`, {
+      method: "POST",
+      token: ctx.second.accessToken,
+      body: {
+        email: identity("badflag").email,
+        username: "badflaguser",
+        password: "temp-pass-1",
+        firstName: "Bad",
+        lastName: "Flag",
+        role: "VOLUNTEER",
+        emailUser: "yes",
+      },
+    });
+    assertError(invalid, 400, "validation_error", "emailUser must be a boolean.");
+  });
 });
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}

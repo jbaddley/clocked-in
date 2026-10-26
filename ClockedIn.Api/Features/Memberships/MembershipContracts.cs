@@ -94,7 +94,8 @@ public sealed record CreateOrgMembershipRequest(
     string? OrgUserDescription,
     RoleCode Role,
     List<Guid> DepartmentIds,
-    MemberRelationship? Relationship)
+    MemberRelationship? Relationship,
+    bool EmailUser)
 {
     public static async ValueTask<CreateOrgMembershipRequest?> BindAsync(HttpContext context) => Parse(await Body.Read(context));
 
@@ -130,9 +131,10 @@ public sealed record CreateOrgMembershipRequest(
         var relationship = Fields.Has(body, "relationship")
             ? MemberConnectionRules.Parse(Fields.RequiredString(body, "relationship"))
             : (MemberRelationship?)null;
+        var emailUser = Fields.Has(body, "emailUser") && Fields.RequiredBool(body, "emailUser");
         return new CreateOrgMembershipRequest(
             email, username, password, firstName, lastName, displayName, zone, phone, zipCode, notes,
-            avatarUrl, description, orgUserTitle, orgUserDescription, role, departmentIds, relationship);
+            avatarUrl, description, orgUserTitle, orgUserDescription, role, departmentIds, relationship, emailUser);
     }
 }
 
