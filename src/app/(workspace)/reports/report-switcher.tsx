@@ -58,11 +58,6 @@ export function ReportSwitcher({
           Design
         </Link>
       ) : null}
-      {isAdmin ? (
-        <Link href="/reports/new" className={cn(buttonVariants({ variant: "outline", size: "lg" }))}>
-          New
-        </Link>
-      ) : null}
     </div>
   );
 }

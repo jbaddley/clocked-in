@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { DateRangeFilter, rangeFromSearch } from "@/components/date-range-filter";
 import { PageHeader } from "@/components/page-header";
 import { ReportGrid } from "@/components/report-grid";
+import { ReportActions } from "./report-actions";
 import { StatsSkeleton } from "@/components/skeletons";
 import { useLookups } from "@/hooks/use-lookups";
 import { useOrganization } from "@/hooks/use-workspace";
@@ -52,14 +53,18 @@ function SavedReportBody({ report }: { report: SavedReport }) {
   return (
     <>
       <PageHeader
-        description={report.name}
-        actions={<ReportSwitcher active={report.id} />}
+        actions={
+          <div className="flex w-full flex-wrap items-center gap-2">
+            <DateRangeFilter range={range} onChange={setRange} />
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              <ReportSwitcher active={report.id} />
+              <ReportActions range={range} />
+              {applied.length > 0 ? <p className="text-xs text-muted-foreground">{applied.join(" · ")}</p> : null}
+              {data.isFetching ? <span className="text-xs text-muted-foreground">Updating…</span> : null}
+            </div>
+          </div>
+        }
       />
-      <div className="flex flex-col gap-3 rounded-xl border bg-card p-3 sm:flex-row sm:items-center">
-        <DateRangeFilter range={range} onChange={setRange} />
-        {applied.length > 0 ? <p className="text-xs text-muted-foreground sm:ml-auto">{applied.join(" · ")}</p> : null}
-        {data.isFetching ? <span className="text-xs text-muted-foreground sm:ml-auto">Updating…</span> : null}
-      </div>
       <ReportGrid cards={report.layout.cards} data={data.data} />
     </>
   );

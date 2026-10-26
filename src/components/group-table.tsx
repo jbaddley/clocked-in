@@ -1,95 +1,64 @@
 "use client";
 
+import { cn } from "cn";
 import { DataTable, type Column } from "@/components/data-table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { formatCompactCurrency, formatCompactNumber, formatCurrency, formatNumber, share } from "@/lib/format";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { countPattern, formatWithPattern, moneyPattern } from "@/lib/number-pattern";
+import { listColumnLabel, type ListColumn } from "@/lib/report-layout";
+import { share } from "@/lib/format";
 import type { ReportGroup } from "@/lib/types";
 
-function columnWidths(showType: boolean, showVolunteers: boolean): Record<string, string> {
-  if (showType && showVolunteers) {
-    return { label: "26%", projectType: "12%", hours: "12%", share: "22%", volunteers: "13%", inKind: "15%" };
-  }
-
-  if (showType) {
-    return { label: "28%", projectType: "13%", hours: "16%", share: "24%", inKind: "19%" };
-  }
-
-  if (showVolunteers) {
-    return { label: "30%", hours: "14%", share: "24%", volunteers: "14%", inKind: "18%" };
-  }
-
-  return { label: "36%", hours: "18%", share: "26%", inKind: "20%" };
-}
-
-function ExactNumber({ value, currency = false }: { value: number; currency?: boolean }) {
-  const exact = currency ? formatCurrency(value) : formatNumber(value);
-  const compact = currency ? formatCompactCurrency(value) : formatCompactNumber(value);
-  if (compact === exact) {
-    return <span className="tabular-nums">{exact}</span>;
-  }
-
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <button
-            type="button"
-            className="cursor-help border-0 bg-transparent p-0 font-inherit text-inherit tabular-nums underline decoration-dotted decoration-muted-foreground/50 underline-offset-4"
-            aria-label={exact}
-          />
-        }
-      >
-        {compact}
-      </TooltipTrigger>
-      <TooltipContent>{exact}</TooltipContent>
-    </Tooltip>
-  );
+function NumberCell({ value, pattern }: { value: number; pattern: string }) {
+  return <span className="tabular-nums">{formatWithPattern(value, pattern)}</span>;
 }
 
 export function GroupTable({
   title,
+  description,
   rows,
-  total,
-  showVolunteers = false,
+  visibleColumns,
+  hoursPattern,
+  className,
 }: {
   title: string;
+  description?: string;
   rows: ReportGroup[];
-  total: number;
-  showVolunteers?: boolean;
+  visibleColumns: ListColumn[];
+  hoursPattern: string;
+  className?: string;
 }) {
-  const showType = rows.some((row) => row.projectType);
-  const width = columnWidths(showType, showVolunteers);
-  const columns: Column<ReportGroup>[] = [
-    {
+  const shown = new Set(visibleColumns);
+  const total = rows.reduce((sum, row) => sum + row.hours, 0);
+  const columns: Column<ReportGroup>[] = [];
+
+  if (shown.has("name")) {
+    columns.push({
       key: "label",
-      header: "Name",
+      header: listColumnLabel("name"),
       primary: true,
-      width: width.label,
       wrap: true,
       cell: (row) => <span className="font-medium">{row.label}</span>,
-    },
-    ...(showType
-      ? [
-          {
-            key: "projectType",
-            header: "Type",
-            width: width.projectType,
-            cell: (row: ReportGroup) => row.projectType ?? "—",
-          },
-        ]
-      : []),
-    {
+    });
+  }
+  if (shown.has("type")) {
+    columns.push({
+      key: "projectType",
+      header: listColumnLabel("type"),
+      cell: (row) => row.projectType ?? "—",
+    });
+  }
+  if (shown.has("hours")) {
+    columns.push({
       key: "hours",
-      header: "Hours",
+      header: listColumnLabel("hours"),
       align: "right",
-      width: width.hours,
-      cell: (row) => <ExactNumber value={row.hours} />,
-    },
-    {
+      cell: (row) => <NumberCell value={row.hours} pattern={hoursPattern} />,
+    });
+  }
+  if (shown.has("share")) {
+    columns.push({
       key: "share",
-      header: "Share",
-      width: width.share,
+      header: listColumnLabel("share"),
       cell: (row) => {
         const percent = share(row.hours, total);
         return (
@@ -101,34 +70,35 @@ export function GroupTable({
           </div>
         );
       },
-    },
-    ...(showVolunteers
-      ? [
-          {
-            key: "volunteers",
-            header: "People",
-            align: "right" as const,
-            width: width.volunteers,
-            cell: (row: ReportGroup) => <ExactNumber value={row.volunteers} />,
-          },
-        ]
-      : []),
-    {
-      key: "inKind",
-      header: "In-kind",
+    });
+  }
+  if (shown.has("people")) {
+    columns.push({
+      key: "volunteers",
+      header: listColumnLabel("people"),
       align: "right",
-      width: width.inKind,
-      cell: (row) => <ExactNumber value={row.inKind} currency />,
-    },
-  ];
+      cell: (row) => <NumberCell value={row.volunteers} pattern={countPattern} />,
+    });
+  }
+  if (shown.has("inKind")) {
+    columns.push({
+      key: "inKind",
+      header: listColumnLabel("inKind"),
+      align: "right",
+      cell: (row) => <NumberCell value={row.inKind} pattern={moneyPattern} />,
+    });
+  }
 
   return (
-    <Card className="gap-2">
+    <Card className={cn("h-full gap-2", className)}>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
+        {description ? <CardDescription>{description}</CardDescription> : null}
       </CardHeader>
-      <CardContent>
-        {rows.length ? (
+      <CardContent className="min-h-0 flex-1 overflow-auto">
+        {columns.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">Choose a column to show.</p>
+        ) : rows.length ? (
           <DataTable rows={rows} columns={columns} rowKey={(row) => row.id} />
         ) : (
           <p className="py-6 text-center text-sm text-muted-foreground">No hours in this period.</p>

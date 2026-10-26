@@ -80,6 +80,19 @@ describe("saved reports", suite, () => {
           valueKey: "hours",
           format: "hours",
         },
+        {
+          id: randomUUID(),
+          kind: "list",
+          title: "By project",
+          description: "",
+          column: 1,
+          row: 5,
+          columns: 6,
+          rows: 4,
+          accessor: "user.byProject",
+          format: "hours",
+          visibleColumns: ["name", "hours", "share", "inKind"],
+        },
       ]),
       filters: { departmentId: ctx.department.id, from: "2026-11-01", to: "2026-11-30" },
     });
@@ -87,8 +100,11 @@ describe("saved reports", suite, () => {
     assert.equal(created.name, name);
     assert.equal(created.isDefault, true);
     assert.equal(created.layout.version, 1);
-    assert.equal(created.layout.cards.length, 2);
+    assert.equal(created.layout.cards.length, 3);
+    assert.equal(created.layout.cards[0].pattern, "0,0.[00]");
     assert.equal(created.layout.cards[1].kind, "chart");
+    assert.equal(created.layout.cards[2].kind, "list");
+    assert.deepEqual(created.layout.cards[2].visibleColumns, ["name", "hours", "share", "inKind"]);
     assert.equal(created.filters.departmentId, ctx.department.id);
     assertInstant(created.createdAt);
     assertInstant(created.updatedAt);

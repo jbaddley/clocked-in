@@ -1,8 +1,8 @@
-import { ClockIcon, HandCoinsIcon, ListChecksIcon, UsersIcon, type LucideIcon } from "lucide-react";
+import { DynamicIcon, type IconName } from "lucide-react/dynamic";
 import { cn } from "cn";
 import { Card } from "@/components/ui/card";
-import { formatCurrency, formatNumber } from "@/lib/format";
-import type { ValueColor, ValueFormat, ValueIcon } from "@/lib/report-layout";
+import { formatWithPattern } from "@/lib/number-pattern";
+import type { ValueColor } from "@/lib/report-layout";
 
 const tones: Record<ValueColor, { badge: string; text: string }> = {
   primary: {
@@ -23,19 +23,9 @@ const tones: Record<ValueColor, { badge: string; text: string }> = {
   },
 };
 
-const icons: Record<ValueIcon, LucideIcon> = {
-  clock: ClockIcon,
-  "hand-coins": HandCoinsIcon,
-  users: UsersIcon,
-  "list-checks": ListChecksIcon,
-};
-
-function displayValue(value: unknown, format: ValueFormat) {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return "—";
-  }
-
-  return format === "currency" ? formatCurrency(value) : formatNumber(value);
+function displayValue(value: unknown, pattern: string) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+  return formatWithPattern(value, pattern);
 }
 
 export function ValueCard({
@@ -43,7 +33,7 @@ export function ValueCard({
   description,
   value,
   color,
-  format,
+  pattern,
   icon,
   className,
 }: {
@@ -51,20 +41,19 @@ export function ValueCard({
   description?: string;
   value?: unknown;
   color: ValueColor;
-  format: ValueFormat;
-  icon?: ValueIcon | null;
+  pattern: string;
+  icon?: string | null;
   className?: string;
 }) {
   const style = tones[color];
-  const Icon = icon ? icons[icon] : null;
   return (
     <Card className={cn("h-full w-full flex-row items-center gap-4 px-4", className)}>
       <div className={cn("flex size-11 shrink-0 items-center justify-center rounded-xl", style.badge)}>
-        {Icon ? <Icon className="size-5" /> : null}
+        {icon ? <DynamicIcon name={icon as IconName} className="size-5" /> : null}
       </div>
       <div className="min-w-0">
         <p className={cn("truncate text-xs font-medium tracking-wide uppercase", style.text)}>{title}</p>
-        <p className="truncate text-2xl font-semibold text-foreground tabular-nums">{displayValue(value, format)}</p>
+        <p className="truncate text-2xl font-semibold text-foreground tabular-nums">{displayValue(value, pattern)}</p>
         {description ? <p className={cn("truncate text-xs", style.text)}>{description}</p> : null}
       </div>
     </Card>

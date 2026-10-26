@@ -4,14 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Label, Pie, PieChart, Text, XAxis, YAxis } from "recharts";
 import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart";
 import { seriesColor, type ChartType } from "@/lib/chart-palette";
-import {
-  abbreviateChartLabel,
-  formatCompactCurrency,
-  formatCompactNumber,
-  formatCurrency,
-  formatHours,
-  formatNumber,
-} from "@/lib/format";
+import { abbreviateChartLabel } from "@/lib/format";
+import { formatWithPattern } from "@/lib/number-pattern";
 import type { ReportGroup } from "@/lib/types";
 
 function configFor(rows: ReportGroup[], colors: string[]): ChartConfig {
@@ -81,15 +75,17 @@ function ValueTooltip({
   active,
   payload,
   valueKey,
+  pattern,
 }: {
   active?: boolean;
   payload?: ReadonlyArray<{ payload?: ReportGroup }>;
   valueKey: "hours" | "inKind";
+  pattern: string;
 }) {
   const row = payload?.[0]?.payload;
   if (!active || !row) return null;
 
-  const exact = valueKey === "inKind" ? formatCurrency(row.inKind) : formatNumber(row.hours);
+  const exact = formatWithPattern(row[valueKey], pattern);
   return (
     <div className="grid min-w-32 gap-1 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl">
       <div className="font-medium">{row.label}</div>
@@ -103,16 +99,16 @@ export function ChartPlot({
   chartType,
   colors,
   valueKey = "hours",
-  format = "hours",
+  pattern,
 }: {
   rows: ReportGroup[];
   chartType: ChartType;
   colors: string[];
   valueKey?: "hours" | "inKind";
-  format?: "hours" | "currency";
+  pattern: string;
 }) {
   if (chartType === "donut" || chartType === "pie") {
-    return <ArcChart rows={rows} colors={colors} valueKey={valueKey} format={format} donut={chartType === "donut"} />;
+    return <ArcChart rows={rows} colors={colors} valueKey={valueKey} pattern={pattern} donut={chartType === "donut"} />;
   }
 
   return (
@@ -120,7 +116,7 @@ export function ChartPlot({
       rows={rows}
       colors={colors}
       valueKey={valueKey}
-      format={format}
+      pattern={pattern}
       orientation={chartType === "bar" ? "horizontal" : "vertical"}
     />
   );
@@ -130,28 +126,26 @@ function ArcChart({
   rows,
   colors,
   valueKey,
-  format,
+  pattern,
   donut,
 }: {
   rows: ReportGroup[];
   colors: string[];
   valueKey: "hours" | "inKind";
-  format: "hours" | "currency";
+  pattern: string;
   donut: boolean;
 }) {
   const data = rows.map((row, index) => ({ ...row, fill: seriesColor(colors, index) }));
   const total = data.reduce((sum, row) => sum + row[valueKey], 0);
-  const fullTotal = format === "currency" ? formatCurrency(total) : formatNumber(total);
-  const totalLabel =
-    fullTotal.length <= 10 ? fullTotal : format === "currency" ? formatCompactCurrency(total) : formatCompactNumber(total);
-  const caption = format === "currency" ? "in-kind" : "hours";
-  const valueLabel = (value: number) => (format === "currency" ? formatCurrency(value) : formatHours(value));
+  const totalLabel = formatWithPattern(total, pattern);
+  const caption = valueKey === "inKind" ? "in-kind" : "hours";
+  const valueLabel = (value: number) => formatWithPattern(value, pattern);
 
   return (
     <div className="flex h-full min-h-56 w-full flex-1 flex-col items-center justify-center gap-4 sm:flex-row sm:items-center">
       <ChartContainer config={configFor(rows, colors)} className="aspect-square w-full max-w-56 shrink-0">
         <PieChart>
-          <ChartTooltip cursor={false} content={<ValueTooltip valueKey={valueKey} />} />
+          <ChartTooltip cursor={false} content={<ValueTooltip valueKey={valueKey} pattern={pattern} />} />
           <Pie data={data} dataKey={valueKey} nameKey="id" innerRadius={donut ? "62%" : 0} strokeWidth={2}>
             {data.map((row) => (
               <Cell key={row.id} fill={row.fill} />
@@ -192,13 +186,13 @@ function SummaryBars({
   rows,
   colors,
   valueKey = "hours",
-  format = "hours",
+  pattern,
   orientation = "horizontal",
 }: {
   rows: ReportGroup[];
   colors: string[];
   valueKey?: "hours" | "inKind";
-  format?: "hours" | "currency";
+  pattern: string;
   orientation?: "horizontal" | "vertical";
 }) {
   const frame = useRef<HTMLDivElement>(null);
@@ -217,7 +211,7 @@ function SummaryBars({
 
   const data = rows.map((row, index) => ({ ...row, fill: seriesColor(colors, index) }));
   const horizontal = orientation === "horizontal";
-  const valueAxisWidth = format === "currency" ? 58 : 42;
+  const valueAxisWidth = pattern.includes("$") ? 72 : 48;
   const categoryAxisWidth = 156;
   const measured = width || 420;
   const labelWidth = horizontal
@@ -226,10 +220,7 @@ function SummaryBars({
   const maxLines = Math.max(1, ...data.map((row) => estimateWrappedLines(row.label, labelWidth)));
   const xAxisSpace = maxLines * 15 + 10;
   const height = horizontal ? Math.max(200, data.length * (maxLines * 15 + 16) + 32) : 216 + xAxisSpace;
-  const tickValue = (value: number) => {
-    if (format === "currency") return value === 0 ? "$0" : formatCompactCurrency(value);
-    return formatCompactNumber(value);
-  };
+  const tickValue = (value: number) => formatWithPattern(value, pattern);
 
   return (
     <div ref={frame} className="flex h-full min-h-0 w-full flex-1 flex-col">
@@ -277,7 +268,7 @@ function SummaryBars({
               />
             </>
           )}
-          <ChartTooltip cursor={false} content={<ValueTooltip valueKey={valueKey} />} />
+          <ChartTooltip cursor={false} content={<ValueTooltip valueKey={valueKey} pattern={pattern} />} />
           <Bar dataKey={valueKey} radius={6} maxBarSize={28}>
             {data.map((row) => (
               <Cell key={row.id} fill={row.fill} />

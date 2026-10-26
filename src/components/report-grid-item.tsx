@@ -56,6 +56,18 @@ export function ReportGridItem({
           />
           <button
             type="button"
+            data-resize="right"
+            aria-label={`Resize ${title ?? "card"} from the right`}
+            className="absolute top-3 right-0 bottom-3 z-10 w-2 cursor-col-resize rounded-full hover:bg-primary/50"
+          />
+          <button
+            type="button"
+            data-resize="top"
+            aria-label={`Resize ${title ?? "card"} from the top`}
+            className="absolute top-0 right-3 left-3 z-10 h-2 cursor-row-resize rounded-full hover:bg-primary/50"
+          />
+          <button
+            type="button"
             data-resize="bottom"
             aria-label={`Resize ${title ?? "card"} from the bottom`}
             className="absolute right-3 bottom-0 left-3 z-10 h-2 cursor-row-resize rounded-full hover:bg-primary/50"

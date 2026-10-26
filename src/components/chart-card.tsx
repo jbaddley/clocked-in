@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useOrganization } from "@/hooks/use-workspace";
+import { patternFor } from "@/lib/number-pattern";
 import {
   chartTypes,
   chartTypeLabel,
@@ -42,6 +43,7 @@ export function ChartCard({
   palette: paletteProp,
   valueKey = "hours",
   format = "hours",
+  pattern,
   empty = "No hours in this range.",
   className,
   configurable = true,
@@ -54,7 +56,8 @@ export function ChartCard({
   chartType?: ChartType;
   palette?: PaletteType;
   valueKey?: "hours" | "inKind";
-  format?: "hours" | "currency";
+  format?: "hours" | "currency" | "number";
+  pattern?: string;
   empty?: string;
   className?: string;
   configurable?: boolean;
@@ -131,7 +134,7 @@ export function ChartCard({
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col">
         {rows.length ? (
-          <ChartPlot rows={rows} chartType={chartType} colors={colors} valueKey={valueKey} format={format} />
+          <ChartPlot rows={rows} chartType={chartType} colors={colors} valueKey={valueKey} pattern={pattern ?? patternFor(format)} />
         ) : (
           <p className="text-sm text-muted-foreground">{empty}</p>
         )}

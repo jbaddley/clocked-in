@@ -3,8 +3,10 @@
 import { useRef, useState, type PointerEvent } from "react";
 import { cn } from "cn";
 import { ChartCard } from "@/components/chart-card";
+import { GroupTable } from "@/components/group-table";
 import { ReportGridItem } from "@/components/report-grid-item";
 import { ValueCard } from "@/components/value-card";
+import { patternFor } from "@/lib/number-pattern";
 import { collides, reportColumnCount, reportMaxRow, type ReportCard } from "@/lib/report-layout";
 
 export const reportGridGap = 12;
@@ -13,6 +15,8 @@ export const reportRowHeight = 112;
 type Drag =
   | { id: string; mode: "move"; originColumn: number; originRow: number; pointerColumn: number; pointerRow: number }
   | { id: string; mode: "left"; right: number }
+  | { id: string; mode: "right"; column: number }
+  | { id: string; mode: "top"; bottom: number }
   | { id: string; mode: "bottom" };
 
 function cellFromPointer(grid: HTMLElement, clientX: number, clientY: number, gap: number, rowHeight: number) {
@@ -38,6 +42,16 @@ function placed(card: ReportCard, drag: Drag, cell: { column: number; row: numbe
   if (drag.mode === "left") {
     const column = Math.min(Math.max(1, cell.column), drag.right);
     return { ...card, column, columns: drag.right - column + 1 };
+  }
+
+  if (drag.mode === "right") {
+    const right = Math.min(reportColumnCount, Math.max(drag.column, cell.column));
+    return { ...card, column: drag.column, columns: right - drag.column + 1 };
+  }
+
+  if (drag.mode === "top") {
+    const row = Math.min(drag.bottom, Math.max(1, cell.row));
+    return { ...card, row, rows: drag.bottom - row + 1 };
   }
 
   return { ...card, rows: Math.min(Math.max(1, cell.row - card.row + 1), reportMaxRow - card.row + 1) };
@@ -82,12 +96,18 @@ export function ReportGrid({
     if (!card) return;
     onSelect?.(id);
     const cell = cellFromPointer(event.currentTarget, event.clientX, event.clientY, gap, rowHeight);
+    const rightEdge = card.column + card.columns - 1;
+    const bottomEdge = card.row + card.rows - 1;
     dragRef.current =
       resize === "left"
-        ? { id, mode: "left", right: card.column + card.columns - 1 }
-        : resize === "bottom"
-          ? { id, mode: "bottom" }
-          : {
+        ? { id, mode: "left", right: rightEdge }
+        : resize === "right"
+          ? { id, mode: "right", column: card.column }
+          : resize === "top"
+            ? { id, mode: "top", bottom: bottomEdge }
+            : resize === "bottom"
+              ? { id, mode: "bottom" }
+              : {
               id,
               mode: "move",
               originColumn: card.column,
@@ -160,8 +180,16 @@ export function ReportGrid({
                 title={card.title}
                 description={card.description}
                 color={card.color}
-                format={card.format}
+                pattern={card.pattern || patternFor(card.format)}
                 icon={card.icon}
+              />
+            ) : card.kind === "list" ? (
+              <GroupTable
+                title={card.title}
+                description={card.description || undefined}
+                rows={[]}
+                visibleColumns={card.visibleColumns}
+                hoursPattern={card.pattern || patternFor(card.format)}
               />
             ) : (
               <ChartCard
@@ -173,6 +201,7 @@ export function ReportGrid({
                 palette={card.palette}
                 valueKey={card.valueKey}
                 format={card.format}
+                pattern={card.pattern || patternFor(card.format)}
                 configurable={editing}
                 onChartTypeChange={(chartType) =>
                   onChange?.(cards.map((item) => (item.id === card.id && item.kind === "chart" ? { ...item, chartType } : item)))

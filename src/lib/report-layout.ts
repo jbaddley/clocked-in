@@ -1,4 +1,5 @@
 import { chartTypes, paletteTypes, type ChartType, type PaletteType } from "@/lib/chart-palette";
+import { formatPatterns, patternFor, type FormatPreset } from "@/lib/number-pattern";
 import { pathParts } from "@/lib/report-path";
 
 export const reportColumnCount = 12;
@@ -11,16 +12,33 @@ export type ValueColor = (typeof valueColors)[number];
 export const valueFormats = ["number", "hours", "currency"] as const;
 export type ValueFormat = (typeof valueFormats)[number];
 
-export const chartFormats = ["hours", "currency"] as const;
+export const chartFormats = ["number", "hours", "currency"] as const;
 export type ChartFormat = (typeof chartFormats)[number];
 
 export const valueIcons = ["clock", "hand-coins", "users", "list-checks"] as const;
 export type ValueIcon = (typeof valueIcons)[number];
 
+export const listColumnKeys = ["name", "type", "hours", "share", "people", "inKind"] as const;
+export type ListColumn = (typeof listColumnKeys)[number];
+
+const listColumnLabels: Record<ListColumn, string> = {
+  name: "Name",
+  type: "Type",
+  hours: "Hours",
+  share: "Share",
+  people: "People",
+  inKind: "In-kind",
+};
+
+export function listColumnLabel(column: ListColumn) {
+  return listColumnLabels[column];
+}
+
 export const chartValueKeys = ["hours", "inKind"] as const;
 export type ChartValueKey = (typeof chartValueKeys)[number];
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const iconName = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 type Box = { column: number; row: number; columns: number; rows: number };
 
@@ -35,7 +53,8 @@ export type ValueReportCard = ReportCardBase & {
   kind: "value";
   color: ValueColor;
   format: ValueFormat;
-  icon: ValueIcon | null;
+  pattern: string;
+  icon: string | null;
 };
 
 export type ChartReportCard = ReportCardBase & {
@@ -44,9 +63,17 @@ export type ChartReportCard = ReportCardBase & {
   palette: PaletteType;
   valueKey: ChartValueKey;
   format: ChartFormat;
+  pattern: string;
 };
 
-export type ReportCard = ValueReportCard | ChartReportCard;
+export type ListReportCard = ReportCardBase & {
+  kind: "list";
+  format: ValueFormat;
+  pattern: string;
+  visibleColumns: ListColumn[];
+};
+
+export type ReportCard = ValueReportCard | ChartReportCard | ListReportCard;
 
 export type ReportLayout = {
   version: 1;
@@ -152,7 +179,7 @@ function overlaps(left: Box, right: Box) {
 
 function card(value: unknown, index: number): ReportCard {
   const source = asObject(value, `cards[${index}]`);
-  const kind = oneOf(take(source, "kind").value, "kind", ["value", "chart"] as const);
+  const kind = oneOf(take(source, "kind").value, "kind", ["value", "chart", "list"] as const);
   const cardId = id(take(source, "id").value, "id");
   const title = text(take(source, "title").value, "title", 120, true);
   const descriptionField = take(source, "description");
@@ -186,19 +213,53 @@ function card(value: unknown, index: number): ReportCard {
   if (kind === "value") {
     const color = oneOf(take(source, "color").value, "color", valueColors);
     const format = oneOf(take(source, "format").value, "format", valueFormats);
-    const iconField = take(source, "icon");
-    const icon =
-      !iconField.has || iconField.value === null ? null : oneOf(iconField.value, "icon", valueIcons);
+    const pattern = readPattern(take(source, "pattern"), format);
+    const icon = readIcon(take(source, "icon"));
     leftover(source, "cards");
-    return { ...base, kind, color, format, icon };
+    return { ...base, kind, color, format, pattern, icon };
+  }
+
+  if (kind === "list") {
+    const format = oneOf(take(source, "format").value, "format", valueFormats);
+    const pattern = readPattern(take(source, "pattern"), format);
+    const visibleColumns = readVisibleColumns(take(source, "visibleColumns").value);
+    leftover(source, "cards");
+    return { ...base, kind, format, pattern, visibleColumns };
   }
 
   const chartType = oneOf(take(source, "chartType").value, "chartType", chartTypes);
   const palette = oneOf(take(source, "palette").value, "palette", paletteTypes);
   const valueKey = oneOf(take(source, "valueKey").value, "valueKey", chartValueKeys);
   const format = oneOf(take(source, "format").value, "format", chartFormats);
+  const pattern = readPattern(take(source, "pattern"), format);
   leftover(source, "cards");
-  return { ...base, kind, chartType, palette, valueKey, format };
+  return { ...base, kind, chartType, palette, valueKey, format, pattern };
+}
+
+function readPattern(field: { has: boolean; value: unknown }, format: FormatPreset) {
+  if (!field.has || field.value === undefined) return formatPatterns[format];
+  const pattern = text(field.value, "pattern", 40, true);
+  return pattern || patternFor(format);
+}
+
+function readIcon(field: { has: boolean; value: unknown }) {
+  if (!field.has || field.value === null) return null;
+  const icon = text(field.value, "icon", 64, true);
+  if (!iconName.test(icon)) fail("icon must be a Lucide icon name.");
+  return icon;
+}
+
+function readVisibleColumns(value: unknown) {
+  if (!Array.isArray(value)) fail("visibleColumns must be an array.");
+  const seen = new Set<string>();
+  const columns: ListColumn[] = [];
+  for (const item of value) {
+    const column = oneOf(item, "visibleColumns", listColumnKeys);
+    if (seen.has(column)) fail("visibleColumns must be unique.");
+    seen.add(column);
+    columns.push(column);
+  }
+  return listColumnKeys.filter((column) => columns.includes(column));
 }
 
 export function normalizeLayout(value: unknown): ReportLayout {
@@ -277,52 +338,155 @@ export function emptyLayout(): ReportLayout {
   return { version: 1, cards: [] };
 }
 
+export const reportTemplateIds = ["summary", "people", "groups", "staff"] as const;
+export type ReportTemplateId = (typeof reportTemplateIds)[number];
+
+const templateLabels: Record<ReportTemplateId, string> = {
+  summary: "Summary",
+  people: "People",
+  groups: "Group sessions",
+  staff: "Staff",
+};
+
+export function reportTemplateLabel(id: ReportTemplateId) {
+  return templateLabels[id];
+}
+
+function templateId(slot: number) {
+  return `00000000-0000-4000-8000-${slot.toString(16).padStart(12, "0")}`;
+}
+
+type TemplateCopy = { department: string; taskCategory: string; project: string };
+
 function valueCard(
+  slot: number,
   column: number,
-  input: Omit<ValueReportCard, "kind" | "column" | "row" | "columns" | "rows" | "description"> & {
-    description?: string;
+  input: Omit<ValueReportCard, "id" | "kind" | "column" | "row" | "columns" | "rows" | "description" | "pattern"> & {
+    columns?: number;
   },
 ): ValueReportCard {
   return {
+    id: templateId(slot),
     kind: "value",
     column,
     row: 1,
-    columns: 3,
+    columns: input.columns ?? 3,
     rows: 1,
     description: "",
+    pattern: formatPatterns[input.format],
     ...input,
   };
 }
 
-export function summaryLayout(copy: { department: string; taskCategory: string; project: string }): ReportLayout {
-  const charts: Array<Omit<ChartReportCard, "id" | "kind" | "column" | "row" | "columns" | "rows" | "description">> = [
-    { title: `Hours by ${copy.department.toLowerCase()}`, accessor: "user.byDepartment", chartType: "column", palette: "single", valueKey: "hours", format: "hours" },
-    { title: `Hours by ${copy.taskCategory.toLowerCase()}`, accessor: "user.byCategory", chartType: "column", palette: "single", valueKey: "hours", format: "hours" },
-    { title: "In-kind by month", accessor: "user.byMonth", chartType: "column", palette: "single", valueKey: "inKind", format: "currency" },
-    { title: "Hours by volunteer", accessor: "user.byVolunteer", chartType: "bar", palette: "single", valueKey: "hours", format: "hours" },
-    { title: "Hours by month", accessor: "user.byMonth", chartType: "column", palette: "single", valueKey: "hours", format: "hours" },
-    { title: `Hours by ${copy.project.toLowerCase()}`, accessor: "user.byProject", chartType: "bar", palette: "single", valueKey: "hours", format: "hours" },
-  ];
+function chartCard(
+  slot: number,
+  index: number,
+  input: Omit<ChartReportCard, "id" | "kind" | "column" | "row" | "columns" | "rows" | "description" | "pattern" | "palette">,
+): ChartReportCard {
+  return {
+    id: templateId(slot),
+    kind: "chart",
+    description: "",
+    palette: "single",
+    pattern: formatPatterns[input.format],
+    column: index % 2 === 0 ? 1 : 7,
+    row: 2 + Math.floor(index / 2) * 4,
+    columns: 6,
+    rows: 4,
+    ...input,
+  };
+}
 
+function listCard(
+  slot: number,
+  place: { column: number; row: number },
+  input: Omit<ListReportCard, "id" | "kind" | "column" | "row" | "columns" | "rows" | "description" | "pattern" | "format">,
+): ListReportCard {
+  return {
+    id: templateId(slot),
+    kind: "list",
+    description: "",
+    format: "hours",
+    pattern: formatPatterns.hours,
+    column: place.column,
+    row: place.row,
+    columns: 6,
+    rows: 5,
+    ...input,
+  };
+}
+
+export function reportTemplate(id: ReportTemplateId, copy: TemplateCopy): ReportLayout {
+  if (id === "people") return peopleTemplate(copy);
+  if (id === "groups") return groupsTemplate(copy);
+  if (id === "staff") return staffTemplate(copy);
+  return summaryTemplate(copy);
+}
+
+function summaryTemplate(copy: TemplateCopy): ReportLayout {
+  const charts = [
+    chartCard(5, 0, { title: `Hours by ${copy.department.toLowerCase()}`, accessor: "user.byDepartment", chartType: "column", valueKey: "hours", format: "hours" }),
+    chartCard(6, 1, { title: `Hours by ${copy.taskCategory.toLowerCase()}`, accessor: "user.byCategory", chartType: "column", valueKey: "hours", format: "hours" }),
+    chartCard(7, 2, { title: "In-kind by month", accessor: "user.byMonth", chartType: "column", valueKey: "inKind", format: "currency" }),
+    chartCard(8, 3, { title: "Hours by volunteer", accessor: "user.byVolunteer", chartType: "bar", valueKey: "hours", format: "hours" }),
+    chartCard(9, 4, { title: "Hours by month", accessor: "user.byMonth", chartType: "column", valueKey: "hours", format: "hours" }),
+    chartCard(10, 5, { title: `Hours by ${copy.project.toLowerCase()}`, accessor: "user.byProject", chartType: "bar", valueKey: "hours", format: "hours" }),
+  ];
+  return { version: 1, cards: [...volunteerTotals(1), ...charts] };
+}
+
+function peopleTemplate(copy: TemplateCopy): ReportLayout {
+  const measure: ListColumn[] = ["name", "hours", "share", "inKind"];
   return {
     version: 1,
     cards: [
-      valueCard(1, { id: crypto.randomUUID(), title: "Total volunteer hours", accessor: "user.hours", color: "primary", format: "hours", icon: "clock" }),
-      valueCard(4, { id: crypto.randomUUID(), title: "In-kind value", accessor: "user.inKind", color: "success", format: "currency", icon: "hand-coins" }),
-      valueCard(7, { id: crypto.randomUUID(), title: "Volunteers", accessor: "user.volunteers", color: "highlight", format: "number", icon: "users" }),
-      valueCard(10, { id: crypto.randomUUID(), title: "Entries", accessor: "user.entries", color: "accent", format: "number", icon: "list-checks" }),
-      ...charts.map((item, index): ChartReportCard => ({
-        ...item,
-        id: crypto.randomUUID(),
-        kind: "chart",
-        description: "",
-        column: index % 2 === 0 ? 1 : 7,
-        row: 2 + Math.floor(index / 2) * 4,
-        columns: 6,
-        rows: 4,
-      })),
+      ...volunteerTotals(20),
+      listCard(24, { column: 1, row: 2 }, { title: `By ${copy.project.toLowerCase()}`, accessor: "user.byProject", visibleColumns: ["name", "type", "hours", "share", "people", "inKind"] }),
+      listCard(25, { column: 7, row: 2 }, { title: "By person", accessor: "user.byPerson", visibleColumns: measure }),
+      listCard(26, { column: 1, row: 7 }, { title: `By ${copy.department.toLowerCase()}`, accessor: "user.byDepartment", visibleColumns: ["name", "hours", "share", "people", "inKind"] }),
+      listCard(27, { column: 7, row: 7 }, { title: `By ${copy.taskCategory.toLowerCase()}`, accessor: "user.byCategory", visibleColumns: ["name", "hours", "share", "people", "inKind"] }),
     ],
   };
+}
+
+function groupsTemplate(copy: TemplateCopy): ReportLayout {
+  const measure: ListColumn[] = ["name", "hours", "share", "inKind"];
+  return {
+    version: 1,
+    cards: [
+      valueCard(30, 1, { title: "Hours", accessor: "collective.hours", color: "primary", format: "hours", icon: "clock", columns: 4 }),
+      valueCard(31, 5, { title: "In-kind value", accessor: "collective.inKind", color: "success", format: "currency", icon: "hand-coins", columns: 4 }),
+      valueCard(32, 9, { title: "Sessions", accessor: "collective.entries", color: "accent", format: "number", icon: "list-checks", columns: 4 }),
+      listCard(33, { column: 1, row: 2 }, { title: `By ${copy.project.toLowerCase()}`, accessor: "collective.byProject", visibleColumns: ["name", "type", "hours", "share", "inKind"] }),
+      listCard(34, { column: 7, row: 2 }, { title: `By ${copy.department.toLowerCase()}`, accessor: "collective.byDepartment", visibleColumns: measure }),
+      listCard(35, { column: 1, row: 7 }, { title: `By ${copy.taskCategory.toLowerCase()}`, accessor: "collective.byCategory", visibleColumns: measure }),
+    ],
+  };
+}
+
+function staffTemplate(copy: TemplateCopy): ReportLayout {
+  const measure: ListColumn[] = ["name", "hours", "share", "inKind"];
+  return {
+    version: 1,
+    cards: [
+      valueCard(40, 1, { title: "Staff hours", accessor: "staff.hours", color: "primary", format: "hours", icon: "clock" }),
+      valueCard(41, 4, { title: "In-kind value", accessor: "staff.inKind", color: "success", format: "currency", icon: "hand-coins" }),
+      valueCard(42, 7, { title: "Staff", accessor: "staff.volunteers", color: "highlight", format: "number", icon: "users" }),
+      valueCard(43, 10, { title: "Entries", accessor: "staff.entries", color: "accent", format: "number", icon: "list-checks" }),
+      listCard(44, { column: 1, row: 2 }, { title: `By ${copy.department.toLowerCase()}`, accessor: "staff.byDepartment", visibleColumns: measure }),
+      listCard(45, { column: 7, row: 2 }, { title: `By ${copy.project.toLowerCase()}`, accessor: "staff.byProject", visibleColumns: ["name", "type", "hours", "share", "inKind"] }),
+      listCard(46, { column: 1, row: 7 }, { title: "By person", accessor: "staff.byPerson", visibleColumns: measure }),
+    ],
+  };
+}
+
+function volunteerTotals(slot: number): ValueReportCard[] {
+  return [
+    valueCard(slot, 1, { title: "Total volunteer hours", accessor: "user.hours", color: "primary", format: "hours", icon: "clock" }),
+    valueCard(slot + 1, 4, { title: "In-kind value", accessor: "user.inKind", color: "success", format: "currency", icon: "hand-coins" }),
+    valueCard(slot + 2, 7, { title: "Volunteers", accessor: "user.volunteers", color: "highlight", format: "number", icon: "users" }),
+    valueCard(slot + 3, 10, { title: "Entries", accessor: "user.entries", color: "accent", format: "number", icon: "list-checks" }),
+  ];
 }
 
 export function collides(cards: ReportCard[], candidate: Box, ignoreId: string) {

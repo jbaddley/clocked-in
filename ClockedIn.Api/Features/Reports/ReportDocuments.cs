@@ -22,8 +22,8 @@ public static partial class ReportDocuments
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private static readonly string[] ValueColors = ["primary", "highlight", "accent", "success"];
     private static readonly string[] ValueFormats = ["number", "hours", "currency"];
-    private static readonly string[] ChartFormats = ["hours", "currency"];
-    private static readonly string[] ValueIcons = ["clock", "hand-coins", "users", "list-checks"];
+    private static readonly string[] ChartFormats = ["number", "hours", "currency"];
+    private static readonly string[] ListColumns = ["name", "type", "hours", "share", "people", "inKind"];
     private static readonly string[] ChartTypes = ["donut", "pie", "bar", "column"];
     private static readonly string[] Palettes = ["single", "categorical", "sequential", "diverging"];
     private static readonly string[] ValueKeys = ["hours", "inKind"];
@@ -125,7 +125,7 @@ public static partial class ReportDocuments
     private static object Card(JsonElement value, int index, List<(string Id, int Column, int Row, int Columns, int Rows)> boxes)
     {
         var source = Object(value, $"cards[{index}]");
-        var kind = Choice(Take(source, "kind"), "kind", ["value", "chart"]);
+        var kind = Choice(Take(source, "kind"), "kind", ["value", "chart", "list"]);
         var id = Id(Take(source, "id"), "id");
         var title = Text(Take(source, "title"), "title", 120, true);
         var description = source.ContainsKey("description") ? Text(Take(source, "description"), "description", 300, false) : "";
@@ -174,41 +174,61 @@ public static partial class ReportDocuments
         {
             var color = Choice(Take(source, "color"), "color", ValueColors);
             var format = Choice(Take(source, "format"), "format", ValueFormats);
-            var icon = !source.ContainsKey("icon") || source["icon"] is null
-                ? null
-                : source["icon"] is null
-                    ? null
-                    : Choice(Take(source, "icon"), "icon", ValueIcons);
-            if (source.ContainsKey("icon") && source["icon"] is null)
-            {
-                Take(source, "icon");
-                icon = null;
-            }
-
+            var pattern = Pattern(source, format);
+            var icon = Icon(source);
             Leftover(source, "cards");
-            return new Dictionary<string, object?>
+            return CardDictionary(id, kind, title, description, column, row, columns, rows, accessor, new Dictionary<string, object?>
             {
-                ["id"] = id,
-                ["kind"] = kind,
-                ["title"] = title,
-                ["description"] = description,
-                ["column"] = column,
-                ["row"] = row,
-                ["columns"] = columns,
-                ["rows"] = rows,
-                ["accessor"] = accessor,
                 ["color"] = color,
                 ["format"] = format,
+                ["pattern"] = pattern,
                 ["icon"] = icon,
-            };
+            });
+        }
+
+        if (kind == "list")
+        {
+            var format = Choice(Take(source, "format"), "format", ValueFormats);
+            var pattern = Pattern(source, format);
+            var visible = VisibleColumns(Take(source, "visibleColumns"));
+            Leftover(source, "cards");
+            return CardDictionary(id, kind, title, description, column, row, columns, rows, accessor, new Dictionary<string, object?>
+            {
+                ["format"] = format,
+                ["pattern"] = pattern,
+                ["visibleColumns"] = visible,
+            });
         }
 
         var chartType = Choice(Take(source, "chartType"), "chartType", ChartTypes);
         var palette = Choice(Take(source, "palette"), "palette", Palettes);
         var valueKey = Choice(Take(source, "valueKey"), "valueKey", ValueKeys);
         var chartFormat = Choice(Take(source, "format"), "format", ChartFormats);
+        var chartPattern = Pattern(source, chartFormat);
         Leftover(source, "cards");
-        return new Dictionary<string, object?>
+        return CardDictionary(id, kind, title, description, column, row, columns, rows, accessor, new Dictionary<string, object?>
+        {
+            ["chartType"] = chartType,
+            ["palette"] = palette,
+            ["valueKey"] = valueKey,
+            ["format"] = chartFormat,
+            ["pattern"] = chartPattern,
+        });
+    }
+
+    private static Dictionary<string, object?> CardDictionary(
+        string id,
+        string kind,
+        string title,
+        string description,
+        int column,
+        int row,
+        int columns,
+        int rows,
+        string accessor,
+        Dictionary<string, object?> extra)
+    {
+        var card = new Dictionary<string, object?>
         {
             ["id"] = id,
             ["kind"] = kind,
@@ -219,11 +239,70 @@ public static partial class ReportDocuments
             ["columns"] = columns,
             ["rows"] = rows,
             ["accessor"] = accessor,
-            ["chartType"] = chartType,
-            ["palette"] = palette,
-            ["valueKey"] = valueKey,
-            ["format"] = chartFormat,
         };
+        foreach (var pair in extra)
+        {
+            card[pair.Key] = pair.Value;
+        }
+
+        return card;
+    }
+
+    private static string Pattern(Dictionary<string, object?> source, string format)
+    {
+        if (!source.ContainsKey("pattern"))
+        {
+            return format == "currency" ? "$0,0.00" : "0,0.[00]";
+        }
+
+        return Text(Take(source, "pattern"), "pattern", 40, true);
+    }
+
+    private static string? Icon(Dictionary<string, object?> source)
+    {
+        if (!source.ContainsKey("icon"))
+        {
+            return null;
+        }
+
+        var value = Take(source, "icon");
+        if (value is null)
+        {
+            return null;
+        }
+
+        var icon = Text(value, "icon", 64, true);
+        if (!IconPattern().IsMatch(icon))
+        {
+            throw ApiException.Validation("icon must be a Lucide icon name.");
+        }
+
+        return icon;
+    }
+
+    private static List<string> VisibleColumns(object? value)
+    {
+        if (value is not JsonElement element || element.ValueKind != JsonValueKind.Array)
+        {
+            throw ApiException.Validation("visibleColumns must be an array.");
+        }
+
+        var seen = new HashSet<string>();
+        foreach (var item in element.EnumerateArray())
+        {
+            var text = item.ValueKind == JsonValueKind.String ? item.GetString() : null;
+            if (text is null || !ListColumns.Contains(text))
+            {
+                throw ApiException.Validation("visibleColumns must be name, type, hours, share, people, or inKind.");
+            }
+
+            if (!seen.Add(text))
+            {
+                throw ApiException.Validation("visibleColumns must be unique.");
+            }
+        }
+
+        return ListColumns.Where(seen.Contains).ToList();
     }
 
     private static bool Overlaps((string Id, int Column, int Row, int Columns, int Rows) other, int column, int row, int columns, int rows) =>
@@ -399,4 +478,7 @@ public static partial class ReportDocuments
 
     [GeneratedRegex(@"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*|\[\d+\]|\[""[^""]+""\]|\['[^']+'\])*$")]
     private static partial Regex AccessorPattern();
+
+    [GeneratedRegex(@"^[a-z0-9]+(?:-[a-z0-9]+)*$")]
+    private static partial Regex IconPattern();
 }
