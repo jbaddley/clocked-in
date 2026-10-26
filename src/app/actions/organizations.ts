@@ -90,7 +90,6 @@ export async function updateOrganizationSettingsAction(
       access,
       organizationId,
       parseUpdateOrganization({
-        rateSourceYear: Number(text(formData, "rateSourceYear")),
         preferences,
       }),
     );

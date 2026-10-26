@@ -85,7 +85,6 @@ public class ClockedInDbContext(DbContextOptions<ClockedInDbContext> options, Ti
 
         modelBuilder.Entity<Organization>(entity =>
         {
-            entity.Property(organization => organization.RateSourceYear).HasDefaultValue(2025);
             entity.Property(organization => organization.DefaultRateType)
                 .HasConversion<string>()
                 .HasDefaultValue(RateType.Volunteer);

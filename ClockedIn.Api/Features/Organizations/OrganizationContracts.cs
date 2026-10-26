@@ -248,7 +248,6 @@ public sealed record OrganizationDto(
     Guid Id,
     string Name,
     decimal VolunteerHourlyRate,
-    int RateSourceYear,
     string DefaultRateType,
     OrganizationPreferencesDto Preferences,
     Guid ThemeId,
@@ -264,7 +263,6 @@ public sealed record OrganizationDto(
         organization.Id,
         organization.Name,
         volunteerHourlyRate,
-        organization.RateSourceYear,
         organization.DefaultRateType.ToString(),
         OrganizationPreferencesDto.From(organization.Preferences),
         organization.ThemeId,
@@ -286,7 +284,6 @@ public sealed record NameRequest(string Name)
 public sealed record UpdateOrganizationRequest(
     Optional<string> Name,
     Optional<decimal> VolunteerHourlyRate,
-    Optional<int> RateSourceYear,
     Optional<RateType> DefaultRateType,
     Optional<OrganizationPreferencesDto> Preferences,
     Optional<Guid> ThemeId,
@@ -313,7 +310,6 @@ public sealed record UpdateOrganizationRequest(
 
                 return Fields.RoundMoney(rate);
             }),
-            Optional.Read(body, "rateSourceYear", Fields.RequiredInt),
             Optional.Read(body, "defaultRateType", (b, k) => Fields.NormalizeRateType(Fields.RequiredString(b, k))),
             Optional.Read(body, "preferences", (b, k) => OrganizationPreferencesDto.Parse(b[k])),
             Optional.Read(body, "themeId", Fields.RequiredGuid),
@@ -325,7 +321,6 @@ public sealed record UpdateOrganizationRequest(
             Optional.Read(body, "websiteUrl", (b, k) => UpdateUserRequest.Limited(b, k, 2000, "websiteUrl must be a URL.")));
         if (!request.Name.HasValue
             && !request.VolunteerHourlyRate.HasValue
-            && !request.RateSourceYear.HasValue
             && !request.DefaultRateType.HasValue
             && !request.Preferences.HasValue
             && !request.ThemeId.HasValue

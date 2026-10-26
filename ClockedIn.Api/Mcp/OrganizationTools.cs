@@ -16,7 +16,7 @@ public sealed class OrganizationTools(OrganizationsService organizations)
     public Task<OrganizationDto> GetOrganization(Guid organizationId, CancellationToken cancellationToken) =>
         McpCall.Run(() => organizations.Get(organizationId, cancellationToken));
 
-    [McpServerTool, Description("Update an organization. Pass a JSON object with fields such as name, description, websiteUrl, volunteerHourlyRate, rateSourceYear, defaultRateType, preferences, and themeId.")]
+    [McpServerTool, Description("Update an organization. Pass a JSON object with fields such as name, description, websiteUrl, volunteerHourlyRate, defaultRateType, preferences, and themeId.")]
     public Task<OrganizationDto> UpdateOrganization(Guid organizationId, string body, CancellationToken cancellationToken) =>
         McpCall.Run(() => organizations.Update(organizationId, UpdateOrganizationRequest.Parse(McpCall.Object(body)), cancellationToken));
 }

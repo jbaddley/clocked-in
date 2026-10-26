@@ -16,7 +16,6 @@ import {
     RateType,
     requireBool,
     requireDecimal,
-    requireInt,
     requireName,
     requireString,
     roundMoney,
@@ -142,7 +141,6 @@ export function organizationJson(
   organization: {
     id: string;
     name: string;
-    rateSourceYear: number;
     defaultRateType: string;
     preferences?: Prisma.JsonValue | null;
     themeId: string;
@@ -160,7 +158,6 @@ export function organizationJson(
     id: organization.id,
     name: organization.name,
     volunteerHourlyRate,
-    rateSourceYear: organization.rateSourceYear,
     defaultRateType: organization.defaultRateType,
     preferences: readPreferences(organization.preferences),
     themeId: organization.themeId,
@@ -183,7 +180,6 @@ export function parseName(body: Body): NameRequest {
 export type UpdateOrganizationRequest = {
   name: Optional<string>;
   volunteerHourlyRate: Optional<number>;
-  rateSourceYear: Optional<number>;
   defaultRateType: Optional<RateType>;
   preferences: Optional<OrganizationPreferences>;
   themeId: Optional<string>;
@@ -206,7 +202,6 @@ export function parseUpdateOrganization(body: Body): UpdateOrganizationRequest {
 
       return roundMoney(rate);
     }),
-    rateSourceYear: optional(body, "rateSourceYear", requireInt),
     defaultRateType: optional(body, "defaultRateType", (b, k) => normalizeRateType(requireString(b, k))),
     preferences: optional(body, "preferences", (b, k) => parsePreferences(b[k])),
     themeId: optional(body, "themeId", (b, k) => requireString(b, k)),
@@ -220,7 +215,6 @@ export function parseUpdateOrganization(body: Body): UpdateOrganizationRequest {
   if (
     !request.name.set &&
     !request.volunteerHourlyRate.set &&
-    !request.rateSourceYear.set &&
     !request.defaultRateType.set &&
     !request.preferences.set &&
     !request.themeId.set &&
@@ -244,7 +238,6 @@ export async function createOrganization(access: Access, request: NameRequest) {
     prisma.organization.create({
       data: {
         name: request.name,
-        rateSourceYear: 2025,
         defaultRateType: "Volunteer",
         themeId: clockedInThemeId,
         hourlyRates: { create: { type: "Volunteer", name: "Volunteer", perHourRate: 35.47, isDefault: true } },
@@ -318,7 +311,6 @@ export async function updateOrganization(access: Access, organizationId: string,
       where: { id: organizationId },
       data: {
         name: request.name.set ? request.name.value : undefined,
-        rateSourceYear: request.rateSourceYear.set ? request.rateSourceYear.value : undefined,
         defaultRateType: request.defaultRateType.set ? request.defaultRateType.value : undefined,
         themeId: request.themeId.set ? request.themeId.value : undefined,
         wordmarkUrl: request.wordmarkUrl.set ? request.wordmarkUrl.value : undefined,

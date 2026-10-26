@@ -528,12 +528,6 @@ namespace ClockedIn.Api.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("name");
 
-                    b.Property<int>("RateSourceYear")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(2025)
-                        .HasColumnName("rateSourceYear");
-
                     b.Property<Guid>("ThemeId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")

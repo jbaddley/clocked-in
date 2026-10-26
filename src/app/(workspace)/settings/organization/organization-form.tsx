@@ -34,24 +34,12 @@ function OrganizationFields() {
       <CardHeader>
         <CardTitle>{copy.organization}</CardTitle>
         <CardDescription>
-          Valuation year, time editing, volunteer connections, and what to call {copy.projects.toLowerCase()} and{" "}
+          Time editing, volunteer connections, and what to call {copy.projects.toLowerCase()} and{" "}
           {copy.departments.toLowerCase()} are saved together.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form action={action} className="grid gap-4 sm:grid-cols-2">
-          <Field label="Rate source year" htmlFor="rateSourceYear">
-            <Input
-              id="rateSourceYear"
-              name="rateSourceYear"
-              type="number"
-              min="2000"
-              max="2100"
-              required
-              defaultValue={organization.rateSourceYear}
-              className="h-9"
-            />
-          </Field>
           <label className="flex items-center gap-2 text-sm sm:col-span-2">
             <input
               type="checkbox"

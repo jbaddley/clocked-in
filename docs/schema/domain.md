@@ -45,7 +45,6 @@ classDiagram
     string name
     string description
     string websiteUrl
-    int rateSourceYear
     string defaultRateType
     json preferences
     uuid themeId
@@ -264,7 +263,7 @@ Lookup shared by organization and department memberships. Seed two rows: `MEMBER
 
 ### Organization
 
-In-kind valuation catalogs live on `HourlyRate`. Creating an organization seeds `rateSourceYear` `2025`, `defaultRateType` `Volunteer`, and one default volunteer `HourlyRate` named `Volunteer` at `35.47`. The HTTP organization still exposes `volunteerHourlyRate` as that default rate.
+In-kind valuation catalogs live on `HourlyRate`. Creating an organization seeds `defaultRateType` `Volunteer` and one default volunteer `HourlyRate` named `Volunteer` at `35.47`. The HTTP organization still exposes `volunteerHourlyRate` as that default rate.
 
 | Field              | Required | Notes                                                                                                                                                                                                                                                                                                                        |
 | ------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -272,7 +271,6 @@ In-kind valuation catalogs live on `HourlyRate`. Creating an organization seeds 
 | name               | yes      |                                                                                                                                                                                                                                                                                                                              |
 | description        | no       | Organization about information in Markdown                                                                                                                                                                                                                                                                                   |
 | websiteUrl         | no       |                                                                                                                                                                                                                                                                                                                              |
-| rateSourceYear     | yes      | Integer year, default `2025`                                                                                                                                                                                                                                                                                                 |
 | defaultRateType    | yes      | `Volunteer` or `Professional`, default `Volunteer`                                                                                                                                                                                                                                                                           |
 | preferences        | yes      | jsonb. `allowTimeEntryEditing` defaults to false. When false, a time entry update cannot change `startedAt`, `endedAt`, `durationMinutes`, or `occurredOn`. `allowVolunteersToAddVolunteers` defaults to false. When true, a volunteer can create another volunteer and must record a relationship. `entityLabels` holds display names for `organization`, `project`, `department`, and `taskCategory` (defaults: Organization, Project, Department, Task category). |
 | themeId            | yes      | Foreign key to Theme. Defaults to the seeded VolunTime global theme.                                                                                                                                                                                                                                                         |

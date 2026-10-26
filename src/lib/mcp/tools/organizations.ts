@@ -19,7 +19,7 @@ export function registerOrganizationTools(server: McpServer) {
   tool(
     server,
     "update_organization",
-    "Update an organization. Pass a JSON object with fields such as name, description, websiteUrl, volunteerHourlyRate, rateSourceYear, defaultRateType, preferences, and themeId.",
+    "Update an organization. Pass a JSON object with fields such as name, description, websiteUrl, volunteerHourlyRate, defaultRateType, preferences, and themeId.",
     { organizationId: guid, body: z.string() },
     ({ organizationId, body }) => updateOrganization(mcpAccess(), organizationId, parseUpdateOrganization(jsonBody(body))),
   );

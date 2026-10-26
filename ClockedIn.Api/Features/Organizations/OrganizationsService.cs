@@ -16,7 +16,6 @@ public sealed class OrganizationsService(ClockedInDbContext db, Access access, T
         {
             Id = Guid.NewGuid(),
             Name = request.Name,
-            RateSourceYear = 2025,
             DefaultRateType = RateType.Volunteer,
             ThemeId = Theme.ClockedInId,
         };
@@ -72,7 +71,6 @@ public sealed class OrganizationsService(ClockedInDbContext db, Access access, T
     {
         var organization = await access.RequireOrganizationAdmin(organizationId, cancellationToken);
         organization.Name = request.Name.Or(organization.Name);
-        organization.RateSourceYear = request.RateSourceYear.Or(organization.RateSourceYear);
         organization.DefaultRateType = request.DefaultRateType.Or(organization.DefaultRateType);
         organization.WordmarkUrl = request.WordmarkUrl.Or(organization.WordmarkUrl);
         organization.WordmarkOnLightUrl = request.WordmarkOnLightUrl.Or(organization.WordmarkOnLightUrl);

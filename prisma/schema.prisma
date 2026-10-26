@@ -75,7 +75,6 @@ model Organization {
   name                  String
   /// Volunteer or Professional.
   defaultRateType       String                   @default("Volunteer")
-  rateSourceYear        Int                      @default(2025)
   /// Org settings. Known fields are defined by OrganizationPreferences.
   preferences           Json                     @default("{\"allowTimeEntryEditing\": false}")
   accentImageUrl        String?

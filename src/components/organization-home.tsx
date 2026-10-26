@@ -20,7 +20,6 @@ export function OrganizationHome() {
   const website = organization.websiteUrl ? websiteHref(organization.websiteUrl) : null;
   const facts = [
     ["Volunteer hourly rate", formatCurrency(organization.volunteerHourlyRate)],
-    ["Rate source year", String(organization.rateSourceYear)],
     ["Default rate", organization.defaultRateType],
     ["Time entry editing", organization.preferences.allowTimeEntryEditing ? "Allowed" : "Locked after save"],
     ["Theme", organization.theme.name],

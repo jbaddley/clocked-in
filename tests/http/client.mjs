@@ -217,7 +217,6 @@ export function assertOrganization(org, name) {
     "id",
     "name",
     "volunteerHourlyRate",
-    "rateSourceYear",
     "defaultRateType",
     "preferences",
     "themeId",
@@ -232,7 +231,6 @@ export function assertOrganization(org, name) {
   assertUuid(org.id);
   assert.equal(org.name, name);
   assertMoney(org.volunteerHourlyRate, 35.47);
-  assert.equal(org.rateSourceYear, 2025);
   assert.equal(org.defaultRateType, "Volunteer");
   assert.deepEqual(org.preferences, defaultPreferences());
   assert.equal(org.themeId, clockedInThemeId);

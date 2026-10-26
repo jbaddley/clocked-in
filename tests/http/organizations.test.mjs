@@ -124,7 +124,6 @@ describe("organizations", suite, () => {
       body: {
         name,
         volunteerHourlyRate: 40,
-        rateSourceYear: 2026,
         defaultRateType: "Professional",
         themeId: createdTheme.id,
         wordmarkUrl: "https://example.com/wordmark.svg",
@@ -135,7 +134,6 @@ describe("organizations", suite, () => {
     assert.equal(updated.status, 200);
     assert.equal(updated.json.name, name);
     assertMoney(updated.json.volunteerHourlyRate, 40);
-    assert.equal(updated.json.rateSourceYear, 2026);
     assert.equal(updated.json.defaultRateType, "Professional");
     assert.equal(updated.json.themeId, createdTheme.id);
     assert.equal(updated.json.theme.name, createdTheme.name);

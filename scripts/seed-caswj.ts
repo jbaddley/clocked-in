@@ -105,7 +105,6 @@ async function main() {
       (await db.organization.create({
         data: {
           name: orgName,
-          rateSourceYear: 2025,
           defaultRateType: "Volunteer",
           themeId: clockedInThemeId,
           preferences: {
@@ -129,7 +128,6 @@ async function main() {
     await db.organization.update({
       where: { id: organization.id },
       data: {
-        rateSourceYear: 2025,
         defaultRateType: "Volunteer",
         themeId: theme.id,
         preferences: { allowTimeEntryEditing: true, entityLabels: caswjLabels },

@@ -177,7 +177,6 @@ public class Organization
     // Organization about information in Markdown format
     public string? Description { get; set; }
     public string? WebsiteUrl { get; set; }
-    public int RateSourceYear { get; set; } = 2025;
     public RateType DefaultRateType { get; set; } = RateType.Volunteer;
     public OrganizationPreferences Preferences { get; set; } = new();
     public Guid ThemeId { get; set; } = Theme.ClockedInId;
