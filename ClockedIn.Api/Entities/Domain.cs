@@ -209,6 +209,7 @@ public class Organization
     public ICollection<OrganizationApiKey> ApiKeys { get; set; } = [];
     public ICollection<MemberConnection> Connections { get; set; } = [];
     public ICollection<Report> Reports { get; set; } = [];
+    public ICollection<ReportTemplate> ReportTemplates { get; set; } = [];
     public ICollection<VolunteerNeed> VolunteerNeeds { get; set; } = [];
 }
 
@@ -224,6 +225,22 @@ public class Report
     public DateTime UpdatedAt { get; set; }
 
     public Organization Organization { get; set; } = null!;
+}
+
+public class ReportTemplate
+{
+    public Guid Id { get; set; }
+    public Guid? OrganizationId { get; set; }
+    public string? Key { get; set; }
+    public string Name { get; set; } = null!;
+    public string Layout { get; set; } = """{"version":1,"cards":[]}""";
+    public Guid? BaseTemplateId { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+
+    public Organization? Organization { get; set; }
+    public ReportTemplate? BaseTemplate { get; set; }
+    public ICollection<ReportTemplate> Overrides { get; set; } = [];
 }
 
 public class MemberConnection

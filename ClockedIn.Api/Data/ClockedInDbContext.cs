@@ -31,6 +31,7 @@ public class ClockedInDbContext(DbContextOptions<ClockedInDbContext> options, Ti
     public DbSet<OrganizationApiKey> OrganizationApiKeys => Set<OrganizationApiKey>();
     public DbSet<PlatformApiKey> PlatformApiKeys => Set<PlatformApiKey>();
     public DbSet<Report> Reports => Set<Report>();
+    public DbSet<ReportTemplate> ReportTemplates => Set<ReportTemplate>();
     public DbSet<VolunteerNeed> VolunteerNeeds => Set<VolunteerNeed>();
     public DbSet<Guest> Guests => Set<Guest>();
     public DbSet<VolunteerSignup> VolunteerSignups => Set<VolunteerSignup>();
@@ -235,6 +236,50 @@ public class ClockedInDbContext(DbContextOptions<ClockedInDbContext> options, Ti
             entity.ToTable(table => table.HasCheckConstraint(
                 "Report_name_check",
                 """char_length(btrim("name"::text)) BETWEEN 1 AND 80"""));
+        });
+
+        modelBuilder.Entity<ReportTemplate>(entity =>
+        {
+            entity.Property(template => template.Name).HasColumnType("citext");
+            entity.Property(template => template.Layout)
+                .HasColumnType("jsonb")
+                .HasDefaultValueSql("""'{"version":1,"cards":[]}'::jsonb""");
+            entity.Property(template => template.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(template => template.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.HasIndex(template => template.Key)
+                .IsUnique()
+                .HasFilter("\"organizationId\" IS NULL AND \"key\" IS NOT NULL")
+                .HasDatabaseName("ReportTemplate_global_key");
+            entity.HasIndex(template => template.Name)
+                .IsUnique()
+                .HasFilter("\"organizationId\" IS NULL")
+                .HasDatabaseName("ReportTemplate_global_name");
+            entity.HasIndex(template => new { template.OrganizationId, template.BaseTemplateId })
+                .IsUnique()
+                .HasFilter("\"baseTemplateId\" IS NOT NULL")
+                .HasDatabaseName("ReportTemplate_override");
+            entity.HasIndex(template => new { template.OrganizationId, template.Name })
+                .IsUnique()
+                .HasFilter("\"organizationId\" IS NOT NULL")
+                .HasDatabaseName("ReportTemplate_org_name");
+            entity.HasOne(template => template.Organization)
+                .WithMany(organization => organization.ReportTemplates)
+                .HasForeignKey(template => template.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(template => template.BaseTemplate)
+                .WithMany(template => template.Overrides)
+                .HasForeignKey(template => template.BaseTemplateId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.ToTable(table => table.HasCheckConstraint(
+                "ReportTemplate_shape_check",
+                """
+                char_length(btrim("name"::text)) BETWEEN 1 AND 80
+                AND (
+                  ("organizationId" IS NULL AND "baseTemplateId" IS NULL AND "key" IN ('summary', 'people', 'groups', 'staff'))
+                  OR ("organizationId" IS NOT NULL AND "key" IS NULL AND "baseTemplateId" IS NULL)
+                  OR ("organizationId" IS NOT NULL AND "key" IS NULL AND "baseTemplateId" IS NOT NULL)
+                )
+                """));
         });
 
         modelBuilder.Entity<MemberConnection>(entity =>

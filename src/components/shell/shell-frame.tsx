@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "cn";
 
 function isReportDesigner(pathname: string) {
-  return pathname === "/reports/new" || /^\/reports\/[^/]+\/design$/.test(pathname);
+  return pathname === "/reports/new" || /^\/reports\/[^/]+\/design$/.test(pathname) || /^\/reports\/templates\/[^/]+\/design$/.test(pathname);
 }
 
 export function ShellFrame({ children }: { children: React.ReactNode }) {

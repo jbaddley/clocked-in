@@ -1,13 +1,14 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { PanelRightCloseIcon, PanelRightOpenIcon, ZoomInIcon, ZoomOutIcon } from "lucide-react";
+import { ChartColumnIcon, CircleHelpIcon, HashIcon, ListIcon, XIcon, ZoomInIcon, ZoomOutIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { DateRangeFilter } from "@/components/date-range-filter";
 import { Field } from "@/components/field";
 import { IconPickerDialog, iconLabel } from "@/components/icon-picker-dialog";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { PageHeader } from "@/components/page-header";
 import { ReportGrid } from "@/components/report-grid";
 import { SelectField, type Option } from "@/components/select-field";
@@ -33,12 +34,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { useLabels } from "@/hooks/use-labels";
 import { useLookups } from "@/hooks/use-lookups";
 import { useMembers } from "@/hooks/use-members";
-import { useOrganization } from "@/hooks/use-workspace";
+import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
+import type { ReportTemplate } from "@/lib/api/features/report-templates";
 import type { SavedReport } from "@/lib/api/features/saved-reports";
 import { chartTypeLabel, chartTypes, paletteTypeLabel, paletteTypes } from "@/lib/chart-palette";
-import { HttpError, sendJson } from "@/lib/fetch-json";
+import {
+  createReportAction,
+  createReportTemplateAction,
+  updateReportAction,
+  updateReportTemplateAction,
+} from "@/app/actions/reports";
 import { formatPatterns, formatPresetLabel } from "@/lib/number-pattern";
-import { keys, reportQuery, savedReportQuery } from "@/lib/queries";
+import { keys, reportQuery, reportTemplateQuery, reportTemplatesQuery, savedReportQuery } from "@/lib/queries";
 import {
   chartValueKeys,
   emptyLayout,
@@ -46,12 +53,6 @@ import {
   layoutError,
   listColumnKeys,
   listColumnLabel,
-  normalizeFilters,
-  normalizeLayout,
-  normalizeReportName,
-  reportTemplate,
-  reportTemplateIds,
-  reportTemplateLabel,
   valueColors,
   valueFormats,
   type ReportCard,
@@ -167,24 +168,208 @@ function iconOptions(current: string | null): Option[] {
   return options;
 }
 
-function DesignerForm({ initial }: { initial: SavedReport | null }) {
+function ReportSetup() {
   const organization = useOrganization();
+  const router = useRouter();
+  const templates = useQuery(reportTemplatesQuery(organization.id));
+  const [name, setName] = useState("");
+  const [isDefault, setIsDefault] = useState(false);
+  const [startFrom, setStartFrom] = useState("blank");
+  const [error, setError] = useState<string | null>(null);
+  const save = useMutation({
+    mutationFn: async () => {
+      const chosen = templates.data?.find((item) => item.id === startFrom);
+      const result = await createReportAction(organization.id, {
+        name,
+        isDefault,
+        layout: chosen?.layout ?? emptyLayout(),
+        filters: {},
+      });
+      if (!result.ok || !result.data) {
+        throw new Error(result.ok ? "The report could not be saved." : result.error);
+      }
+      return result.data;
+    },
+    onSuccess: (saved) => router.replace(`/reports/${saved.id}/design`),
+    onError: (caught) => setError(caught instanceof Error ? caught.message : "The report could not be saved."),
+  });
+
+  return (
+    <div className="mx-auto flex w-full max-w-lg flex-col gap-4">
+      <PageHeader />
+      <form
+        className="flex flex-col gap-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          setError(null);
+          save.mutate();
+        }}
+      >
+        <Field label="Name" htmlFor="report-name">
+          <Input id="report-name" value={name} maxLength={80} placeholder="Report name" onChange={(event) => setName(event.target.value)} />
+        </Field>
+        <label className="flex items-center gap-2 text-sm">
+          <Checkbox checked={isDefault} onCheckedChange={(checked) => setIsDefault(checked === true)} />
+          Default report
+        </label>
+        <Field label="Start from" htmlFor="report-start">
+          <SelectField
+            id="report-start"
+            value={startFrom}
+            onValueChange={setStartFrom}
+            options={[
+              { value: "blank", label: "Blank" },
+              ...(templates.data ?? []).map((item) => ({ value: item.id, label: item.name })),
+            ]}
+          />
+        </Field>
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        <div className="flex items-center gap-2">
+          <Link href="/reports" className={cn(buttonVariants({ variant: "outline", size: "lg" }))}>
+            Cancel
+          </Link>
+          <Button type="submit" size="lg" disabled={save.isPending}>
+            {save.isPending ? "Saving…" : "Save"}
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function useArrangeSave(
+  enabled: boolean,
+  layout: ReportLayout,
+  filters: ReportFilters,
+  save: (body: { layout: ReportLayout; filters: ReportFilters }) => Promise<void>,
+) {
+  const latest = useRef({ layout, filters, save });
+  const saved = useRef<string | null>(null);
+
+  useEffect(() => {
+    latest.current = { layout, filters, save };
+  });
+
+  useEffect(() => {
+    if (!enabled) return;
+    const current = JSON.stringify({ layout, filters });
+    if (saved.current === null) {
+      saved.current = current;
+      return;
+    }
+    if (saved.current === current) return;
+    const handle = window.setTimeout(() => {
+      const body = { layout: latest.current.layout, filters: latest.current.filters };
+      const text = JSON.stringify(body);
+      void latest.current
+        .save(body)
+        .then(() => {
+          saved.current = text;
+        })
+        .catch(() => undefined);
+    }, 400);
+    return () => window.clearTimeout(handle);
+  }, [enabled, filters, layout]);
+
+  useEffect(() => {
+    return () => {
+      if (!enabled || saved.current === null) return;
+      const body = { layout: latest.current.layout, filters: latest.current.filters };
+      if (JSON.stringify(body) === saved.current) return;
+      void latest.current.save(body).catch(() => undefined);
+    };
+  }, [enabled]);
+}
+
+function ArrangeCanvas({
+  mode,
+  report,
+  template,
+}: {
+  mode: "report" | "template";
+  report?: SavedReport;
+  template?: ReportTemplate;
+}) {
+  const organization = useOrganization();
+  const { isAdmin, viewer } = useWorkspace();
   const copy = useLabels();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { lookups } = useLookups();
   const { members } = useMembers();
-  const [name, setName] = useState(initial?.name ?? "");
-  const [isDefault, setIsDefault] = useState(initial?.isDefault ?? false);
-  const [layout, setLayout] = useState<ReportLayout>(initial?.layout ?? emptyLayout());
-  const [filters, setFilters] = useState<ReportFilters>(initial?.filters ?? {});
-  const [filterDraft, setFilterDraft] = useState<ReportFilters>(initial?.filters ?? {});
+  const templates = useQuery(reportTemplatesQuery(organization.id));
+  const initialLayout = mode === "report" ? report!.layout : template!.layout;
+  const initialFilters = mode === "report" ? report!.filters : {};
+  const [layout, setLayout] = useState<ReportLayout>(initialLayout);
+  const [filters, setFilters] = useState<ReportFilters>(initialFilters);
+  const [filterDraft, setFilterDraft] = useState<ReportFilters>(initialFilters);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(initial?.layout.cards[0]?.id ?? null);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
+  const [resetChoice, setResetChoice] = useState<ReportTemplate | "blank" | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialLayout.cards[0]?.id ?? null);
   const [error, setError] = useState<string | null>(null);
   const { editorOpen, zoom, setEditorOpen, setZoom } = useDesignerPreferences();
   const previewRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [frameWidth, setFrameWidth] = useState(0);
+  const [contentHeight, setContentHeight] = useState(0);
+
+  const persist = useCallback(
+    async (body: { layout: ReportLayout; filters: ReportFilters }) => {
+      const problem = layoutError(body.layout);
+      if (problem) {
+        setError(problem);
+        throw new Error(problem);
+      }
+
+      if (mode === "report") {
+        const result = await updateReportAction(organization.id, report!.id, {
+          layout: body.layout,
+          filters: body.filters,
+        });
+        if (!result.ok) throw new Error(result.error);
+        await queryClient.invalidateQueries({ queryKey: keys.savedReports(organization.id) });
+        await queryClient.invalidateQueries({ queryKey: keys.savedReport(organization.id, report!.id) });
+      } else if (template!.scope === "global" && !viewer.isSuperAdmin) {
+        const result = await createReportTemplateAction(organization.id, {
+          name: template!.name,
+          layout: body.layout,
+          baseTemplateId: template!.id,
+        });
+        if (!result.ok || !result.data) throw new Error(result.ok ? "The template could not be saved." : result.error);
+        await queryClient.invalidateQueries({ queryKey: keys.reportTemplates(organization.id) });
+        router.replace(`/reports/templates/${result.data.id}/design`);
+      } else {
+        const result = await updateReportTemplateAction(organization.id, template!.id, { layout: body.layout });
+        if (!result.ok) throw new Error(result.error);
+        await queryClient.invalidateQueries({ queryKey: keys.reportTemplates(organization.id) });
+        await queryClient.invalidateQueries({ queryKey: keys.reportTemplate(organization.id, template!.id) });
+      }
+
+      setError(null);
+    },
+    [mode, organization.id, queryClient, report, router, template, viewer.isSuperAdmin],
+  );
+
+  useArrangeSave(true, layout, filters, persist);
+
+  useEffect(() => {
+    const frame = previewRef.current;
+    const content = contentRef.current;
+    if (!frame || !content) return;
+    const measure = () => {
+      setFrameWidth(frame.clientWidth);
+      setContentHeight(content.offsetHeight);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(frame);
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [layout]);
 
   useEffect(() => {
     const node = previewRef.current;
@@ -204,35 +389,32 @@ function DesignerForm({ initial }: { initial: SavedReport | null }) {
   const preview = useQuery(reportQuery(organization.id, filters));
   const selected = layout.cards.find((card) => card.id === selectedId) ?? null;
   const filterCount = Object.keys(filters).length;
-
-  const save = useMutation({
+  const paths = selected?.kind === "value" ? scalarAccessors : seriesAccessors;
+  const organizationVersion = templates.data?.find((item) => item.baseTemplateId === template?.id);
+  const saveTemplate = useMutation({
     mutationFn: async () => {
-      let nextName: string;
-      let nextLayout: ReportLayout;
-      let nextFilters: ReportFilters;
-      try {
-        nextName = normalizeReportName(name);
-        nextLayout = normalizeLayout(layout);
-        nextFilters = normalizeFilters(filters);
-      } catch (caught) {
-        throw new HttpError(400, caught instanceof Error ? caught.message : "This report is not valid.");
-      }
-
-      const body = { name: nextName, isDefault, layout: nextLayout, filters: nextFilters };
-      const path = initial
-        ? `/organizations/${organization.id}/reports/${initial.id}`
-        : `/organizations/${organization.id}/reports`;
-      return sendJson<SavedReport>(path, initial ? "PATCH" : "POST", body);
+      const problem = layoutError(layout);
+      if (problem) throw new Error(problem);
+      const result = await createReportTemplateAction(organization.id, { name: templateName, layout });
+      if (!result.ok) throw new Error(result.error);
     },
-    onSuccess: async (saved) => {
-      await queryClient.invalidateQueries({ queryKey: keys.savedReports(organization.id) });
-      await queryClient.invalidateQueries({ queryKey: keys.savedReport(organization.id, saved.id) });
-      router.push(saved.isDefault ? "/reports" : `/reports/${saved.id}`);
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: keys.reportTemplates(organization.id) });
+      setSaveTemplateOpen(false);
+      setTemplateName("");
+      setError(null);
     },
-    onError: (caught) => {
-      setError(caught instanceof HttpError ? caught.message : "The report could not be saved.");
-    },
+    onError: (caught) => setError(caught instanceof Error ? caught.message : "The template could not be saved."),
   });
+
+  function setDraftFilter(key: keyof ReportFilters, value: string) {
+    setFilterDraft((current) => {
+      const next = { ...current };
+      if (!value || value === "any") delete next[key];
+      else next[key] = value;
+      return next;
+    });
+  }
 
   function patch(id: string, change: Partial<ReportCard>) {
     setLayout((current) => ({
@@ -295,119 +477,108 @@ function DesignerForm({ initial }: { initial: SavedReport | null }) {
     setEditorOpen(true);
   }
 
-  function setDraftFilter(key: keyof ReportFilters, value: string) {
-    setFilterDraft((current) => {
-      const next = { ...current };
-      if (!value || value === "any") delete next[key];
-      else next[key] = value;
-      return next;
-    });
+  function applyReset() {
+    if (!resetChoice) return;
+    const next = resetChoice === "blank" ? emptyLayout() : resetChoice.layout;
+    setLayout(next);
+    setSelectedId(next.cards[0]?.id ?? null);
+    if (next.cards[0]) setEditorOpen(true);
+    setResetChoice(null);
   }
 
   const problem = layoutError(layout);
-  const paths = selected?.kind === "value" ? scalarAccessors : seriesAccessors;
-  const closeHref = initial ? (initial.isDefault ? "/reports" : `/reports/${initial.id}`) : "/reports";
+  const templateNote =
+    mode === "template" && template
+      ? template.scope === "override"
+        ? "This is your organization's version."
+        : template.scope === "global" && viewer.isSuperAdmin
+          ? "Editing the global template."
+          : "Saving creates your organization's version of this template."
+      : null;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <PageHeader
-        className="shrink-0 sm:items-center [&>div:last-child]:min-w-0 [&>div:last-child]:flex-1"
-        description="Drag a card to move it. Drag the top, right, bottom, or left edge to resize it."
-        actions={
-          <div className="flex w-full min-w-0 flex-wrap items-center gap-2">
-            <Input
-              aria-label="Name"
-              value={name}
-              maxLength={80}
-              placeholder="Report name"
-              className="min-w-40 flex-1"
-              onChange={(event) => setName(event.target.value)}
-            />
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox checked={isDefault} onCheckedChange={(checked) => setIsDefault(checked === true)} />
-              Default report
-            </label>
-            <Link href={closeHref} className={cn(buttonVariants({ variant: "outline", size: "lg" }))}>
-              Cancel
-            </Link>
-            <Button type="button" size="lg" disabled={save.isPending} onClick={() => save.mutate()}>
-              {save.isPending ? "Saving…" : "Save"}
-            </Button>
-          </div>
-        }
-      />
-      <div className="flex shrink-0 flex-wrap items-center gap-2">
-        <Button type="button" variant="outline" onClick={() => addCard("value")}>
-          Value card
-        </Button>
-        <Button type="button" variant="outline" onClick={() => addCard("chart")}>
-          Chart card
-        </Button>
-        <Button type="button" variant="outline" onClick={() => addCard("list")}>
-          List card
-        </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<Button type="button" variant="outline" />}>Start from</DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            {reportTemplateIds.map((id) => (
-              <DropdownMenuItem
-                key={id}
-                onClick={() => {
-                  const next = reportTemplate(id, copy);
-                  setLayout(next);
-                  setSelectedId(next.cards[0]?.id ?? null);
-                  setError(null);
-                }}
-              >
-                {reportTemplateLabel(id)}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <Button
-          type="button"
-          variant="outline"
-          className="ml-auto"
-          onClick={() => {
-            setFilterDraft(filters);
-            setFiltersOpen(true);
-          }}
-        >
-          {filterCount > 0 ? `Edit filters (${filterCount})` : "Add filters"}
-        </Button>
-      </div>
-      {error ? <p className="shrink-0 text-sm text-destructive">{error}</p> : null}
-      {problem ? <p className="shrink-0 text-sm text-destructive">{problem}</p> : null}
       <div className={cn("grid min-h-0 flex-1 gap-3", editorOpen && "grid-cols-[minmax(0,1fr)_18rem]")}>
-        <section className="relative flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border bg-card">
+        <section className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border bg-card">
           <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
-            <h2 className="text-sm font-medium">Preview</h2>
+            <div className="min-w-0">
+              <h2 className="text-sm font-medium">Preview</h2>
+              {templateNote ? <p className="text-xs text-muted-foreground">{templateNote}</p> : null}
+              {mode === "template" && template?.scope === "global" && viewer.isSuperAdmin && organizationVersion ? (
+                <Link href={`/reports/templates/${organizationVersion.id}/design`} className="text-xs underline">
+                  Edit organization version
+                </Link>
+              ) : null}
+              {mode === "template" && template?.scope === "override" && template.baseTemplateId && viewer.isSuperAdmin ? (
+                <Link href={`/reports/templates/${template.baseTemplateId}/design`} className="text-xs underline">
+                  Edit global
+                </Link>
+              ) : null}
+            </div>
             <div className="flex flex-wrap items-center gap-2">
               {preview.isFetching ? <p className="text-xs text-muted-foreground">Updating…</p> : null}
+              <Button type="button" variant="outline" size="icon" aria-label="Add value card" onClick={() => addCard("value")}>
+                <HashIcon />
+              </Button>
+              <Button type="button" variant="outline" size="icon" aria-label="Add chart card" onClick={() => addCard("chart")}>
+                <ChartColumnIcon />
+              </Button>
+              <Button type="button" variant="outline" size="icon" aria-label="Add list card" onClick={() => addCard("list")}>
+                <ListIcon />
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger render={<Button type="button" variant="outline" />}>Reset</DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setResetChoice("blank")}>Blank</DropdownMenuItem>
+                  {(templates.data ?? []).map((item) => (
+                    <DropdownMenuItem key={item.id} onClick={() => setResetChoice(item)}>
+                      {item.name}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              {mode === "report" ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setFilterDraft(filters);
+                    setFiltersOpen(true);
+                  }}
+                >
+                  {filterCount > 0 ? `Edit filters (${filterCount})` : "Add filters"}
+                </Button>
+              ) : null}
+              {mode === "report" && isAdmin ? (
+                <Button type="button" variant="outline" onClick={() => setSaveTemplateOpen(true)}>
+                  Save as template
+                </Button>
+              ) : null}
               <PreviewZoom zoom={zoom} onZoom={setZoom} />
+              <Button type="button" variant="ghost" size="icon" aria-label="Report builder instructions" onClick={() => setHelpOpen(true)}>
+                <CircleHelpIcon />
+              </Button>
             </div>
           </div>
-          {!editorOpen ? (
-            <Button type="button" variant="outline" className="absolute top-14 right-3 z-10" onClick={() => setEditorOpen(true)}>
-              <PanelRightOpenIcon />
-              Card editor
-            </Button>
-          ) : null}
           <div ref={previewRef} className="min-h-0 flex-1 overflow-auto bg-muted/40 p-3">
-            {layout.cards.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Add a card, or start from a report template.</p>
-            ) : null}
-            <div style={{ width: `${zoom * 100}%` }}>
-              <ReportGrid
-                cards={layout.cards}
-                data={preview.data}
-                editing
-                scale={zoom}
-                scroll={false}
-                selectedId={selectedId}
-                onSelect={setSelectedId}
-                onChange={(cards) => setLayout({ version: 1, cards })}
-              />
+            <div style={{ width: frameWidth ? frameWidth * zoom : "100%", height: contentHeight ? contentHeight * zoom : undefined }}>
+              <div ref={contentRef} style={{ width: frameWidth || "100%", transform: `scale(${zoom})`, transformOrigin: "top left" }}>
+                {layout.cards.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Add a card, or reset to a template.</p>
+                ) : null}
+                <ReportGrid
+                  cards={layout.cards}
+                  data={preview.data}
+                  editing
+                  scroll={false}
+                  selectedId={selectedId}
+                  onSelect={(id) => {
+                    setSelectedId(id);
+                    setEditorOpen(true);
+                  }}
+                  onChange={(cards) => setLayout({ version: 1, cards })}
+                />
+              </div>
             </div>
           </div>
         </section>
@@ -415,9 +586,8 @@ function DesignerForm({ initial }: { initial: SavedReport | null }) {
           <aside className="flex min-h-0 flex-col gap-3 overflow-y-auto rounded-xl border bg-card p-3">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-sm font-medium">Card editor</h2>
-              <Button type="button" variant="ghost" size="sm" onClick={() => setEditorOpen(false)}>
-                <PanelRightCloseIcon />
-                Hide
+              <Button type="button" variant="ghost" size="icon-sm" aria-label="Close" onClick={() => setEditorOpen(false)}>
+                <XIcon />
               </Button>
             </div>
             {selected ? (
@@ -437,63 +607,114 @@ function DesignerForm({ initial }: { initial: SavedReport | null }) {
           </aside>
         ) : null}
       </div>
-      <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
+      {error ? <p className="shrink-0 text-sm text-destructive">{error}</p> : null}
+      {problem ? <p className="shrink-0 text-sm text-destructive">{problem}</p> : null}
+      <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>{filterCount > 0 ? "Edit filters" : "Add filters"}</DialogTitle>
-            <DialogDescription>These filters apply to the preview and are saved with the report.</DialogDescription>
+            <DialogTitle>Report builder</DialogTitle>
+            <DialogDescription>How to arrange cards and save this report.</DialogDescription>
           </DialogHeader>
-          <DateRangeFilter
-            range={{ from: filterDraft.from, to: filterDraft.to }}
-            onChange={(range) =>
-              setFilterDraft((current) => {
-                const next = { ...current };
-                if (range.from) next.from = range.from;
-                else delete next.from;
-                if (range.to) next.to = range.to;
-                else delete next.to;
-                return next;
-              })
-            }
-          />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <SelectField
-              aria-label={copy.department}
-              value={filterDraft.departmentId ?? "any"}
-              onValueChange={(value) => setDraftFilter("departmentId", value)}
-              options={[{ value: "any", label: `Any ${copy.department.toLowerCase()}` }, ...lookups.departments.map((item) => ({ value: item.id, label: item.name }))]}
-            />
-            <SelectField
-              aria-label={copy.taskCategory}
-              value={filterDraft.taskCategoryId ?? "any"}
-              onValueChange={(value) => setDraftFilter("taskCategoryId", value)}
-              options={[{ value: "any", label: `Any ${copy.taskCategory.toLowerCase()}` }, ...lookups.categories.map((item) => ({ value: item.id, label: item.name }))]}
-            />
-            <SelectField
-              aria-label={copy.project}
-              value={filterDraft.projectId ?? "any"}
-              onValueChange={(value) => setDraftFilter("projectId", value)}
-              options={[{ value: "any", label: `Any ${copy.project.toLowerCase()}` }, ...lookups.projects.map((item) => ({ value: item.id, label: item.title }))]}
-            />
-            <SelectField
-              aria-label="Person"
-              value={filterDraft.userId ?? "any"}
-              onValueChange={(value) => setDraftFilter("userId", value)}
-              options={[{ value: "any", label: "Any person" }, ...members.map((member) => ({ value: member.userId, label: personName(member) }))]}
-            />
+          <div className="flex flex-col gap-3 text-sm">
+            <p><span className="font-medium">Layout. </span>Drag a card to move it. Drag the top, right, bottom, or left edge to resize it. Cards cannot overlap.</p>
+            <p><span className="font-medium">Cards. </span>The header icons add a value, chart, or list card. Reset replaces every card with Blank or a template after confirmation. Click a card to select it and open the card editor. The editor edits title, description, data, and format, plus color and icon for a value, chart type, palette, and value for a chart, or columns for a list. Delete removes the selected card. The close icon hides the editor; clicking a card opens it again.</p>
+            <p><span className="font-medium">Preview. </span>Zoom with the header controls, the percentage (resets to 100%), or Ctrl/Cmd + scroll over the preview. The preview uses the report filters and shows Updating while data reloads.</p>
+            <p><span className="font-medium">Report. </span>Name, default, and the starting layout are chosen before the preview opens. Filters for date range, department, task category, project, and person apply to the preview. Card, layout, and filter changes save automatically. An organization admin can save the layout as an organization template. A SuperAdmin edits a global template. An organization admin who saves a global template creates an override that replaces it for this organization.</p>
           </div>
+        </DialogContent>
+      </Dialog>
+      <ConfirmDialog
+        open={resetChoice !== null}
+        onOpenChange={(open) => {
+          if (!open) setResetChoice(null);
+        }}
+        title="Reset the layout?"
+        description={
+          resetChoice === "blank"
+            ? "The current cards will be replaced with a blank layout."
+            : `The current cards will be replaced with ${resetChoice?.name ?? "this template"}.`
+        }
+        confirmLabel="Reset"
+        onConfirm={applyReset}
+      />
+      {mode === "report" ? (
+        <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
+          <DialogContent className="sm:max-w-xl">
+            <DialogHeader>
+              <DialogTitle>{filterCount > 0 ? "Edit filters" : "Add filters"}</DialogTitle>
+              <DialogDescription>These filters apply to the preview and are saved with the report.</DialogDescription>
+            </DialogHeader>
+            <DateRangeFilter
+              range={{ from: filterDraft.from, to: filterDraft.to }}
+              onChange={(range) =>
+                setFilterDraft((current) => {
+                  const next = { ...current };
+                  if (range.from) next.from = range.from;
+                  else delete next.from;
+                  if (range.to) next.to = range.to;
+                  else delete next.to;
+                  return next;
+                })
+              }
+            />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <SelectField
+                aria-label={copy.department}
+                value={filterDraft.departmentId ?? "any"}
+                onValueChange={(value) => setDraftFilter("departmentId", value)}
+                options={[{ value: "any", label: `Any ${copy.department.toLowerCase()}` }, ...lookups.departments.map((item) => ({ value: item.id, label: item.name }))]}
+              />
+              <SelectField
+                aria-label={copy.taskCategory}
+                value={filterDraft.taskCategoryId ?? "any"}
+                onValueChange={(value) => setDraftFilter("taskCategoryId", value)}
+                options={[{ value: "any", label: `Any ${copy.taskCategory.toLowerCase()}` }, ...lookups.categories.map((item) => ({ value: item.id, label: item.name }))]}
+              />
+              <SelectField
+                aria-label={copy.project}
+                value={filterDraft.projectId ?? "any"}
+                onValueChange={(value) => setDraftFilter("projectId", value)}
+                options={[{ value: "any", label: `Any ${copy.project.toLowerCase()}` }, ...lookups.projects.map((item) => ({ value: item.id, label: item.title }))]}
+              />
+              <SelectField
+                aria-label="Person"
+                value={filterDraft.userId ?? "any"}
+                onValueChange={(value) => setDraftFilter("userId", value)}
+                options={[{ value: "any", label: "Any person" }, ...members.map((member) => ({ value: member.userId, label: personName(member) }))]}
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setFiltersOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  setFilters(filterDraft);
+                  setFiltersOpen(false);
+                }}
+              >
+                Apply
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ) : null}
+      <Dialog open={saveTemplateOpen} onOpenChange={setSaveTemplateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Save as template</DialogTitle>
+            <DialogDescription>This layout is saved for your organization. Reports that already use a copy do not change.</DialogDescription>
+          </DialogHeader>
+          <Field label="Name" htmlFor="template-name">
+            <Input id="template-name" value={templateName} maxLength={80} onChange={(event) => setTemplateName(event.target.value)} />
+          </Field>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setFiltersOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => setSaveTemplateOpen(false)}>
               Cancel
             </Button>
-            <Button
-              type="button"
-              onClick={() => {
-                setFilters(filterDraft);
-                setFiltersOpen(false);
-              }}
-            >
-              Apply
+            <Button type="button" disabled={saveTemplate.isPending} onClick={() => saveTemplate.mutate()}>
+              {saveTemplate.isPending ? "Saving…" : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -647,10 +868,23 @@ export function ReportDesigner({ reportId }: { reportId?: string }) {
     enabled: Boolean(reportId),
   });
 
-  if (reportId && existing.isPending) return <StatsSkeleton />;
-  if (reportId && (existing.isError || !existing.data)) {
+  if (!reportId) return <ReportSetup />;
+  if (existing.isPending) return <StatsSkeleton />;
+  if (existing.isError || !existing.data) {
     return <p className="text-sm text-muted-foreground">That report is not available.</p>;
   }
 
-  return <DesignerForm key={existing.data?.id ?? "new"} initial={existing.data ?? null} />;
+  return <ArrangeCanvas key={existing.data.id} mode="report" report={existing.data} />;
+}
+
+export function TemplateDesigner({ templateId }: { templateId: string }) {
+  const organization = useOrganization();
+  const existing = useQuery(reportTemplateQuery(organization.id, templateId));
+
+  if (existing.isPending) return <StatsSkeleton />;
+  if (existing.isError || !existing.data) {
+    return <p className="text-sm text-muted-foreground">That template is not available.</p>;
+  }
+
+  return <ArrangeCanvas key={existing.data.id} mode="template" template={existing.data} />;
 }

@@ -374,6 +374,21 @@ A named report design for one organization. `layout` is the card grid. `filters`
 | createdAt      | yes      |                                                                                        |
 | updatedAt      | yes      |                                                                                        |
 
+### ReportTemplate
+
+A reusable card layout. `organizationId` null is a global template. A row with `baseTemplateId` is one organization's override of that global and is shown instead of the global for that organization. Org-owned templates have an organization and no base. Templates store a layout only, not filters. Names are unique among globals, and unique within an organization, compared case-insensitively.
+
+| Field          | Required | Notes                                                                                          |
+| -------------- | -------- | ---------------------------------------------------------------------------------------------- |
+| id             | yes      | UUID primary key                                                                               |
+| organizationId | no       | Null for a global template. Foreign key to Organization. Cascade delete                        |
+| key            | no       | `summary`, `people`, `groups`, or `staff` on a global. Null on organization rows               |
+| name           | yes      | 1–80 characters                                                                                |
+| layout         | yes      | jsonb. Versioned card grid                                                                     |
+| baseTemplateId | no       | Null, or the global template this row overrides. One override per organization per global      |
+| createdAt      | yes      |                                                                                                |
+| updatedAt      | yes      |                                                                                                |
+
 ### Department
 
 A department belongs to exactly one organization. Names are unique within that organization, compared case-insensitively.

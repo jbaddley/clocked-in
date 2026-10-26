@@ -1005,6 +1005,79 @@ namespace ClockedIn.Api.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("ClockedIn.Api.Entities.ReportTemplate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("BaseTemplateId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("baseTemplateId");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("createdAt")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("Key")
+                        .HasColumnType("text")
+                        .HasColumnName("key");
+
+                    b.Property<string>("Layout")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("layout")
+                        .HasDefaultValueSql("'{\"version\":1,\"cards\":[]}'::jsonb");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("citext")
+                        .HasColumnName("name");
+
+                    b.Property<Guid?>("OrganizationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("organizationId");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updatedAt")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BaseTemplateId");
+
+                    b.HasIndex("Key")
+                        .IsUnique()
+                        .HasDatabaseName("ReportTemplate_global_key")
+                        .HasFilter("\"organizationId\" IS NULL AND \"key\" IS NOT NULL");
+
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasDatabaseName("ReportTemplate_global_name")
+                        .HasFilter("\"organizationId\" IS NULL");
+
+                    b.HasIndex("OrganizationId", "BaseTemplateId")
+                        .IsUnique()
+                        .HasDatabaseName("ReportTemplate_override")
+                        .HasFilter("\"baseTemplateId\" IS NOT NULL");
+
+                    b.HasIndex("OrganizationId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("ReportTemplate_org_name")
+                        .HasFilter("\"organizationId\" IS NOT NULL");
+
+                    b.ToTable("ReportTemplate", t =>
+                        {
+                            t.HasCheckConstraint("ReportTemplate_shape_check", "char_length(btrim(\"name\"::text)) BETWEEN 1 AND 80\r\nAND (\r\n  (\"organizationId\" IS NULL AND \"baseTemplateId\" IS NULL AND \"key\" IN ('summary', 'people', 'groups', 'staff'))\r\n  OR (\"organizationId\" IS NOT NULL AND \"key\" IS NULL AND \"baseTemplateId\" IS NULL)\r\n  OR (\"organizationId\" IS NOT NULL AND \"key\" IS NULL AND \"baseTemplateId\" IS NOT NULL)\r\n)");
+                        });
+                });
+
             modelBuilder.Entity("ClockedIn.Api.Entities.Role", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2212,6 +2285,23 @@ namespace ClockedIn.Api.Data.Migrations
                     b.Navigation("Organization");
                 });
 
+            modelBuilder.Entity("ClockedIn.Api.Entities.ReportTemplate", b =>
+                {
+                    b.HasOne("ClockedIn.Api.Entities.ReportTemplate", "BaseTemplate")
+                        .WithMany("Overrides")
+                        .HasForeignKey("BaseTemplateId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("ClockedIn.Api.Entities.Organization", "Organization")
+                        .WithMany("ReportTemplates")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("BaseTemplate");
+
+                    b.Navigation("Organization");
+                });
+
             modelBuilder.Entity("ClockedIn.Api.Entities.Tag", b =>
                 {
                     b.HasOne("ClockedIn.Api.Entities.Organization", "Organization")
@@ -2476,6 +2566,8 @@ namespace ClockedIn.Api.Data.Migrations
 
                     b.Navigation("Projects");
 
+                    b.Navigation("ReportTemplates");
+
                     b.Navigation("Reports");
 
                     b.Navigation("Tags");
@@ -2496,6 +2588,11 @@ namespace ClockedIn.Api.Data.Migrations
                     b.Navigation("UserTimeEntries");
 
                     b.Navigation("VolunteerNeeds");
+                });
+
+            modelBuilder.Entity("ClockedIn.Api.Entities.ReportTemplate", b =>
+                {
+                    b.Navigation("Overrides");
                 });
 
             modelBuilder.Entity("ClockedIn.Api.Entities.Role", b =>

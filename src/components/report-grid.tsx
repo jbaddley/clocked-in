@@ -21,12 +21,13 @@ type Drag =
 
 function cellFromPointer(grid: HTMLElement, clientX: number, clientY: number, gap: number, rowHeight: number) {
   const rect = grid.getBoundingClientRect();
-  const columnWidth = (rect.width - gap * (reportColumnCount - 1)) / reportColumnCount;
-  const column = Math.min(
-    reportColumnCount,
-    Math.max(1, Math.floor((clientX - rect.left) / (columnWidth + gap)) + 1),
-  );
-  const row = Math.max(1, Math.floor((clientY - rect.top) / (rowHeight + gap)) + 1);
+  const scaleX = rect.width / grid.offsetWidth || 1;
+  const scaleY = rect.height / grid.offsetHeight || 1;
+  const x = (clientX - rect.left) / scaleX;
+  const y = (clientY - rect.top) / scaleY;
+  const columnWidth = (grid.offsetWidth - gap * (reportColumnCount - 1)) / reportColumnCount;
+  const column = Math.min(reportColumnCount, Math.max(1, Math.floor(x / (columnWidth + gap)) + 1));
+  const row = Math.max(1, Math.floor(y / (rowHeight + gap)) + 1);
   return { column, row };
 }
 
@@ -61,7 +62,6 @@ export function ReportGrid({
   cards,
   data,
   editing = false,
-  scale = 1,
   scroll = true,
   selectedId,
   onSelect,
@@ -70,7 +70,6 @@ export function ReportGrid({
   cards: ReportCard[];
   data: unknown;
   editing?: boolean;
-  scale?: number;
   scroll?: boolean;
   selectedId?: string | null;
   onSelect?: (id: string) => void;
@@ -81,8 +80,8 @@ export function ReportGrid({
   const shown = draft ?? cards;
   const occupied = shown.reduce((max, card) => Math.max(max, card.row + card.rows - 1), 0);
   const rowCount = Math.max(occupied + (editing ? 1 : 0), editing ? 1 : occupied);
-  const gap = reportGridGap * scale;
-  const rowHeight = reportRowHeight * scale;
+  const gap = reportGridGap;
+  const rowHeight = reportRowHeight;
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
     if (!editing || event.button !== 0) return;
@@ -151,10 +150,10 @@ export function ReportGrid({
       <div
         className={cn("grid", editing && "rounded-xl bg-muted/40 p-1 select-none")}
         style={{
-          gridTemplateColumns: `repeat(${reportColumnCount}, minmax(${4.5 * scale}rem, 1fr))`,
+          gridTemplateColumns: `repeat(${reportColumnCount}, minmax(4.5rem, 1fr))`,
           gridTemplateRows: `repeat(${Math.max(rowCount, 1)}, ${rowHeight}px)`,
           gap,
-          minWidth: reportColumnCount * 72 * scale + (reportColumnCount - 1) * gap,
+          minWidth: reportColumnCount * 72 + (reportColumnCount - 1) * gap,
         }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}

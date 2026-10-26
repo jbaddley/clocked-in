@@ -2,6 +2,7 @@ import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 import { fetchJson } from "@/lib/fetch-json";
 import type { MemberConnectionRecord } from "@/lib/member-connection";
 import type { ReportFilters } from "@/lib/report-layout";
+import type { ReportTemplate } from "@/lib/api/features/report-templates";
 import type { SavedReport } from "@/lib/api/features/saved-reports";
 import type {
   DateRange,
@@ -45,6 +46,9 @@ export const keys = {
   report: (organizationId: string, filter: ReportFilters) => ["org", organizationId, "report", filter] as const,
   savedReports: (organizationId: string) => ["org", organizationId, "saved-reports"] as const,
   savedReport: (organizationId: string, reportId: string) => ["org", organizationId, "saved-reports", reportId] as const,
+  reportTemplates: (organizationId: string) => ["org", organizationId, "report-templates"] as const,
+  reportTemplate: (organizationId: string, templateId: string) =>
+    ["org", organizationId, "report-templates", templateId] as const,
   savedReportData: (organizationId: string, reportId: string, filter: ReportFilters) =>
     ["org", organizationId, "saved-report-data", reportId, filter] as const,
   themes: (organizationId: string) => ["org", organizationId, "themes"] as const,
@@ -156,6 +160,22 @@ export function savedReportsQuery(organizationId: string) {
     queryKey: keys.savedReports(organizationId),
     queryFn: async ({ signal }) =>
       (await fetchJson<Paged<SavedReport>>(`/organizations/${organizationId}/reports?limit=100`, signal)).items,
+  });
+}
+
+export function reportTemplatesQuery(organizationId: string) {
+  return queryOptions({
+    queryKey: keys.reportTemplates(organizationId),
+    queryFn: async ({ signal }) =>
+      (await fetchJson<Paged<ReportTemplate>>(`/organizations/${organizationId}/report-templates?limit=100`, signal)).items,
+  });
+}
+
+export function reportTemplateQuery(organizationId: string, templateId: string) {
+  return queryOptions({
+    queryKey: keys.reportTemplate(organizationId, templateId),
+    queryFn: ({ signal }) =>
+      fetchJson<ReportTemplate>(`/organizations/${organizationId}/report-templates/${templateId}`, signal),
   });
 }
 

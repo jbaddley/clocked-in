@@ -99,6 +99,7 @@ model Organization {
   memberships           OrganizationMembership[]
   projects              Project[]
   reports               Report[]
+  reportTemplates       ReportTemplate[]
   tags                  Tag[]
   taskCategories        TaskCategory[]
   themes                Theme[]                  @relation("OrganizationThemes")
@@ -525,6 +526,29 @@ model Report {
 
   @@unique([organizationId, name], map: "IX_Report_organizationId_name")
   @@unique([organizationId], map: "Report_one_default", where: raw("(\"isDefault\" = true)"))
+}
+
+/// A reusable card layout. A null organizationId is a global template. An organization row with baseTemplateId replaces that global for one organization.
+model ReportTemplate {
+  id             String           @id(map: "PK_ReportTemplate") @db.Uuid
+  organizationId String?          @db.Uuid
+  /// summary, people, groups, or staff on a global template.
+  key            String?
+  name           String           @db.Citext
+  layout         Json             @default("{\"version\": 1, \"cards\": []}")
+  baseTemplateId String?          @db.Uuid
+  createdAt      DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime         @default(now()) @db.Timestamptz(6)
+  baseTemplate   ReportTemplate?  @relation("ReportTemplateBase", fields: [baseTemplateId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_ReportTemplate_ReportTemplate_baseTemplateId")
+  overrides      ReportTemplate[] @relation("ReportTemplateBase")
+  organization   Organization?    @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_ReportTemplate_Organization_organizationId")
+
+  @@unique([key], map: "ReportTemplate_global_key", where: raw("(\"organizationId\" IS NULL AND \"key\" IS NOT NULL)"))
+  @@unique([name], map: "ReportTemplate_global_name", where: raw("(\"organizationId\" IS NULL)"))
+  @@unique([organizationId, baseTemplateId], map: "ReportTemplate_override", where: raw("(\"baseTemplateId\" IS NOT NULL)"))
+  @@unique([organizationId, name], map: "ReportTemplate_org_name", where: raw("(\"organizationId\" IS NOT NULL)"))
+  @@index([baseTemplateId], map: "IX_ReportTemplate_baseTemplateId")
+  @@index([organizationId], map: "IX_ReportTemplate_organizationId")
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
