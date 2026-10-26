@@ -41,6 +41,7 @@ export function ReportSwitcher({
           className="w-56"
           value={options.some((option) => option.value === active) ? active : "standard"}
           onValueChange={(value) => {
+            if (!value || value === active) return;
             if (value === "standard") {
               router.push("/reports/standard");
               return;

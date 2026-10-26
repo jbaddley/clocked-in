@@ -32,7 +32,7 @@ public static partial class ReportDocuments
     public static string Layout(JsonElement value)
     {
         var source = Object(value, "layout");
-        if (Take(source, "version") is not 1)
+        if (Take(source, "version") is not int version || version != 1)
         {
             throw ApiException.Validation("version must be 1.");
         }
@@ -259,10 +259,26 @@ public static partial class ReportDocuments
         return source;
     }
 
+    private static object WholeNumber(JsonElement value)
+    {
+        if (value.TryGetInt32(out var number))
+        {
+            return number;
+        }
+
+        var decimalNumber = value.GetDecimal();
+        if (decimalNumber == decimal.Truncate(decimalNumber) && decimalNumber is >= int.MinValue and <= int.MaxValue)
+        {
+            return (int)decimalNumber;
+        }
+
+        return decimalNumber;
+    }
+
     private static object? Box(JsonElement value) => value.ValueKind switch
     {
         JsonValueKind.String => value.GetString(),
-        JsonValueKind.Number => value.TryGetInt32(out var number) ? number : value.GetDecimal(),
+        JsonValueKind.Number => WholeNumber(value),
         JsonValueKind.True => true,
         JsonValueKind.False => false,
         JsonValueKind.Null => null,

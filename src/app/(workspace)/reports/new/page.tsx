@@ -1,20 +1,17 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { canSeeReports } from "@/lib/roles";
-import { getWorkspace } from "@/lib/server/dal";
+import { ReportAccess } from "../report-access";
 import { ReportDesigner } from "../report-designer";
 
 export const metadata: Metadata = { title: "New report" };
+export const instant = false;
 
-export default async function NewReportPage() {
-  const workspace = await getWorkspace();
-  if (!canSeeReports(workspace)) redirect("/dashboard");
-  if (!workspace.isAdmin) redirect("/reports");
-
+export default function NewReportPage() {
   return (
     <Suspense>
-      <ReportDesigner />
+      <ReportAccess admin>
+        <ReportDesigner />
+      </ReportAccess>
     </Suspense>
   );
 }

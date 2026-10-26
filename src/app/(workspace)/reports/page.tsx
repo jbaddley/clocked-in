@@ -1,21 +1,17 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { canSeeReports } from "@/lib/roles";
-import { getWorkspace } from "@/lib/server/dal";
+import { ReportAccess } from "./report-access";
 import { ReportsHome } from "./reports-home";
 
 export const metadata: Metadata = { title: "Reports" };
+export const instant = false;
 
-export default async function ReportsPage() {
-  const workspace = await getWorkspace();
-  if (!canSeeReports(workspace)) {
-    redirect("/dashboard");
-  }
-
+export default function ReportsPage() {
   return (
     <Suspense>
-      <ReportsHome />
+      <ReportAccess>
+        <ReportsHome />
+      </ReportAccess>
     </Suspense>
   );
 }

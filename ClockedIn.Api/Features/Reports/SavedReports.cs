@@ -29,7 +29,39 @@ public sealed record SavedReportDto(
         report.UpdatedAt);
 }
 
-public sealed record SaveReportBody(string? Name, bool? IsDefault, JsonElement Layout, JsonElement Filters);
+public readonly record struct SaveReportBody(string? Name, bool? IsDefault, JsonElement Layout, JsonElement Filters)
+{
+    public static SaveReportBody Read(JsonElement body)
+    {
+        if (body.ValueKind != JsonValueKind.Object)
+        {
+            throw ApiException.Validation("Request body must be JSON.");
+        }
+
+        string? name = null;
+        if (body.TryGetProperty("name", out var nameValue) && nameValue.ValueKind != JsonValueKind.Null)
+        {
+            name = nameValue.ValueKind == JsonValueKind.String
+                ? nameValue.GetString()
+                : throw ApiException.Validation("name must be a string.");
+        }
+
+        bool? isDefault = null;
+        if (body.TryGetProperty("isDefault", out var defaultValue) && defaultValue.ValueKind != JsonValueKind.Null)
+        {
+            isDefault = defaultValue.ValueKind switch
+            {
+                JsonValueKind.True => true,
+                JsonValueKind.False => false,
+                _ => throw ApiException.Validation("isDefault must be a boolean."),
+            };
+        }
+
+        var layout = body.TryGetProperty("layout", out var layoutValue) ? layoutValue : default;
+        var filters = body.TryGetProperty("filters", out var filtersValue) ? filtersValue : default;
+        return new SaveReportBody(name, isDefault, layout, filters);
+    }
+}
 
 public sealed record ReportDataQuery(string? From, string? To, string? ClearDates);
 
@@ -215,14 +247,14 @@ public static class SavedReportsEndpoints
         var reports = app.MapGroup("/organizations/{id:guid}/reports").RequireAuthorization();
         reports.MapGet("", async Task<Ok<ListResponse<SavedReportDto>>> (Guid id, [AsParameters] PageQuery query, SavedReportsService service, CancellationToken ct) =>
             TypedResults.Ok(await service.List(id, query, ct)));
-        reports.MapPost("", async Task<Created<SavedReportDto>> (Guid id, SaveReportBody body, SavedReportsService service, CancellationToken ct) =>
-            TypedResults.Created((string?)null, await service.Create(id, body, ct)));
+        reports.MapPost("", async Task<Created<SavedReportDto>> (Guid id, JsonElement body, SavedReportsService service, CancellationToken ct) =>
+            TypedResults.Created((string?)null, await service.Create(id, SaveReportBody.Read(body), ct)));
         reports.MapGet("/{reportId:guid}", async Task<Ok<SavedReportDto>> (Guid id, Guid reportId, SavedReportsService service, CancellationToken ct) =>
             TypedResults.Ok(await service.Get(id, reportId, ct)));
         reports.MapGet("/{reportId:guid}/data", async Task<Ok<ReportDto>> (Guid id, Guid reportId, [AsParameters] ReportDataQuery query, SavedReportsService service, CancellationToken ct) =>
             TypedResults.Ok(await service.Data(id, reportId, query, ct)));
-        reports.MapPatch("/{reportId:guid}", async Task<Ok<SavedReportDto>> (Guid id, Guid reportId, SaveReportBody body, SavedReportsService service, CancellationToken ct) =>
-            TypedResults.Ok(await service.Update(id, reportId, body, ct)));
+        reports.MapPatch("/{reportId:guid}", async Task<Ok<SavedReportDto>> (Guid id, Guid reportId, JsonElement body, SavedReportsService service, CancellationToken ct) =>
+            TypedResults.Ok(await service.Update(id, reportId, SaveReportBody.Read(body), ct)));
         reports.MapDelete("/{reportId:guid}", async Task<NoContent> (Guid id, Guid reportId, SavedReportsService service, CancellationToken ct) =>
         {
             await service.Delete(id, reportId, ct);

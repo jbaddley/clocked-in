@@ -159,6 +159,7 @@ export function ReportGrid({
               />
             ) : (
               <ChartCard
+                key={`${card.id}-${card.chartType}-${card.palette}`}
                 title={card.title}
                 description={card.description || undefined}
                 rows={[]}

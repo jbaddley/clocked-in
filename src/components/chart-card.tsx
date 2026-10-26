@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { MoreVerticalIcon } from "lucide-react";
 import { cn } from "cn";
 import { ChartPlot } from "@/components/charts";
@@ -64,10 +64,6 @@ export function ChartCard({
   const { theme } = useOrganization();
   const [chartTypeState, setChartType] = useState(chartTypeProp);
   const [paletteState, setPalette] = useState<PaletteType>(() => defaultPalette(chartTypeProp, paletteProp));
-  useEffect(() => {
-    setChartType(chartTypeProp);
-    setPalette(defaultPalette(chartTypeProp, paletteProp));
-  }, [chartTypeProp, paletteProp]);
   const chartType = configurable ? chartTypeState : chartTypeProp;
   const palette = configurable ? paletteState : defaultPalette(chartTypeProp, paletteProp);
   const activePalette = paletteForChart(chartType, palette);
