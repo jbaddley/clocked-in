@@ -17,6 +17,7 @@ using ClockedIn.Api.Features.TaskCategories;
 using ClockedIn.Api.Features.Themes;
 using ClockedIn.Api.Features.TimeEntries;
 using ClockedIn.Api.Features.Users;
+using ClockedIn.Api.Features.VolunteerNeeds;
 
 namespace ClockedIn.Api.Features;
 
@@ -44,6 +45,7 @@ public static class FeatureRegistration
         services.AddScoped<SavedReportsService>();
         services.AddScoped<ThemesService>();
         services.AddScoped<FeedbackService>();
+        services.AddScoped<VolunteerNeedsService>();
         services.AddScoped<OrganizationApiKeysService>();
         services.AddScoped<PlatformApiKeysService>();
         return services;
@@ -69,6 +71,7 @@ public static class FeatureRegistration
         app.MapCollectiveEndpoints();
         app.MapThemesEndpoints();
         app.MapFeedbackEndpoints();
+        app.MapVolunteerNeedsEndpoints();
         app.MapOrganizationApiKeysEndpoints();
         app.MapPlatformApiKeysEndpoints();
         return app;

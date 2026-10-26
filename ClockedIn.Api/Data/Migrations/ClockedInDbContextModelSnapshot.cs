@@ -305,6 +305,48 @@ namespace ClockedIn.Api.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("ClockedIn.Api.Entities.Guest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("email");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("phone");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("userId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.HasIndex("UserId")
+                        .IsUnique()
+                        .HasDatabaseName("Guest_user")
+                        .HasFilter("\"userId\" IS NOT NULL");
+
+                    b.ToTable("Guest", t =>
+                        {
+                            t.HasCheckConstraint("Guest_values_check", "char_length(btrim(\"name\")) BETWEEN 1 AND 120\r\nAND \"email\" = lower(\"email\")\r\nAND char_length(btrim(\"phone\")) BETWEEN 1 AND 40");
+                        });
+                });
+
             modelBuilder.Entity("ClockedIn.Api.Entities.HourlyRate", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1521,6 +1563,196 @@ namespace ClockedIn.Api.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("ClockedIn.Api.Entities.VolunteerNeed", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("AllowPublic")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("allowPublic");
+
+                    b.Property<int>("CountNeeded")
+                        .HasColumnType("integer")
+                        .HasColumnName("countNeeded");
+
+                    b.Property<int>("CountVetted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("countVetted");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("createdAt")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("createdByUserId");
+
+                    b.Property<Guid?>("DepartmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("departmentId");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<DateOnly?>("EndDate")
+                        .HasColumnType("date")
+                        .HasColumnName("endDate");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("citext")
+                        .HasColumnName("name");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("organizationId");
+
+                    b.Property<Guid?>("ProjectId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("projectId");
+
+                    b.Property<string>("PublicToken")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("publicToken");
+
+                    b.Property<string>("Questions")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("questions")
+                        .HasDefaultValueSql("'{\"version\":1,\"items\":[]}'::jsonb");
+
+                    b.Property<bool>("RequireVetting")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("requireVetting");
+
+                    b.Property<DateTime?>("RequiredBy")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("requiredBy");
+
+                    b.Property<DateOnly?>("StartDate")
+                        .HasColumnType("date")
+                        .HasColumnName("startDate");
+
+                    b.Property<Guid?>("TaskCategoryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("taskCategoryId");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("type");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updatedAt")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("ProjectId");
+
+                    b.HasIndex("PublicToken")
+                        .IsUnique();
+
+                    b.HasIndex("TaskCategoryId");
+
+                    b.ToTable("VolunteerNeed", t =>
+                        {
+                            t.HasCheckConstraint("VolunteerNeed_values_check", "\"type\" IN ('Position', 'Task')\r\nAND char_length(btrim(\"name\"::text)) BETWEEN 1 AND 200\r\nAND (\"description\" IS NULL OR char_length(\"description\") BETWEEN 1 AND 4000)\r\nAND \"countNeeded\" BETWEEN 1 AND 10000\r\nAND \"countVetted\" >= 0\r\nAND \"countVetted\" <= \"countNeeded\"\r\nAND (\"endDate\" IS NULL OR \"startDate\" IS NULL OR \"endDate\" >= \"startDate\")\r\nAND char_length(\"publicToken\") = 32\r\nAND \"publicToken\" = lower(\"publicToken\")\r\nAND left(\"questions\"::text, 1) = '{'");
+                        });
+                });
+
+            modelBuilder.Entity("ClockedIn.Api.Entities.VolunteerSignup", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Answers")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("answers")
+                        .HasDefaultValueSql("'[]'::jsonb");
+
+                    b.Property<string>("Comment")
+                        .HasColumnType("text")
+                        .HasColumnName("comment");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("createdAt")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<Guid?>("GuestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("guestId");
+
+                    b.Property<bool>("Passed")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("passed");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("userId");
+
+                    b.Property<bool>("Vetted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("vetted");
+
+                    b.Property<Guid>("VolunteerNeedId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("volunteerNeedId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GuestId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("VolunteerNeedId", "GuestId")
+                        .IsUnique()
+                        .HasDatabaseName("VolunteerSignup_need_guest")
+                        .HasFilter("\"guestId\" IS NOT NULL");
+
+                    b.HasIndex("VolunteerNeedId", "UserId")
+                        .IsUnique()
+                        .HasDatabaseName("VolunteerSignup_need_user")
+                        .HasFilter("\"userId\" IS NOT NULL");
+
+                    b.ToTable("VolunteerSignup", t =>
+                        {
+                            t.HasCheckConstraint("VolunteerSignup_person_check", "((\"userId\" IS NOT NULL AND \"guestId\" IS NULL) OR (\"userId\" IS NULL AND \"guestId\" IS NOT NULL))\r\nAND (\"comment\" IS NULL OR char_length(\"comment\") BETWEEN 1 AND 2000)\r\nAND left(\"answers\"::text, 1) = '['");
+                        });
+                });
+
             modelBuilder.Entity("CollectiveTimeEntryTag", b =>
                 {
                     b.Property<Guid>("CollectiveTimeEntryId")
@@ -1694,6 +1926,16 @@ namespace ClockedIn.Api.Data.Migrations
                     b.Navigation("Feedback");
 
                     b.Navigation("TakenBy");
+                });
+
+            modelBuilder.Entity("ClockedIn.Api.Entities.Guest", b =>
+                {
+                    b.HasOne("ClockedIn.Api.Entities.User", "User")
+                        .WithMany("Guests")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("ClockedIn.Api.Entities.HourlyRate", b =>
@@ -2070,6 +2312,71 @@ namespace ClockedIn.Api.Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("ClockedIn.Api.Entities.VolunteerNeed", b =>
+                {
+                    b.HasOne("ClockedIn.Api.Entities.User", "CreatedBy")
+                        .WithMany("VolunteerNeedsCreated")
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ClockedIn.Api.Entities.Department", "Department")
+                        .WithMany("VolunteerNeeds")
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ClockedIn.Api.Entities.Organization", "Organization")
+                        .WithMany("VolunteerNeeds")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ClockedIn.Api.Entities.Project", "Project")
+                        .WithMany("VolunteerNeeds")
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ClockedIn.Api.Entities.TaskCategory", "TaskCategory")
+                        .WithMany("VolunteerNeeds")
+                        .HasForeignKey("TaskCategoryId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("Department");
+
+                    b.Navigation("Organization");
+
+                    b.Navigation("Project");
+
+                    b.Navigation("TaskCategory");
+                });
+
+            modelBuilder.Entity("ClockedIn.Api.Entities.VolunteerSignup", b =>
+                {
+                    b.HasOne("ClockedIn.Api.Entities.Guest", "Guest")
+                        .WithMany("Signups")
+                        .HasForeignKey("GuestId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ClockedIn.Api.Entities.User", "User")
+                        .WithMany("VolunteerSignups")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ClockedIn.Api.Entities.VolunteerNeed", "VolunteerNeed")
+                        .WithMany("Signups")
+                        .HasForeignKey("VolunteerNeedId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Guest");
+
+                    b.Navigation("User");
+
+                    b.Navigation("VolunteerNeed");
+                });
+
             modelBuilder.Entity("CollectiveTimeEntryTag", b =>
                 {
                     b.HasOne("ClockedIn.Api.Entities.CollectiveTimeEntry", null)
@@ -2128,11 +2435,18 @@ namespace ClockedIn.Api.Data.Migrations
                     b.Navigation("Projects");
 
                     b.Navigation("TimeEntries");
+
+                    b.Navigation("VolunteerNeeds");
                 });
 
             modelBuilder.Entity("ClockedIn.Api.Entities.Feedback", b =>
                 {
                     b.Navigation("Actions");
+                });
+
+            modelBuilder.Entity("ClockedIn.Api.Entities.Guest", b =>
+                {
+                    b.Navigation("Signups");
                 });
 
             modelBuilder.Entity("ClockedIn.Api.Entities.HourlyRate", b =>
@@ -2171,6 +2485,8 @@ namespace ClockedIn.Api.Data.Migrations
                     b.Navigation("Themes");
 
                     b.Navigation("TimeEntries");
+
+                    b.Navigation("VolunteerNeeds");
                 });
 
             modelBuilder.Entity("ClockedIn.Api.Entities.Project", b =>
@@ -2178,6 +2494,8 @@ namespace ClockedIn.Api.Data.Migrations
                     b.Navigation("CollectiveTimeEntries");
 
                     b.Navigation("UserTimeEntries");
+
+                    b.Navigation("VolunteerNeeds");
                 });
 
             modelBuilder.Entity("ClockedIn.Api.Entities.Role", b =>
@@ -2194,6 +2512,8 @@ namespace ClockedIn.Api.Data.Migrations
                     b.Navigation("CollectiveTimeEntries");
 
                     b.Navigation("UserTimeEntries");
+
+                    b.Navigation("VolunteerNeeds");
                 });
 
             modelBuilder.Entity("ClockedIn.Api.Entities.Theme", b =>
@@ -2210,6 +2530,8 @@ namespace ClockedIn.Api.Data.Migrations
                     b.Navigation("Feedback");
 
                     b.Navigation("FeedbackActionsTaken");
+
+                    b.Navigation("Guests");
 
                     b.Navigation("InvitationsSent");
 
@@ -2230,6 +2552,15 @@ namespace ClockedIn.Api.Data.Migrations
                     b.Navigation("TimeEntries");
 
                     b.Navigation("TimeEntriesEntered");
+
+                    b.Navigation("VolunteerNeedsCreated");
+
+                    b.Navigation("VolunteerSignups");
+                });
+
+            modelBuilder.Entity("ClockedIn.Api.Entities.VolunteerNeed", b =>
+                {
+                    b.Navigation("Signups");
                 });
 #pragma warning restore 612, 618
         }

@@ -31,6 +31,9 @@ public class ClockedInDbContext(DbContextOptions<ClockedInDbContext> options, Ti
     public DbSet<OrganizationApiKey> OrganizationApiKeys => Set<OrganizationApiKey>();
     public DbSet<PlatformApiKey> PlatformApiKeys => Set<PlatformApiKey>();
     public DbSet<Report> Reports => Set<Report>();
+    public DbSet<VolunteerNeed> VolunteerNeeds => Set<VolunteerNeed>();
+    public DbSet<Guest> Guests => Set<Guest>();
+    public DbSet<VolunteerSignup> VolunteerSignups => Set<VolunteerSignup>();
 
     public override int SaveChanges()
     {
@@ -646,6 +649,115 @@ public class ClockedInDbContext(DbContextOptions<ClockedInDbContext> options, Ti
                 "previousStatus" IN ('Pending', 'Acknowledged', 'Planned', 'InProgress', 'Resolved', 'Cancelled', 'CouldNotReproduce', 'Archived')
                 AND "updatedStatus" IN ('Pending', 'Acknowledged', 'Planned', 'InProgress', 'Resolved', 'Cancelled', 'CouldNotReproduce', 'Archived')
                 AND char_length("description") BETWEEN 1 AND 2000
+                """));
+        });
+
+        modelBuilder.Entity<VolunteerNeed>(entity =>
+        {
+            entity.Property(need => need.Name).HasColumnType("citext");
+            entity.Property(need => need.Type).HasConversion<string>();
+            entity.Property(need => need.CountVetted).HasDefaultValue(0);
+            entity.Property(need => need.AllowPublic).HasDefaultValue(false);
+            entity.Property(need => need.RequireVetting).HasDefaultValue(false);
+            entity.Property(need => need.Questions)
+                .HasColumnType("jsonb")
+                .HasDefaultValueSql("""'{"version":1,"items":[]}'::jsonb""");
+            entity.Property(need => need.StartDate).HasColumnType("date");
+            entity.Property(need => need.EndDate).HasColumnType("date");
+            entity.Property(need => need.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(need => need.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.HasIndex(need => need.PublicToken).IsUnique();
+            entity.HasIndex(need => need.OrganizationId);
+            entity.HasOne(need => need.Organization)
+                .WithMany(organization => organization.VolunteerNeeds)
+                .HasForeignKey(need => need.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(need => need.CreatedBy)
+                .WithMany(user => user.VolunteerNeedsCreated)
+                .HasForeignKey(need => need.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(need => need.Project)
+                .WithMany(project => project.VolunteerNeeds)
+                .HasForeignKey(need => need.ProjectId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(need => need.TaskCategory)
+                .WithMany(category => category.VolunteerNeeds)
+                .HasForeignKey(need => need.TaskCategoryId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(need => need.Department)
+                .WithMany(department => department.VolunteerNeeds)
+                .HasForeignKey(need => need.DepartmentId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.ToTable(table => table.HasCheckConstraint(
+                "VolunteerNeed_values_check",
+                """
+                "type" IN ('Position', 'Task')
+                AND char_length(btrim("name"::text)) BETWEEN 1 AND 200
+                AND ("description" IS NULL OR char_length("description") BETWEEN 1 AND 4000)
+                AND "countNeeded" BETWEEN 1 AND 10000
+                AND "countVetted" >= 0
+                AND "countVetted" <= "countNeeded"
+                AND ("endDate" IS NULL OR "startDate" IS NULL OR "endDate" >= "startDate")
+                AND char_length("publicToken") = 32
+                AND "publicToken" = lower("publicToken")
+                AND left("questions"::text, 1) = '{'
+                """));
+        });
+
+        modelBuilder.Entity<Guest>(entity =>
+        {
+            entity.HasIndex(guest => guest.Email).IsUnique();
+            entity.HasIndex(guest => guest.UserId)
+                .IsUnique()
+                .HasFilter("\"userId\" IS NOT NULL")
+                .HasDatabaseName("Guest_user");
+            entity.HasOne(guest => guest.User)
+                .WithMany(user => user.Guests)
+                .HasForeignKey(guest => guest.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.ToTable(table => table.HasCheckConstraint(
+                "Guest_values_check",
+                """
+                char_length(btrim("name")) BETWEEN 1 AND 120
+                AND "email" = lower("email")
+                AND char_length(btrim("phone")) BETWEEN 1 AND 40
+                """));
+        });
+
+        modelBuilder.Entity<VolunteerSignup>(entity =>
+        {
+            entity.Property(signup => signup.Answers)
+                .HasColumnType("jsonb")
+                .HasDefaultValueSql("'[]'::jsonb");
+            entity.Property(signup => signup.Passed).HasDefaultValue(false);
+            entity.Property(signup => signup.Vetted).HasDefaultValue(false);
+            entity.Property(signup => signup.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.HasIndex(signup => new { signup.VolunteerNeedId, signup.UserId })
+                .IsUnique()
+                .HasFilter("\"userId\" IS NOT NULL")
+                .HasDatabaseName("VolunteerSignup_need_user");
+            entity.HasIndex(signup => new { signup.VolunteerNeedId, signup.GuestId })
+                .IsUnique()
+                .HasFilter("\"guestId\" IS NOT NULL")
+                .HasDatabaseName("VolunteerSignup_need_guest");
+            entity.HasOne(signup => signup.VolunteerNeed)
+                .WithMany(need => need.Signups)
+                .HasForeignKey(signup => signup.VolunteerNeedId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(signup => signup.User)
+                .WithMany(user => user.VolunteerSignups)
+                .HasForeignKey(signup => signup.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(signup => signup.Guest)
+                .WithMany(guest => guest.Signups)
+                .HasForeignKey(signup => signup.GuestId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.ToTable(table => table.HasCheckConstraint(
+                "VolunteerSignup_person_check",
+                """
+                (("userId" IS NOT NULL AND "guestId" IS NULL) OR ("userId" IS NULL AND "guestId" IS NOT NULL))
+                AND ("comment" IS NULL OR char_length("comment") BETWEEN 1 AND 2000)
+                AND left("answers"::text, 1) = '['
                 """));
         });
 

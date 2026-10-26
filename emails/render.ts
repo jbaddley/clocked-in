@@ -9,6 +9,7 @@ import FeedbackNotifyEmail, { feedbackNotify } from "./feedback-notify";
 import FeedbackReceivedEmail, { feedbackReceived } from "./feedback-received";
 import InvitationEmail, { invitation } from "./invitation";
 import PasswordResetEmail, { passwordReset } from "./password-reset";
+import VolunteerMessageEmail, { volunteerMessage } from "./volunteer-message";
 
 const codeLine = /Use this code to (?:reset your VolunTime password|accept the invite):\s*\{\{code\}\}/;
 
@@ -55,6 +56,10 @@ const templates = [
       description: "{{description}}",
       url: "{{url}}",
     }),
+  },
+  {
+    ...volunteerMessage,
+    element: createElement(VolunteerMessageEmail, { body: "{{body}}", needName: "{{needName}}" }),
   },
   {
     ...feedbackCompleted,

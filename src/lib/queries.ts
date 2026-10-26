@@ -8,6 +8,8 @@ import type {
   GroupSession,
   Lookups,
   Feedback,
+  VolunteerNeed,
+  VolunteerSignup,
   Invitation,
   Membership,
   OrganizationApiKey,
@@ -50,6 +52,9 @@ export const keys = {
   me: () => ["user", "me"] as const,
   feedback: (active?: boolean) => (active === undefined ? (["feedback"] as const) : (["feedback", active] as const)),
   feedbackItem: (id: string) => ["feedback", "item", id] as const,
+  needs: (organizationId: string) => ["org", organizationId, "needs"] as const,
+  need: (needId: string) => ["need", needId] as const,
+  signups: (needId: string) => ["need", needId, "signups"] as const,
 };
 
 export const lookupStaleTime = 5 * 60 * 1000;
@@ -218,6 +223,27 @@ export function feedbackItemQuery(id: string) {
   return queryOptions({
     queryKey: keys.feedbackItem(id),
     queryFn: ({ signal }) => fetchJson<Feedback>(`/feedback/${id}`, signal),
+  });
+}
+
+export function needsQuery(organizationId: string) {
+  return queryOptions({
+    queryKey: keys.needs(organizationId),
+    queryFn: ({ signal }) => fetchJson<Paged<VolunteerNeed>>(`/organizations/${organizationId}/volunteer-needs?limit=100`, signal),
+  });
+}
+
+export function needQuery(needId: string) {
+  return queryOptions({
+    queryKey: keys.need(needId),
+    queryFn: ({ signal }) => fetchJson<VolunteerNeed>(`/volunteer-needs/${needId}`, signal),
+  });
+}
+
+export function signupsQuery(needId: string) {
+  return queryOptions({
+    queryKey: keys.signups(needId),
+    queryFn: ({ signal }) => fetchJson<Paged<VolunteerSignup>>(`/volunteer-needs/${needId}/signups`, signal),
   });
 }
 

@@ -38,6 +38,7 @@ builder.Services.AddDbContext<ClockedInDbContext>((services, options) =>
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddClockedInAuthentication();
 builder.Services.AddHttpClient<IEmailSender, ResendEmailSender>();
+builder.Services.AddHttpClient<TurnstileVerifier>();
 builder.Services.AddHttpClient<IGithubIssues, GithubIssuesClient>((services, http) =>
 {
     var github = services.GetRequiredService<IOptions<GithubOptions>>().Value;

@@ -5,6 +5,7 @@ using ClockedIn.Api.Features.Organizations;
 using ClockedIn.Api.Features.Tags;
 using ClockedIn.Api.Features.TaskCategories;
 using ClockedIn.Api.Features.Themes;
+using ClockedIn.Api.Features.VolunteerNeeds;
 using ClockedIn.Api.Http;
 using ModelContextProtocol.Server;
 
@@ -16,7 +17,8 @@ public sealed class CatalogTools(
     TagsService tags,
     TaskCategoriesService categories,
     HourlyRatesService rates,
-    ThemesService themes)
+    ThemesService themes,
+    VolunteerNeedsService needs)
 {
     [McpServerTool, Description("List departments in an organization.")]
     public Task<ListResponse<DepartmentDto>> ListDepartments(Guid organizationId, int? limit, int? offset, CancellationToken cancellationToken) =>
@@ -115,6 +117,44 @@ public sealed class CatalogTools(
         McpCall.Run(async () =>
         {
             await themes.Delete(organizationId, themeId, cancellationToken);
+            return "deleted";
+        });
+
+    [McpServerTool, Description("List volunteer needs in an organization.")]
+    public Task<ListResponse<VolunteerNeedDto>> ListVolunteerNeeds(
+        Guid organizationId,
+        int? limit,
+        int? offset,
+        string? q,
+        string? type,
+        string? projectId,
+        string? departmentId,
+        string? allowPublic,
+        string? sort,
+        string? order,
+        CancellationToken cancellationToken) =>
+        McpCall.Run(() => needs.List(
+            organizationId,
+            new VolunteerNeedQuery(limit?.ToString(), offset?.ToString(), q, type, projectId, departmentId, allowPublic, sort, order),
+            cancellationToken));
+
+    [McpServerTool, Description("Get a volunteer need, including the question form and correct answers.")]
+    public Task<VolunteerNeedDto> GetVolunteerNeed(Guid volunteerNeedId, CancellationToken cancellationToken) =>
+        McpCall.Run(() => needs.Get(volunteerNeedId, cancellationToken));
+
+    [McpServerTool, Description("Create a volunteer need. Pass JSON with name, type (Position or Task), countNeeded, and optional description, dates, allowPublic, requireVetting, questions, projectId, taskCategoryId, and departmentId.")]
+    public Task<VolunteerNeedDto> CreateVolunteerNeed(Guid organizationId, string body, CancellationToken cancellationToken) =>
+        McpCall.Run(() => needs.Create(organizationId, SaveVolunteerNeedRequest.Parse(McpCall.Object(body)), cancellationToken));
+
+    [McpServerTool, Description("Update a volunteer need. Pass JSON with any writable need field.")]
+    public Task<VolunteerNeedDto> UpdateVolunteerNeed(Guid volunteerNeedId, string body, CancellationToken cancellationToken) =>
+        McpCall.Run(() => needs.Update(volunteerNeedId, UpdateVolunteerNeedRequest.Parse(McpCall.Object(body)), cancellationToken));
+
+    [McpServerTool, Description("Delete a volunteer need and its signups.")]
+    public Task<string> DeleteVolunteerNeed(Guid volunteerNeedId, CancellationToken cancellationToken) =>
+        McpCall.Run(async () =>
+        {
+            await needs.Delete(volunteerNeedId, cancellationToken);
             return "deleted";
         });
 }

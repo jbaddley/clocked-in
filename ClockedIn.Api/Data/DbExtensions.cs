@@ -29,6 +29,13 @@ public static class DbExtensions
             userId).ToListAsync(cancellationToken);
     }
 
+    public static async Task LockVolunteerNeedAsync(this ClockedInDbContext db, Guid needId, CancellationToken cancellationToken)
+    {
+        await db.Database.SqlQueryRaw<Guid>(
+            """SELECT "id" AS "Value" FROM "VolunteerNeed" WHERE "id" = {0} FOR UPDATE""",
+            needId).ToListAsync(cancellationToken);
+    }
+
     public static async Task LockOrganizationAsync(this ClockedInDbContext db, Guid organizationId, CancellationToken cancellationToken)
     {
         await db.Database.SqlQueryRaw<Guid>(

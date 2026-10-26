@@ -1,0 +1,7 @@
+import { authenticate } from "@/lib/api/access";
+import { unvetSignup } from "@/lib/api/features/volunteer-needs";
+import { withGuids } from "@/lib/api/guid";
+
+export const POST = withGuids<{ id: string; signupId: string }>(async (request, { id, signupId }) =>
+  unvetSignup(await authenticate(request), id, signupId),
+);

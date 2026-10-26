@@ -3,6 +3,7 @@ import {
   BookOpenIcon,
   ClockIcon,
   Code2Icon,
+  HandHeartIcon,
   LayoutDashboardIcon,
   ListChecksIcon,
   MessageSquarePlusIcon,
@@ -50,6 +51,7 @@ const sections: { label: string; links: NavItem[] }[] = [
     label: "Manage",
     links: [
       { href: "/about-prototype", label: "Guide", icon: BookOpenIcon, admin: true },
+      { href: "/needs", label: "Needs", icon: HandHeartIcon, admin: true },
       { href: "/settings", label: "Settings", icon: SettingsIcon, admin: true, coordinator: true },
       { href: "/developer", label: "Developer", icon: Code2Icon, admin: true },
       { href: "/feedback", label: "Feedback", icon: MessageSquarePlusIcon, superAdmin: true },

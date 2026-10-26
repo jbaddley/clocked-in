@@ -4,6 +4,7 @@ using ClockedIn.Api.Email;
 using ClockedIn.Api.Entities;
 using ClockedIn.Api.Features.Shared;
 using ClockedIn.Api.Features.Users;
+using ClockedIn.Api.Features.VolunteerNeeds;
 using ClockedIn.Api.Http;
 using ClockedIn.Api.Security;
 using Microsoft.EntityFrameworkCore;
@@ -43,6 +44,7 @@ public sealed class AuthService(
             },
         };
         db.Users.Add(user);
+        await GuestLinks.Attach(db, user.Email, user.Id, cancellationToken);
         await db.SaveOrThrowAsync(cancellationToken);
         return await IssueSession(user, cancellationToken);
     }

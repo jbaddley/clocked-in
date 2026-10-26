@@ -9,6 +9,7 @@ import type { getOrganization } from "@/lib/api/features/organizations";
 import type { listProjects } from "@/lib/api/features/projects";
 import type { report } from "@/lib/api/features/reports";
 import type { listTags } from "@/lib/api/features/tags";
+import type { listSignups, listVolunteerNeeds } from "@/lib/api/features/volunteer-needs";
 import type { listTaskCategories } from "@/lib/api/features/task-categories";
 import type { listTimeEntries } from "@/lib/api/features/time-entries";
 
@@ -34,6 +35,8 @@ export type Report = Awaited<ReturnType<typeof report>>;
 export type ReportSide = Report["user"] | Report["collective"];
 export type ReportGroup = Report["user"]["byDepartment"][number];
 export type Feedback = Items<typeof listFeedback>[number];
+export type VolunteerNeed = Items<typeof listVolunteerNeeds>[number];
+export type VolunteerSignup = Items<typeof listSignups>[number];
 
 export type Lookups = {
   departments: Department[];

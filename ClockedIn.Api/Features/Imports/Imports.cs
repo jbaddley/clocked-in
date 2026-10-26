@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using ClockedIn.Api.Data;
 using ClockedIn.Api.Entities;
 using ClockedIn.Api.Features.Shared;
+using ClockedIn.Api.Features.VolunteerNeeds;
 using ClockedIn.Api.Http;
 using ClockedIn.Api.Security;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -127,6 +128,7 @@ public sealed class ImportsService(ClockedInDbContext db, Access access, TimePro
             };
             user.Profile.UserId = user.Id;
             db.Users.Add(user);
+            await GuestLinks.Attach(db, user.Email, user.Id, rowCancellation);
             db.OrganizationMemberships.Add(new OrganizationMembership
             {
                 Id = Guid.NewGuid(),

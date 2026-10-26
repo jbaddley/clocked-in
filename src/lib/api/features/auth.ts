@@ -14,6 +14,7 @@ import {
   requireString,
 } from "@/lib/api/json";
 import { sendEmail } from "@/lib/api/mail";
+import { linkGuest } from "@/lib/api/features/volunteer-needs";
 import { prisma } from "@/lib/prisma";
 import {
   allocateNumericCode,
@@ -129,6 +130,7 @@ export async function signUp(request: SignUpRequest, options?: { invitationEmail
       include: accountInclude,
     }),
   );
+  await linkGuest(prisma, user.email, user.id);
   return issueSession(user);
 }
 

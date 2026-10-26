@@ -211,6 +211,15 @@ classDiagram
   Department "0..1" --> "*" Invitation
   Role "1" --> "*" Invitation
   User "1" --> "*" PasswordResetCode
+  Organization "1" --> "*" VolunteerNeed
+  User "1" --> "*" VolunteerNeed : createdBy
+  Department "0..1" --> "*" VolunteerNeed
+  Project "0..1" --> "*" VolunteerNeed
+  TaskCategory "0..1" --> "*" VolunteerNeed
+  VolunteerNeed "1" --> "*" VolunteerSignup
+  Guest "0..1" --> "*" VolunteerSignup
+  User "0..1" --> "*" VolunteerSignup
+  User "0..1" --> "*" Guest
 ```
 
 `TimeEntryMode` is `Punch`, `Duration`, or `Total`. Seed `Role.code` with `MEMBER`, `VOLUNTEER`, and `ADMIN`. The same role rows are used on organization and department memberships. `HourlyRate.type`, `defaultRateType`, and membership `rateType` are `Volunteer` or `Professional` (stored as text). `accessType` is `Public`, `Private`, or `Department` (stored as text). `headingFont` and `bodyFont` are `HelveticaNeue`, `AvenirNext`, `SourceSans3`, `NunitoSans`, or `Geist`. Tag and project-editor links are many-to-many; join tables are not domain entities. Color fields are `#RRGGBB`.
@@ -427,6 +436,61 @@ A project belongs to an organization. When `accessType` is `Department`, it also
 
 Editors are a many-to-many with User. The join table is not a domain entity.
 
+### VolunteerNeed
+
+A request for volunteers inside one organization. `departmentId` is the optional group. `projectId` and `taskCategoryId` are optional and, when set, belong to the same organization. `questions` is a jsonb form (`version` 1 and `items`). Each item has `id`, `prompt`, `kind` (`single` or `multi`), `choices` (`id`, `label`), and `correctChoiceIds`. A single question has one required choice. A multi question has the exact set that must be selected. Questions are not a separate table. `countVetted` is the number of vetted signups and is maintained with those signups. `publicToken` is the unguessable token in `/volunteer/{token}`.
+
+| Field           | Required | Notes                                                                 |
+| --------------- | -------- | --------------------------------------------------------------------- |
+| id              | yes      | UUID primary key                                                      |
+| organizationId  | yes      | Foreign key to Organization                                           |
+| createdByUserId | yes      | Foreign key to User                                                   |
+| publicToken     | yes      | Unique 32-character lowercase hex token                               |
+| name            | yes      | 1 to 200 characters                                                   |
+| description     | no       | Up to 4000 characters                                                 |
+| type            | yes      | `Position` or `Task`                                                  |
+| countNeeded     | yes      | Integer, 1 to 10000                                                   |
+| countVetted     | yes      | Integer, 0 through countNeeded. Not edited directly                   |
+| startDate       | no       | Calendar date                                                         |
+| endDate         | no       | Calendar date. When both dates are set, on or after startDate         |
+| requiredBy      | no       | Signup deadline                                                       |
+| allowPublic     | yes      | Default false. Public signup exists only while this is true           |
+| requireVetting  | yes      | Default false. When true, a correct signup is not vetted automatically |
+| questions       | yes      | jsonb form. Default `{ "version": 1, "items": [] }`                   |
+| projectId       | no       | Foreign key to Project. Cleared if the project is deleted             |
+| taskCategoryId  | no       | Foreign key to TaskCategory. Cleared if the category is deleted       |
+| departmentId    | no       | Foreign key to Department. Cleared if the department is deleted       |
+| createdAt       | yes      |                                                                       |
+| updatedAt       | yes      |                                                                       |
+
+### Guest
+
+A person who signs up for a public need without an account. `email` is unique and stored lowercase. When that email belongs to a user, or a user is later created with it, `userId` is set. Signup rows stay on the guest.
+
+| Field  | Required | Notes                                      |
+| ------ | -------- | ------------------------------------------ |
+| id     | yes      | UUID primary key                           |
+| name   | yes      | 1 to 120 characters                        |
+| email  | yes      | Unique, stored lowercase                   |
+| phone  | yes      | 1 to 40 characters                         |
+| userId | no       | Unique when set. Foreign key to User       |
+
+### VolunteerSignup
+
+One person signed up for one need. Exactly one of `userId` or `guestId` is set. `answers` is a jsonb snapshot written at submit time: `questionId`, `prompt`, `choiceIds`, and `labels`. `passed` is whether that snapshot matched the form then. Later edits to the form do not regrade it.
+
+| Field           | Required | Notes                                                                 |
+| --------------- | -------- | --------------------------------------------------------------------- |
+| id              | yes      | UUID primary key                                                      |
+| volunteerNeedId | yes      | Foreign key to VolunteerNeed. Signups delete with the need            |
+| userId          | no       | Foreign key to User. Set for a member signup                          |
+| guestId         | no       | Foreign key to Guest. Set for a guest signup                          |
+| comment         | no       | Up to 2000 characters                                                 |
+| answers         | yes      | jsonb array. Default `[]`                                             |
+| passed          | yes      | Default false                                                         |
+| vetted          | yes      | Default false. Counts toward `countVetted` while true                 |
+| createdAt       | yes      |                                                                       |
+
 ### UserTimeEntry
 
 Personal time for one user, against an organization or one of its departments. `userId` is whose hours they are. `enteredByUserId` is who created the row (may equal `userId`). `description` is optional notes. Tags are optional and must belong to the entry’s organization. Project and task category are required and must belong to the entry’s organization.
@@ -551,7 +615,8 @@ A user entry always has an organization. `departmentId` is empty for organizatio
 
 ## Delete behavior
 
-- Deleting an organization, department, project, task category, or user is restricted while time entries still reference them.
+- Deleting a volunteer need deletes its signups. Guests remain. Deleting a vetted signup decreases `countVetted`.
+- Deleting an organization, department, project, task category, or user is restricted while time entries still reference them. Deleting a user is also restricted while they created a volunteer need or have a volunteer signup. Deleting a project, task category, or department clears that link on a volunteer need.
 - Deleting a user is restricted while they own a project, appear as `userId` or `enteredByUserId` on user entries, or as `recordedByUserId` on collective entries.
 - Profile, memberships, refresh tokens, password reset codes, invitations sent by the user, and project editor rows for that user delete with the user.
 - Organization cascade deletes departments, tags, task categories, projects, saved reports, and org-saved themes when no restricting time entries remain. Global themes stay. The active `themeId` cannot be deleted while organizations still point at it.
@@ -567,7 +632,7 @@ A user entry always has an organization. `departmentId` is empty for organizatio
 - Locally both apps use the same Postgres. `DATABASE_URL` (Prisma / Next.js) and `EF_DATABASE_URL` (.NET) point at that instance.
 - Entity names, field names, and nullability stay aligned so HTTP contracts can match.
 - Use UUID primary keys and `timestamptz` for instants.
-- Enforce the unique pairs in the database: `(username)`, `(email)`, `(Role.code)`, `(userId, organizationId)`, `(userId, departmentId)`, department name per organization, tag name per organization, task category name per organization, project title per organization, hourly rate name per organization, one default volunteer `HourlyRate` per organization, report name per organization, one default `Report` per organization, `UserTimeEntry.sourceRef` when set, and one pending invitation per email and target.
+- Enforce the unique pairs in the database: `(username)`, `(email)`, `(Role.code)`, `(userId, organizationId)`, `(userId, departmentId)`, department name per organization, tag name per organization, task category name per organization, project title per organization, hourly rate name per organization, one default volunteer `HourlyRate` per organization, report name per organization, one default `Report` per organization, `UserTimeEntry.sourceRef` when set, one pending invitation per email and target, `Guest.email`, `Guest.userId` when set, `VolunteerNeed.publicToken`, one `VolunteerSignup` per need and user, and one `VolunteerSignup` per need and guest.
 - Index user entries on `(organizationId, occurredOn)` and `(userId, occurredOn)`. Index collective entries on `(organizationId, startedAt)`.
 - Enforce check constraints for rate types, access types, membership professional rate, project department/access pairing, date order, hourly rates (catalog greater than zero, time-entry snapshots zero or greater), user entry modes (Punch and Duration 1–1440 minutes, Total 1–59940), theme hex colors, palette JSON, font keys, and in-kind nullability.
 - Enforce “one open punch per user”, “department membership requires organization membership”, and project/category organization match in the API. Those rules depend on more than a single foreign key.

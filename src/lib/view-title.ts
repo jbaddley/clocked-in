@@ -17,5 +17,6 @@ export function viewTitle(pathname: string | null, name: string, organizationNam
   if (pathname.startsWith("/developer")) return "Developer";
   if (pathname.startsWith("/about-prototype")) return "Guide";
   if (pathname.startsWith("/feedback")) return "Feedback";
+  if (pathname.startsWith("/needs")) return "Needs";
   return "";
 }

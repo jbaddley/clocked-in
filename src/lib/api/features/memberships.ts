@@ -2,6 +2,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { Access } from "@/lib/api/access";
 import { guard, lockOrganization, transaction } from "@/lib/api/db";
 import { conflict, forbidden, notFound, validation } from "@/lib/api/errors";
+import { linkGuest } from "@/lib/api/features/volunteer-needs";
 import {
   assertTimezone,
   Body,
@@ -383,6 +384,7 @@ export async function createOrgMembership(access: Access, organizationId: string
       });
     }
 
+    await linkGuest(tx, user.email, user.id);
     const organization = await tx.organization.findUniqueOrThrow({
       where: { id: organizationId },
       select: { defaultRateType: true, name: true },

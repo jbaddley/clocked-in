@@ -3,6 +3,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { Access } from "@/lib/api/access";
 import { lockOrganization, transaction } from "@/lib/api/db";
 import { ApiError, validation } from "@/lib/api/errors";
+import { linkGuest } from "@/lib/api/features/volunteer-needs";
 import {
   type AccessType,
   assertTimezone,
@@ -273,6 +274,7 @@ export async function importPeople(access: Access, organizationId: string, rows:
         },
         select: { id: true },
       });
+      await linkGuest(tx, email, user.id);
       await tx.organizationMembership.create({
         data: {
           userId: user.id,

@@ -18,6 +18,15 @@ import {
   updateTaskCategory,
 } from "@/lib/api/features/task-categories";
 import { createTheme, deleteTheme, listThemes, parseThemeWrite, updateTheme } from "@/lib/api/features/themes";
+import {
+  createVolunteerNeed,
+  deleteVolunteerNeed,
+  getVolunteerNeed,
+  listVolunteerNeeds,
+  parseSaveNeed,
+  parseUpdateNeed,
+  updateVolunteerNeed,
+} from "@/lib/api/features/volunteer-needs";
 import { jsonBody, query } from "@/lib/mcp/call";
 import { mcpAccess } from "@/lib/mcp/context";
 import { guid, tool } from "@/lib/mcp/tool";
@@ -125,6 +134,51 @@ export function registerCatalogTools(server: McpServer) {
   );
   tool(server, "delete_theme", "Delete an organization theme.", { organizationId: guid, themeId: guid }, async ({ organizationId, themeId }) => {
     await deleteTheme(mcpAccess(), organizationId, themeId);
+    return "deleted";
+  });
+
+  const filter = z.string().nullable();
+  tool(
+    server,
+    "list_volunteer_needs",
+    "List volunteer needs in an organization.",
+    {
+      organizationId: guid,
+      ...page,
+      q: filter,
+      type: filter,
+      projectId: filter,
+      departmentId: filter,
+      allowPublic: filter,
+      sort: filter,
+      order: filter,
+    },
+    ({ organizationId, limit, offset, q, type, projectId, departmentId, allowPublic, sort, order }) =>
+      listVolunteerNeeds(
+        mcpAccess(),
+        organizationId,
+        query({ limit, offset, q, type, projectId, departmentId, allowPublic, sort, order }),
+      ),
+  );
+  tool(server, "get_volunteer_need", "Get a volunteer need, including the question form and correct answers.", { volunteerNeedId: guid }, ({ volunteerNeedId }) =>
+    getVolunteerNeed(mcpAccess(), volunteerNeedId),
+  );
+  tool(
+    server,
+    "create_volunteer_need",
+    "Create a volunteer need. Pass JSON with name, type (Position or Task), countNeeded, and optional description, dates, allowPublic, requireVetting, questions, projectId, taskCategoryId, and departmentId.",
+    { organizationId: guid, body: z.string() },
+    ({ organizationId, body }) => createVolunteerNeed(mcpAccess(), organizationId, parseSaveNeed(jsonBody(body))),
+  );
+  tool(
+    server,
+    "update_volunteer_need",
+    "Update a volunteer need. Pass JSON with any writable need field.",
+    { volunteerNeedId: guid, body: z.string() },
+    ({ volunteerNeedId, body }) => updateVolunteerNeed(mcpAccess(), volunteerNeedId, parseUpdateNeed(jsonBody(body))),
+  );
+  tool(server, "delete_volunteer_need", "Delete a volunteer need and its signups.", { volunteerNeedId: guid }, async ({ volunteerNeedId }) => {
+    await deleteVolunteerNeed(mcpAccess(), volunteerNeedId);
     return "deleted";
   });
 }

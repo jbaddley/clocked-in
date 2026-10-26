@@ -17,6 +17,7 @@ const protectedPrefixes = [
   "/organization",
   "/change-password",
   "/feedback",
+  "/needs",
 ];
 const guestOnly = ["/login", "/signup"];
 

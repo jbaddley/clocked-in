@@ -26,20 +26,23 @@ model User {
   departmentMemberships      DepartmentMembership[]
   feedback                   Feedback[]
   feedbackActionsTaken       FeedbackAction[]         @relation("FeedbackActionTakenBy")
+  Guest                      Guest?
   invitationsSent            Invitation[]             @relation("InvitationInvitedBy")
   connectionsCreated         MemberConnection[]       @relation("MemberConnectionCreatedBy")
   connectionsAsUserA         MemberConnection[]       @relation("MemberConnectionUserA")
   connectionsAsUserB         MemberConnection[]       @relation("MemberConnectionUserB")
   organizationApiKeysCreated OrganizationApiKey[]
-  platformApiKeysCreated     PlatformApiKey[]
   organizationMemberships    OrganizationMembership[]
   passwordResetCodes         PasswordResetCode[]
+  platformApiKeysCreated     PlatformApiKey[]
   ownedProjects              Project[]                @relation("ProjectOwner")
   editableProjects           ProjectEditor[]
   refreshTokens              RefreshToken[]
   profile                    UserProfile?
   timeEntriesEntered         UserTimeEntry[]          @relation("UserTimeEntryEnteredBy")
   timeEntries                UserTimeEntry[]          @relation("UserTimeEntryHoursFor")
+  VolunteerNeed              VolunteerNeed[]
+  VolunteerSignup            VolunteerSignup[]
 }
 
 model UserProfile {
@@ -100,6 +103,7 @@ model Organization {
   taskCategories        TaskCategory[]
   themes                Theme[]                  @relation("OrganizationThemes")
   timeEntries           UserTimeEntry[]
+  VolunteerNeed         VolunteerNeed[]
 
   @@index([themeId], map: "IX_Organization_themeId")
 }
@@ -115,10 +119,10 @@ model OrganizationMembership {
   /// Volunteer or Professional.
   rateType                String       @default("Volunteer")
   primaryDepartmentId     String?      @db.Uuid
-  /// Title of the user for this organization.
-  orgUserTitle            String?
   /// Description of the user for this organization in Markdown.
   orgUserDescription      String?
+  /// Title of the user for this organization.
+  orgUserTitle            String?
   primaryDepartment       Department?  @relation("PrimaryDepartment", fields: [primaryDepartmentId], references: [id], onUpdate: NoAction, map: "FK_OrganizationMembership_Department_primaryDepartmentId")
   organization            Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_OrganizationMembership_Organization_organizationId")
   role                    Role         @relation(fields: [roleId], references: [id], onUpdate: NoAction, map: "FK_OrganizationMembership_Role_roleId")
@@ -141,6 +145,7 @@ model Department {
   primaryMemberships    OrganizationMembership[] @relation("PrimaryDepartment")
   projects              Project[]
   timeEntries           UserTimeEntry[]
+  VolunteerNeed         VolunteerNeed[]
 
   @@unique([organizationId, name], map: "IX_Department_organizationId_name")
 }
@@ -178,6 +183,7 @@ model TaskCategory {
   collectiveTimeEntries CollectiveTimeEntry[]
   organization          Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_TaskCategory_Organization_organizationId")
   userTimeEntries       UserTimeEntry[]
+  VolunteerNeed         VolunteerNeed[]
 
   @@unique([organizationId, name], map: "IX_TaskCategory_organizationId_name")
 }
@@ -202,6 +208,7 @@ model Project {
   owner                 User                  @relation("ProjectOwner", fields: [ownerUserId], references: [id], onUpdate: NoAction, map: "FK_Project_User_ownerUserId")
   editors               ProjectEditor[]
   userTimeEntries       UserTimeEntry[]
+  VolunteerNeed         VolunteerNeed[]
 
   @@unique([organizationId, title], map: "IX_Project_organizationId_title")
   @@index([departmentId], map: "IX_Project_departmentId")
@@ -518,6 +525,74 @@ model Report {
 
   @@unique([organizationId, name], map: "IX_Report_organizationId_name")
   @@unique([organizationId], map: "Report_one_default", where: raw("(\"isDefault\" = true)"))
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model Guest {
+  id              String            @id(map: "PK_Guest") @db.Uuid
+  name            String
+  email           String            @unique(map: "IX_Guest_email")
+  phone           String
+  userId          String?           @unique(map: "Guest_user", where: raw("(\"userId\" IS NOT NULL)")) @db.Uuid
+  User            User?             @relation(fields: [userId], references: [id], onUpdate: NoAction, map: "FK_Guest_User_userId")
+  VolunteerSignup VolunteerSignup[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model VolunteerNeed {
+  id              String            @id(map: "PK_VolunteerNeed") @db.Uuid
+  organizationId  String            @db.Uuid
+  createdByUserId String            @db.Uuid
+  publicToken     String            @unique(map: "IX_VolunteerNeed_publicToken")
+  name            String            @db.Citext
+  description     String?
+  type            String
+  countNeeded     Int
+  countVetted     Int               @default(0)
+  startDate       DateTime?         @db.Date
+  endDate         DateTime?         @db.Date
+  requiredBy      DateTime?         @db.Timestamptz(6)
+  allowPublic     Boolean           @default(false)
+  requireVetting  Boolean           @default(false)
+  questions       Json              @default("{\"items\": [], \"version\": 1}")
+  projectId       String?           @db.Uuid
+  taskCategoryId  String?           @db.Uuid
+  departmentId    String?           @db.Uuid
+  createdAt       DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime          @default(now()) @db.Timestamptz(6)
+  Department      Department?       @relation(fields: [departmentId], references: [id], onUpdate: NoAction, map: "FK_VolunteerNeed_Department_departmentId")
+  Organization    Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_VolunteerNeed_Organization_organizationId")
+  Project         Project?          @relation(fields: [projectId], references: [id], onUpdate: NoAction, map: "FK_VolunteerNeed_Project_projectId")
+  TaskCategory    TaskCategory?     @relation(fields: [taskCategoryId], references: [id], onUpdate: NoAction, map: "FK_VolunteerNeed_TaskCategory_taskCategoryId")
+  User            User              @relation(fields: [createdByUserId], references: [id], onUpdate: NoAction, map: "FK_VolunteerNeed_User_createdByUserId")
+  VolunteerSignup VolunteerSignup[]
+
+  @@index([createdByUserId], map: "IX_VolunteerNeed_createdByUserId")
+  @@index([departmentId], map: "IX_VolunteerNeed_departmentId")
+  @@index([organizationId], map: "IX_VolunteerNeed_organizationId")
+  @@index([projectId], map: "IX_VolunteerNeed_projectId")
+  @@index([taskCategoryId], map: "IX_VolunteerNeed_taskCategoryId")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model VolunteerSignup {
+  id              String        @id(map: "PK_VolunteerSignup") @db.Uuid
+  volunteerNeedId String        @db.Uuid
+  userId          String?       @db.Uuid
+  guestId         String?       @db.Uuid
+  comment         String?
+  answers         Json          @default("[]")
+  passed          Boolean       @default(false)
+  vetted          Boolean       @default(false)
+  createdAt       DateTime      @default(now()) @db.Timestamptz(6)
+  Guest           Guest?        @relation(fields: [guestId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "FK_VolunteerSignup_Guest_guestId")
+  User            User?         @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "FK_VolunteerSignup_User_userId")
+  VolunteerNeed   VolunteerNeed @relation(fields: [volunteerNeedId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_VolunteerSignup_VolunteerNeed_volunteerNeedId")
+
+  @@unique([volunteerNeedId, guestId], map: "VolunteerSignup_need_guest", where: raw("(\"guestId\" IS NOT NULL)"))
+  @@unique([volunteerNeedId, userId], map: "VolunteerSignup_need_user", where: raw("(\"userId\" IS NOT NULL)"))
+  @@index([guestId], map: "IX_VolunteerSignup_guestId")
+  @@index([userId], map: "IX_VolunteerSignup_userId")
 }
 
 enum TimeEntryMode {

@@ -17,6 +17,7 @@ const prefixes = [
   "/invitations",
   "/feedback",
   "/platform",
+  "/volunteer-needs",
 ];
 
 export function csharpApiUrl() {

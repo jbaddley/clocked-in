@@ -46,6 +46,7 @@ const groupRules: [string, string][] = [
   ["/summary.csv", "Reports"],
   ["/report", "Reports"],
   ["/collective-time-entries", "Collective time"],
+  ["/volunteer-needs", "Volunteer needs"],
   ["/tags", "Tags"],
   ["/feedback", "Feedback"],
   ["/auth", "Auth"],

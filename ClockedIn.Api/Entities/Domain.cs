@@ -49,6 +49,12 @@ public enum MemberRelationship
     Associate,
 }
 
+public enum VolunteerNeedType
+{
+    Position,
+    Task,
+}
+
 public enum FeedbackType
 {
     Bug,
@@ -111,6 +117,9 @@ public class User
     public ICollection<FeedbackAction> FeedbackActionsTaken { get; set; } = [];
     public ICollection<OrganizationApiKey> OrganizationApiKeysCreated { get; set; } = [];
     public ICollection<PlatformApiKey> PlatformApiKeysCreated { get; set; } = [];
+    public ICollection<VolunteerNeed> VolunteerNeedsCreated { get; set; } = [];
+    public ICollection<VolunteerSignup> VolunteerSignups { get; set; } = [];
+    public ICollection<Guest> Guests { get; set; } = [];
 }
 
 public class UserProfile
@@ -200,6 +209,7 @@ public class Organization
     public ICollection<OrganizationApiKey> ApiKeys { get; set; } = [];
     public ICollection<MemberConnection> Connections { get; set; } = [];
     public ICollection<Report> Reports { get; set; } = [];
+    public ICollection<VolunteerNeed> VolunteerNeeds { get; set; } = [];
 }
 
 public class Report
@@ -315,6 +325,7 @@ public class Department
     public ICollection<UserTimeEntry> TimeEntries { get; set; } = [];
     public ICollection<CollectiveTimeEntry> CollectiveTimeEntries { get; set; } = [];
     public ICollection<Invitation> Invitations { get; set; } = [];
+    public ICollection<VolunteerNeed> VolunteerNeeds { get; set; } = [];
 }
 
 public class DepartmentMembership
@@ -350,6 +361,7 @@ public class TaskCategory
     public Organization Organization { get; set; } = null!;
     public ICollection<UserTimeEntry> UserTimeEntries { get; set; } = [];
     public ICollection<CollectiveTimeEntry> CollectiveTimeEntries { get; set; } = [];
+    public ICollection<VolunteerNeed> VolunteerNeeds { get; set; } = [];
 }
 
 public class Project
@@ -372,6 +384,71 @@ public class Project
     public ICollection<User> Editors { get; set; } = [];
     public ICollection<UserTimeEntry> UserTimeEntries { get; set; } = [];
     public ICollection<CollectiveTimeEntry> CollectiveTimeEntries { get; set; } = [];
+    public ICollection<VolunteerNeed> VolunteerNeeds { get; set; } = [];
+}
+
+public class VolunteerNeed
+{
+    public const string EmptyQuestions = """{"version":1,"items":[]}""";
+
+    public Guid Id { get; set; }
+    public Guid OrganizationId { get; set; }
+    public Guid CreatedByUserId { get; set; }
+    public string PublicToken { get; set; } = null!;
+    public string Name { get; set; } = null!;
+    public string? Description { get; set; }
+    public VolunteerNeedType Type { get; set; }
+    public int CountNeeded { get; set; }
+    public int CountVetted { get; set; }
+    public DateOnly? StartDate { get; set; }
+    public DateOnly? EndDate { get; set; }
+    public DateTime? RequiredBy { get; set; }
+    public bool AllowPublic { get; set; }
+    public bool RequireVetting { get; set; }
+    public string Questions { get; set; } = EmptyQuestions;
+    public Guid? ProjectId { get; set; }
+    public Guid? TaskCategoryId { get; set; }
+    public Guid? DepartmentId { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+
+    public Organization Organization { get; set; } = null!;
+    public User CreatedBy { get; set; } = null!;
+    public Project? Project { get; set; }
+    public TaskCategory? TaskCategory { get; set; }
+    public Department? Department { get; set; }
+    public ICollection<VolunteerSignup> Signups { get; set; } = [];
+}
+
+public class Guest
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = null!;
+    public string Email { get; set; } = null!;
+    public string Phone { get; set; } = null!;
+    public Guid? UserId { get; set; }
+
+    public User? User { get; set; }
+    public ICollection<VolunteerSignup> Signups { get; set; } = [];
+}
+
+public class VolunteerSignup
+{
+    public const string EmptyAnswers = "[]";
+
+    public Guid Id { get; set; }
+    public Guid VolunteerNeedId { get; set; }
+    public Guid? UserId { get; set; }
+    public Guid? GuestId { get; set; }
+    public string? Comment { get; set; }
+    public string Answers { get; set; } = EmptyAnswers;
+    public bool Passed { get; set; }
+    public bool Vetted { get; set; }
+    public DateTime CreatedAt { get; set; }
+
+    public VolunteerNeed VolunteerNeed { get; set; } = null!;
+    public User? User { get; set; }
+    public Guest? Guest { get; set; }
 }
 
 public class UserTimeEntry
