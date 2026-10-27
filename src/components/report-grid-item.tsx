@@ -1,6 +1,6 @@
 "use client";
 
-import { cloneElement, isValidElement, type ReactElement } from "react";
+import { cloneElement, isValidElement, type CSSProperties, type ReactElement } from "react";
 import { cn } from "cn";
 import { getPath } from "@/lib/report-path";
 import type { ReportGroup } from "@/lib/types";
@@ -15,8 +15,10 @@ export function ReportGridItem({
   cardId,
   editing = false,
   selected = false,
+  floating = false,
   title,
   className,
+  style,
   children,
 }: {
   column: number;
@@ -28,8 +30,10 @@ export function ReportGridItem({
   cardId?: string;
   editing?: boolean;
   selected?: boolean;
+  floating?: boolean;
   title?: string;
   className?: string;
+  style?: CSSProperties;
   children: ReactElement<{ value?: unknown; rows?: ReportGroup[]; className?: string }>;
 }) {
   const resolved = getPath(data, accessor);
@@ -41,12 +45,22 @@ export function ReportGridItem({
 
   return (
     <div
-      data-card-id={cardId}
-      style={{ gridColumn: `${column} / span ${columns}`, gridRow: `${row} / span ${rows}` }}
-      className={cn("relative min-h-0 min-w-0", editing && "cursor-grab", selected && "rounded-xl ring-2 ring-primary", className)}
+      data-card-id={floating ? undefined : cardId}
+      style={
+        floating
+          ? style
+          : { gridColumn: `${column} / span ${columns}`, gridRow: `${row} / span ${rows}`, ...style }
+      }
+      className={cn(
+        "relative min-h-0 min-w-0",
+        editing && !floating && "cursor-grab",
+        selected && !floating && "rounded-xl ring-2 ring-primary",
+        floating && "pointer-events-none z-50 shadow-xl",
+        className,
+      )}
     >
       <div className="h-full min-h-0 w-full overflow-auto">{child}</div>
-      {editing ? (
+      {editing && !floating ? (
         <>
           <button
             type="button"

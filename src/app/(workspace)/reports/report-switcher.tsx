@@ -3,11 +3,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { SelectField } from "@/components/select-field";
-import { buttonVariants } from "@/components/ui/button";
 import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
 import { savedReportsQuery } from "@/lib/queries";
-import { cn } from "cn";
-import Link from "next/link";
 
 export function useSavedReports() {
   const organization = useOrganization();
@@ -52,11 +49,6 @@ export function ReportSwitcher({
           }}
           options={options}
         />
-      ) : null}
-      {isAdmin && active !== "standard" ? (
-        <Link href={`/reports/${active}/design`} className={cn(buttonVariants({ variant: "outline", size: "lg" }))}>
-          Design
-        </Link>
       ) : null}
     </div>
   );

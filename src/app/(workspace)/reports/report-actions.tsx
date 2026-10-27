@@ -12,7 +12,7 @@ import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
 import { csvUrl, summaryCsvUrl } from "@/lib/queries";
 import type { DateRange } from "@/lib/types";
 
-export function ReportActions({ range }: { range: DateRange }) {
+export function ReportActions({ range, reportId }: { range: DateRange; reportId?: string }) {
   const organization = useOrganization();
   const { isAdmin } = useWorkspace();
 
@@ -20,6 +20,9 @@ export function ReportActions({ range }: { range: DateRange }) {
     <DropdownMenu>
       <DropdownMenuTrigger render={<Button type="button" variant="outline" size="lg" />}>Actions</DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        {isAdmin && reportId ? (
+          <DropdownMenuItem render={<Link href={`/reports/${reportId}/design`} />}>Edit Report</DropdownMenuItem>
+        ) : null}
         {isAdmin ? (
           <DropdownMenuItem render={<Link href="/reports/new" />}>Create custom report</DropdownMenuItem>
         ) : null}

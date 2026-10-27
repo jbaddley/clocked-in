@@ -40,7 +40,8 @@ export type ChartValueKey = (typeof chartValueKeys)[number];
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const iconName = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-type Box = { column: number; row: number; columns: number; rows: number };
+export type ReportBox = { column: number; row: number; columns: number; rows: number };
+type Box = ReportBox;
 
 export type ReportCardBase = Box & {
   id: string;
@@ -168,7 +169,7 @@ function dateText(value: unknown, key: string) {
   return value;
 }
 
-function overlaps(left: Box, right: Box) {
+export function overlaps(left: Box, right: Box) {
   return (
     left.column < right.column + right.columns &&
     left.column + left.columns > right.column &&
@@ -500,8 +501,8 @@ export function collides(cards: ReportCard[], candidate: Box, ignoreId: string) 
   return cards.some((card) => card.id !== ignoreId && overlaps(card, candidate));
 }
 
-export function firstOpening(cards: ReportCard[], columns: number, rows: number) {
-  for (let row = 1; row <= reportMaxRow - rows + 1; row += 1) {
+export function firstOpening(cards: ReportCard[], columns: number, rows: number, startRow = 1) {
+  for (let row = Math.max(1, startRow); row <= reportMaxRow - rows + 1; row += 1) {
     for (let column = 1; column <= reportColumnCount - columns + 1; column += 1) {
       const candidate = { column, row, columns, rows };
       if (!cards.some((card) => overlaps(card, candidate))) {

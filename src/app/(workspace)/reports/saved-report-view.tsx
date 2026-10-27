@@ -58,7 +58,7 @@ function SavedReportBody({ report }: { report: SavedReport }) {
             <DateRangeFilter range={range} onChange={setRange} />
             <div className="ml-auto flex flex-wrap items-center gap-2">
               <ReportSwitcher active={report.id} />
-              <ReportActions range={range} />
+              <ReportActions range={range} reportId={report.id} />
               {applied.length > 0 ? <p className="text-xs text-muted-foreground">{applied.join(" · ")}</p> : null}
               {data.isFetching ? <span className="text-xs text-muted-foreground">Updating…</span> : null}
             </div>
