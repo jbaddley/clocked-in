@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChartColumnIcon, CircleHelpIcon, HashIcon, ListIcon, XIcon, ZoomInIcon, ZoomOutIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { DateRangeFilter } from "@/components/date-range-filter";
 import { Field } from "@/components/field";
 import { IconPickerDialog, iconLabel } from "@/components/icon-picker-dialog";
@@ -53,6 +53,10 @@ import {
   layoutError,
   listColumnKeys,
   listColumnLabel,
+  builtinTemplateIds,
+  reportTemplate,
+  reportTemplateIds,
+  reportTemplateLabel,
   valueColors,
   valueFormats,
   type ReportCard,
@@ -168,17 +172,44 @@ function iconOptions(current: string | null): Option[] {
   return options;
 }
 
-function ReportSetup() {
+function builtinTemplates(copy: { department: string; taskCategory: string; project: string }): ReportTemplate[] {
+  return reportTemplateIds.map((id) => ({
+    id: builtinTemplateIds[id],
+    organizationId: null,
+    key: id,
+    name: reportTemplateLabel(id),
+    layout: reportTemplate(id, copy),
+    baseTemplateId: null,
+    scope: "global",
+    createdAt: "",
+    updatedAt: "",
+  }));
+}
+
+function useTemplateChoices() {
   const organization = useOrganization();
+  const { department, taskCategory, project } = useLabels();
+  const builtin = useMemo(
+    () => builtinTemplates({ department, taskCategory, project }),
+    [department, taskCategory, project],
+  );
+  const templates = useQuery({
+    ...reportTemplatesQuery(organization.id),
+    placeholderData: builtin,
+  });
+  return { organization, templates, choices: templates.data?.length ? templates.data : builtin };
+}
+
+function ReportSetup() {
   const router = useRouter();
-  const templates = useQuery(reportTemplatesQuery(organization.id));
+  const { organization, choices } = useTemplateChoices();
   const [name, setName] = useState("");
   const [isDefault, setIsDefault] = useState(false);
   const [startFrom, setStartFrom] = useState("blank");
   const [error, setError] = useState<string | null>(null);
   const save = useMutation({
     mutationFn: async () => {
-      const chosen = templates.data?.find((item) => item.id === startFrom);
+      const chosen = choices.find((item) => item.id === startFrom);
       const result = await createReportAction(organization.id, {
         name,
         isDefault,
@@ -219,7 +250,7 @@ function ReportSetup() {
             onValueChange={setStartFrom}
             options={[
               { value: "blank", label: "Blank" },
-              ...(templates.data ?? []).map((item) => ({ value: item.id, label: item.name })),
+              ...choices.map((item) => ({ value: item.id, label: item.name })),
             ]}
           />
         </Field>
@@ -297,7 +328,7 @@ function ArrangeCanvas({
   const queryClient = useQueryClient();
   const { lookups } = useLookups();
   const { members } = useMembers();
-  const templates = useQuery(reportTemplatesQuery(organization.id));
+  const { choices, templates } = useTemplateChoices();
   const initialLayout = mode === "report" ? report!.layout : template!.layout;
   const initialFilters = mode === "report" ? report!.filters : {};
   const [layout, setLayout] = useState<ReportLayout>(initialLayout);
@@ -530,7 +561,7 @@ function ArrangeCanvas({
                 <DropdownMenuTrigger render={<Button type="button" variant="outline" />}>Reset</DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={() => setResetChoice("blank")}>Blank</DropdownMenuItem>
-                  {(templates.data ?? []).map((item) => (
+                  {choices.map((item) => (
                     <DropdownMenuItem key={item.id} onClick={() => setResetChoice(item)}>
                       {item.name}
                     </DropdownMenuItem>

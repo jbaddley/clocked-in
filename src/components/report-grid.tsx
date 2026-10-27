@@ -201,7 +201,6 @@ export function ReportGrid({
                 valueKey={card.valueKey}
                 format={card.format}
                 pattern={card.pattern || patternFor(card.format)}
-                configurable={editing}
                 onChartTypeChange={(chartType) =>
                   onChange?.(cards.map((item) => (item.id === card.id && item.kind === "chart" ? { ...item, chartType } : item)))
                 }

@@ -341,6 +341,13 @@ export function emptyLayout(): ReportLayout {
 export const reportTemplateIds = ["summary", "people", "groups", "staff"] as const;
 export type ReportTemplateId = (typeof reportTemplateIds)[number];
 
+export const builtinTemplateIds: Record<ReportTemplateId, string> = {
+  summary: "11111111-1111-4111-8111-111111111101",
+  people: "11111111-1111-4111-8111-111111111102",
+  groups: "11111111-1111-4111-8111-111111111103",
+  staff: "11111111-1111-4111-8111-111111111104",
+};
+
 const templateLabels: Record<ReportTemplateId, string> = {
   summary: "Summary",
   people: "People",
