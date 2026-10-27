@@ -2,6 +2,7 @@
   "name": "clocked-in",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "dev": "node scripts/with-env.mjs local -- next dev --port 3025",
     "dev:staging": "node scripts/with-env.mjs staging -- next dev --port 3025",

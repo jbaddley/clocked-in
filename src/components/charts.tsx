@@ -142,8 +142,10 @@ function ArcChart({
   const valueLabel = (value: number) => formatWithPattern(value, pattern);
 
   return (
-    <div className="flex h-full min-h-56 w-full flex-1 flex-col items-center justify-center gap-4 sm:flex-row sm:items-center">
-      <ChartContainer config={configFor(rows, colors)} className="aspect-square w-full max-w-56 shrink-0">
+    <div className="@container flex h-full min-h-0 w-full flex-1 overflow-hidden">
+      <div className="grid h-full min-h-0 w-full grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-3 @[20rem]:grid-cols-[minmax(0,1.1fr)_minmax(7rem,0.9fr)] @[20rem]:grid-rows-1">
+      <div className="relative min-h-0 min-w-0">
+      <ChartContainer config={configFor(rows, colors)} className="absolute inset-0 aspect-auto h-full w-full">
         <PieChart>
           <ChartTooltip cursor={false} content={<ValueTooltip valueKey={valueKey} pattern={pattern} />} />
           <Pie data={data} dataKey={valueKey} nameKey="id" innerRadius={donut ? "62%" : 0} strokeWidth={2}>
@@ -169,7 +171,8 @@ function ArcChart({
           </Pie>
         </PieChart>
       </ChartContainer>
-      <ul className="flex max-h-72 w-full min-w-0 flex-col gap-2 overflow-y-auto text-sm">
+      </div>
+      <ul className="flex min-h-0 w-full min-w-0 flex-col gap-2 overflow-y-auto text-sm">
         {data.map((row) => (
           <li key={row.id} className="flex items-center gap-2">
             <span className="size-2.5 shrink-0 rounded-sm" style={{ background: row.fill }} />
@@ -178,6 +181,7 @@ function ArcChart({
           </li>
         ))}
       </ul>
+      </div>
     </div>
   );
 }
@@ -202,7 +206,7 @@ function SummaryBars({
     const node = frame.current;
     if (!node) return;
 
-    const measure = () => setWidth(node.getBoundingClientRect().width);
+    const measure = () => setWidth(node.clientWidth);
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(node);
@@ -212,19 +216,18 @@ function SummaryBars({
   const data = rows.map((row, index) => ({ ...row, fill: seriesColor(colors, index) }));
   const horizontal = orientation === "horizontal";
   const valueAxisWidth = pattern.includes("$") ? 72 : 48;
-  const categoryAxisWidth = 156;
   const measured = width || 420;
+  const categoryAxisWidth = horizontal ? Math.min(156, Math.max(72, Math.round(measured * 0.34))) : 0;
   const labelWidth = horizontal
     ? categoryAxisWidth - 16
     : Math.max(36, (measured - valueAxisWidth - 24) / Math.max(data.length, 1) - 8);
   const maxLines = Math.max(1, ...data.map((row) => estimateWrappedLines(row.label, labelWidth)));
   const xAxisSpace = maxLines * 15 + 10;
-  const height = horizontal ? Math.max(200, data.length * (maxLines * 15 + 16) + 32) : 216 + xAxisSpace;
   const tickValue = (value: number) => formatWithPattern(value, pattern);
 
   return (
     <div ref={frame} className="flex h-full min-h-0 w-full flex-1 flex-col">
-      <ChartContainer config={configFor(rows, colors)} className="aspect-auto h-full w-full flex-1" style={{ minHeight: height }}>
+      <ChartContainer config={configFor(rows, colors)} className="aspect-auto h-full min-h-0 w-full flex-1">
         <BarChart
           data={data}
           layout={horizontal ? "vertical" : "horizontal"}

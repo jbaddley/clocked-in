@@ -132,3 +132,7 @@ Vercel sets `NODE_ENV=production` for both Production and Preview, so Next.js wo
 - **Preview** — the values from `.env.staging`: `APP_ENV=staging`, `DATABASE_PROVIDER=postgresql`, `API_TARGET=next`, and the staging Postgres URL. Preview is staging. A custom environment named `staging` is treated the same way.
 
 Once ClockedIn.Api is the public API and MCP host, set `CSHARP_API_URL` on Vercel to the App Service origin so the Next.js app is a BFF. Keep `JWT_SIGNING_KEY`, `JWT_ISSUER`, and `JWT_AUDIENCE` in sync. Organization and platform API keys live only on ClockedIn.Api.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
