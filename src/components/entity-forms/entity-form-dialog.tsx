@@ -40,7 +40,7 @@ export function EntityFormDialog({
             <DialogTitle>{title}</DialogTitle>
             {description ? <DialogDescription>{description}</DialogDescription> : null}
           </DialogHeader>
-          <div key={session} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <div key={session} className="-m-1 min-h-0 flex-1 overflow-y-auto overscroll-contain p-1">
             {children}
           </div>
           <DialogActionsSlot />
