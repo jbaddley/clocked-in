@@ -2,6 +2,7 @@ using System.Text.Json;
 using ClockedIn.Api.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Npgsql.NameTranslation;
 
 namespace ClockedIn.Api.Data;
@@ -930,6 +931,7 @@ public class ClockedInDbContextFactory : IDesignTimeDbContextFactory<ClockedInDb
         EfConnection.LoadEnvFile();
         var options = new DbContextOptionsBuilder<ClockedInDbContext>()
             .UseNpgsql(EfConnection.GetConnectionString(), EfConnection.MapEnums)
+            .ConfigureWarnings(warnings => warnings.Ignore(RelationalEventId.PendingModelChangesWarning))
             .Options;
         return new ClockedInDbContext(options, TimeProvider.System);
     }
