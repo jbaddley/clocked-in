@@ -2623,6 +2623,50 @@
         }
       }
     },
+    "/organizations/{id}/time-entries": {
+      "get": {
+        "tags": [
+          "ClockedIn.Api"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Limit",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Offset",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponseOfTimeEntryDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/time-entries/{id}": {
       "get": {
         "tags": [
