@@ -20,23 +20,49 @@ import { useActionMutation } from "@/hooks/use-action-mutation";
 import { useEntries } from "@/hooks/use-entries";
 import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
 import { dayLabel, formatCurrency, formatMinutes } from "@/lib/format";
-import { keys } from "@/lib/queries";
+import { keys, type EntriesListFilter } from "@/lib/queries";
 import type { Paged, TimeEntry } from "@/lib/types";
+
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function readId(search: { get: (key: string) => string | null }, key: string) {
+  const value = search.get(key);
+  return value && uuid.test(value) ? value : undefined;
+}
 
 export function EntriesView() {
   const organization = useOrganization();
-  const { viewer, isAdmin } = useWorkspace();
+  const { viewer, isAdmin, isCoordinator } = useWorkspace();
   const search = useSearchParams();
   const range = rangeFromSearch(search);
-  const person = search.get("person");
-  const unclassified = search.get("unclassified") === "1";
-  const personId = isAdmin && person ? person : viewer.id;
+  const person = readId(search, "person");
+  const canSeeOthers = isAdmin || isCoordinator;
+  const everyone = canSeeOthers && search.get("everyone") === "1" && !person;
+  const personId = everyone ? "" : person && canSeeOthers ? person : viewer.id;
+  const filter: EntriesListFilter = {
+    ...range,
+    projectId: readId(search, "projectId"),
+    taskCategoryId: readId(search, "taskCategoryId"),
+    departmentId: readId(search, "departmentId"),
+    unclassified: search.get("unclassified") === "1",
+    everyone,
+  };
   const queryClient = useQueryClient();
-  const { entries, fetchNextPage, hasNextPage, isFetchingNextPage, isPending } = useEntries(personId, range, unclassified);
+  const { entries, fetchNextPage, hasNextPage, isFetchingNextPage, isPending } = useEntries(personId, filter);
   const [pendingEdit, setPendingEdit] = useState<TimeEntry | null>(null);
   const [pendingDelete, setPendingDelete] = useState<TimeEntry | null>(null);
-  const { update } = useUrlParams({ from: range.from, to: range.to, person: personId === viewer.id ? undefined : personId });
-  const entriesKey = keys.entries(organization.id, personId, range, unclassified);
+  const urlParams = {
+    from: range.from,
+    to: range.to,
+    person: everyone ? undefined : personId === viewer.id ? undefined : personId,
+    everyone: everyone ? "1" : undefined,
+    projectId: filter.projectId,
+    taskCategoryId: filter.taskCategoryId,
+    departmentId: filter.departmentId,
+    unclassified: filter.unclassified ? "1" : undefined,
+  };
+  const { update } = useUrlParams(urlParams);
+  const entriesKey = keys.entries(organization.id, personId, filter);
 
   const remove = useActionMutation((entry: TimeEntry) => deleteEntryAction(entry.id), {
     invalidate: [keys.organization(organization.id)],
@@ -76,11 +102,18 @@ export function EntriesView() {
         }
       />
       <div className="flex flex-col gap-3 rounded-xl border bg-card p-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <DateRangeFilter range={range} params={{ person: personId === viewer.id ? undefined : personId }} />
+        <DateRangeFilter range={range} params={urlParams} />
         <div className="sm:ml-auto">
           <PersonSelect
-            value={personId}
-            onValueChange={(value) => update({ person: value === viewer.id ? undefined : value })}
+            value={everyone ? "everyone" : personId}
+            onValueChange={(value) =>
+              update(
+                value === "everyone"
+                  ? { person: undefined, everyone: "1" }
+                  : { person: value === viewer.id ? undefined : value, everyone: undefined },
+              )
+            }
+            allOption={canSeeOthers ? { value: "everyone", label: "Everyone" } : undefined}
             className="sm:w-52"
           />
         </div>

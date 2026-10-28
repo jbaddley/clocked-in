@@ -60,6 +60,7 @@ type NeedRow = {
   projectId: string | null;
   taskCategoryId: string | null;
   departmentId: string | null;
+  status: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -231,7 +232,7 @@ function needJson(need: NeedRow) {
     requiredBy: need.requiredBy ? need.requiredBy.toISOString() : null,
     allowPublic: need.allowPublic,
     requireVetting: need.requireVetting,
-    status: "status" in need ? String(need.status ?? "published") : "published",
+    status: need.status || "published",
     questions: questionsFrom(need.questions),
     projectId: need.projectId,
     taskCategoryId: need.taskCategoryId,
@@ -399,7 +400,8 @@ export async function linkGuest(db: Prisma.TransactionClient | typeof prisma, em
 
 export async function listVolunteerNeeds(access: Access, organizationId: string, params: URLSearchParams) {
   const paging = page(params);
-  if (!(await access.can(organizationId, "create_needs")) && !(await access.can(organizationId, "approve_needs"))) {
+  const canApprove = await access.can(organizationId, "approve_needs");
+  if (!(await access.can(organizationId, "create_needs")) && !canApprove) {
     await access.requireOrganization(organizationId, true);
   }
   const q = params.get("q")?.trim();
@@ -408,17 +410,32 @@ export async function listVolunteerNeeds(access: Access, organizationId: string,
   const projectId = params.get("projectId");
   const departmentId = params.get("departmentId");
   const allowPublic = params.get("allowPublic");
+  const status = params.get("status")?.trim();
   if (projectId && !/^[0-9a-f-]{36}$/i.test(projectId)) validation("projectId must be an id.");
   if (departmentId && !/^[0-9a-f-]{36}$/i.test(departmentId)) validation("departmentId must be an id.");
   if (allowPublic && allowPublic !== "true" && allowPublic !== "false") validation("allowPublic must be true or false.");
+  if (status && !["pending_approval", "published", "rejected", "draft"].includes(status)) {
+    validation("status must be pending_approval, published, rejected, or draft.");
+  }
+  const managedIds = canApprove ? [] : await access.adminDepartmentIds(organizationId);
+  const owned = canApprove
+    ? {}
+    : {
+        OR: [
+          { createdByUserId: access.actorUserId },
+          ...(managedIds.length > 0 ? [{ departmentId: { in: managedIds } }] : []),
+        ],
+      };
   const needs = await prisma.volunteerNeed.findMany({
     where: {
       organizationId,
+      ...owned,
       ...(q ? { name: { contains: q, mode: "insensitive" } } : {}),
       ...(type ? { type: needType(type) } : {}),
       ...(projectId ? { projectId } : {}),
       ...(departmentId ? { departmentId } : {}),
       ...(allowPublic ? { allowPublic: allowPublic === "true" } : {}),
+      ...(status ? { status } : {}),
     },
     orderBy: orderBy(params.get("sort"), params.get("order")),
     skip: paging.offset,

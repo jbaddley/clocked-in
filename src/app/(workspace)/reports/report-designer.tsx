@@ -1,11 +1,10 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChartColumnIcon, CircleHelpIcon, HashIcon, InboxIcon, ListIcon, XIcon, ZoomInIcon, ZoomOutIcon } from "lucide-react";
+import { ArrowLeftIcon, ChartColumnIcon, CircleHelpIcon, HashIcon, InboxIcon, ListIcon, XIcon, ZoomInIcon, ZoomOutIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { DateRangeFilter } from "@/components/date-range-filter";
 import { Field } from "@/components/field";
 import { IconPickerDialog, iconLabel } from "@/components/icon-picker-dialog";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -32,9 +31,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useLabels } from "@/hooks/use-labels";
-import { useLookups } from "@/hooks/use-lookups";
-import { useMembers } from "@/hooks/use-members";
 import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
+import { useSavedReports } from "@/hooks/use-saved-reports";
 import type { ReportTemplate } from "@/lib/api/features/report-templates";
 import type { SavedReport } from "@/lib/api/features/saved-reports";
 import { chartTypeLabel, chartTypes, paletteTypeLabel, paletteTypes } from "@/lib/chart-palette";
@@ -45,8 +43,9 @@ import {
   updateReportTemplateAction,
 } from "@/app/actions/reports";
 import { formatPatterns, formatPresetLabel } from "@/lib/number-pattern";
+import { useReport } from "@/hooks/use-report";
 import { useReportEntries, withEntries } from "@/hooks/use-report-entries";
-import { keys, reportQuery, reportTemplateQuery, reportTemplatesQuery, savedReportQuery } from "@/lib/queries";
+import { keys, reportTemplateQuery, reportTemplatesQuery, savedReportQuery } from "@/lib/queries";
 import {
   chartValueKeys,
   dashboardLayout,
@@ -68,12 +67,11 @@ import {
   valueColors,
   valueFormats,
   type ReportCard,
-  type ReportFilters,
   type ReportLayout,
   type ValueColor,
 } from "@/lib/report-layout";
 import { scalarAccessors, seriesAccessors } from "@/lib/report-path";
-import { useSavedReports } from "./report-switcher";
+import { isReportId, reportPath, slugForSavedReport, standardSlugForKey } from "@/lib/report-slug";
 import { cn } from "cn";
 
 const designerPreferencesKey = "clocked-in.report-designer";
@@ -162,13 +160,6 @@ function PreviewZoom({ zoom, onZoom }: { zoom: number; onZoom: (zoom: number) =>
   );
 }
 
-function personName(member: { user: { displayName: string | null; firstName: string | null; lastName: string | null; username: string } }) {
-  const display = member.user.displayName?.trim();
-  if (display) return display;
-  const full = [member.user.firstName, member.user.lastName].filter(Boolean).join(" ").trim();
-  return full || member.user.username;
-}
-
 function formatOptions(formats: readonly string[]) {
   return formats.map((value) => ({ value, label: formatPresetLabel(value as "number") }));
 }
@@ -230,7 +221,7 @@ function ReportSetup() {
       }
       return result.data;
     },
-    onSuccess: (saved) => router.replace(`/reports/${saved.id}/design`),
+    onSuccess: (saved) => router.replace(`/reports/${slugForSavedReport(saved.name)}/design`),
     onError: (caught) => setError(caught instanceof Error ? caught.message : "The report could not be saved."),
   });
 
@@ -277,46 +268,41 @@ function ReportSetup() {
   );
 }
 
-function useArrangeSave(
-  enabled: boolean,
-  layout: ReportLayout,
-  filters: ReportFilters,
-  save: (body: { layout: ReportLayout; filters: ReportFilters }) => Promise<void>,
-) {
-  const latest = useRef({ layout, filters, save });
+function useArrangeSave(enabled: boolean, layout: ReportLayout, save: (layout: ReportLayout) => Promise<void>) {
+  const latest = useRef({ layout, save });
   const saved = useRef<string | null>(null);
 
   useEffect(() => {
-    latest.current = { layout, filters, save };
+    latest.current = { layout, save };
   });
 
   useEffect(() => {
     if (!enabled) return;
-    const current = JSON.stringify({ layout, filters });
+    const current = JSON.stringify(layout);
     if (saved.current === null) {
       saved.current = current;
       return;
     }
     if (saved.current === current) return;
     const handle = window.setTimeout(() => {
-      const body = { layout: latest.current.layout, filters: latest.current.filters };
-      const text = JSON.stringify(body);
+      const next = latest.current.layout;
+      const text = JSON.stringify(next);
       void latest.current
-        .save(body)
+        .save(next)
         .then(() => {
           saved.current = text;
         })
         .catch(() => undefined);
     }, 400);
     return () => window.clearTimeout(handle);
-  }, [enabled, filters, layout]);
+  }, [enabled, layout]);
 
   useEffect(() => {
     return () => {
       if (!enabled || saved.current === null) return;
-      const body = { layout: latest.current.layout, filters: latest.current.filters };
-      if (JSON.stringify(body) === saved.current) return;
-      void latest.current.save(body).catch(() => undefined);
+      const next = latest.current.layout;
+      if (JSON.stringify(next) === saved.current) return;
+      void latest.current.save(next).catch(() => undefined);
     };
   }, [enabled]);
 }
@@ -334,18 +320,11 @@ function ArrangeCanvas({
 }) {
   const organization = useOrganization();
   const { isAdmin, viewer } = useWorkspace();
-  const copy = useLabels();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { lookups } = useLookups();
-  const { members } = useMembers();
   const { choices, templates } = useTemplateChoices();
   const initialLayout = mode === "report" ? report!.layout : template!.layout;
-  const initialFilters = mode === "report" ? report!.filters : {};
   const [layout, setLayout] = useState<ReportLayout>(initialLayout);
-  const [filters, setFilters] = useState<ReportFilters>(initialFilters);
-  const [filterDraft, setFilterDraft] = useState<ReportFilters>(initialFilters);
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [templateName, setTemplateName] = useState("");
@@ -362,8 +341,8 @@ function ArrangeCanvas({
   const reportIdRef = useRef(report?.id ?? "");
 
   const persist = useCallback(
-    async (body: { layout: ReportLayout; filters: ReportFilters }) => {
-      const problem = layoutError(body.layout);
+    async (nextLayout: ReportLayout) => {
+      const problem = layoutError(nextLayout);
       if (problem) {
         setError(problem);
         throw new Error(problem);
@@ -374,8 +353,8 @@ function ArrangeCanvas({
           const result = await createReportAction(organization.id, {
             name: report?.name || "Dashboard",
             isDashboard: dashboard,
-            layout: body.layout,
-            filters: body.filters,
+            layout: nextLayout,
+            filters: {},
           });
           if (!result.ok || !result.data) throw new Error(result.ok ? "The report could not be saved." : result.error);
           reportIdRef.current = result.data.id;
@@ -383,8 +362,8 @@ function ArrangeCanvas({
           await queryClient.invalidateQueries({ queryKey: keys.savedReport(organization.id, result.data.id) });
         } else {
           const result = await updateReportAction(organization.id, reportIdRef.current, {
-            layout: body.layout,
-            filters: body.filters,
+            layout: nextLayout,
+            filters: {},
           });
           if (!result.ok) throw new Error(result.error);
           await queryClient.invalidateQueries({ queryKey: keys.savedReports(organization.id) });
@@ -393,14 +372,14 @@ function ArrangeCanvas({
       } else if (template!.scope === "global" && !viewer.isSuperAdmin) {
         const result = await createReportTemplateAction(organization.id, {
           name: template!.name,
-          layout: body.layout,
+          layout: nextLayout,
           baseTemplateId: template!.id,
         });
         if (!result.ok || !result.data) throw new Error(result.ok ? "The template could not be saved." : result.error);
         await queryClient.invalidateQueries({ queryKey: keys.reportTemplates(organization.id) });
         router.replace(`/reports/templates/${result.data.id}/design`);
       } else {
-        const result = await updateReportTemplateAction(organization.id, template!.id, { layout: body.layout });
+        const result = await updateReportTemplateAction(organization.id, template!.id, { layout: nextLayout });
         if (!result.ok) throw new Error(result.error);
         await queryClient.invalidateQueries({ queryKey: keys.reportTemplates(organization.id) });
         await queryClient.invalidateQueries({ queryKey: keys.reportTemplate(organization.id, template!.id) });
@@ -411,7 +390,7 @@ function ArrangeCanvas({
     [dashboard, mode, organization.id, queryClient, report, router, template, viewer.isSuperAdmin],
   );
 
-  useArrangeSave(true, layout, filters, persist);
+  useArrangeSave(true, layout, persist);
 
   useEffect(() => {
     const frame = previewRef.current;
@@ -443,11 +422,10 @@ function ArrangeCanvas({
     return () => node.removeEventListener("wheel", onWheel);
   }, [setZoom, zoom]);
 
-  const preview = useQuery(reportQuery(organization.id, filters));
+  const preview = useReport({});
   const { entries } = useReportEntries();
   const previewData = withEntries(preview.data, entries);
   const selected = layout.cards.find((card) => card.id === selectedId) ?? null;
-  const filterCount = Object.keys(filters).length;
   const paths = selected?.kind === "value" ? scalarAccessors : seriesAccessors;
   const organizationVersion = templates.data?.find((item) => item.baseTemplateId === template?.id);
   const saveTemplate = useMutation({
@@ -465,15 +443,6 @@ function ArrangeCanvas({
     },
     onError: (caught) => setError(caught instanceof Error ? caught.message : "The template could not be saved."),
   });
-
-  function setDraftFilter(key: keyof ReportFilters, value: string) {
-    setFilterDraft((current) => {
-      const next = { ...current };
-      if (!value || value === "any") delete next[key];
-      else next[key] = value;
-      return next;
-    });
-  }
 
   function patch(id: string, change: Partial<ReportCard>) {
     setLayout((current) => ({
@@ -572,7 +541,21 @@ function ArrangeCanvas({
         <section className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border bg-card">
           <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
             <div className="min-w-0">
-              <h2 className="text-sm font-medium">Preview</h2>
+              <Link
+                href={
+                  dashboard
+                    ? "/dashboard"
+                    : mode === "template"
+                      ? reportPath(standardSlugForKey(template?.key) ?? "summary")
+                      : report?.name
+                        ? reportPath(slugForSavedReport(report.name))
+                        : "/reports"
+                }
+                className="inline-flex items-center gap-1.5 text-sm font-medium hover:underline"
+              >
+                <ArrowLeftIcon className="size-4" />
+                {dashboard ? "Dashboard" : "Reports"}
+              </Link>
               {templateNote ? <p className="text-xs text-muted-foreground">{templateNote}</p> : null}
               {mode === "template" && template?.scope === "global" && viewer.isSuperAdmin && organizationVersion ? (
                 <Link href={`/reports/templates/${organizationVersion.id}/design`} className="text-xs underline">
@@ -610,18 +593,6 @@ function ArrangeCanvas({
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
-              {mode === "report" ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setFilterDraft(filters);
-                    setFiltersOpen(true);
-                  }}
-                >
-                  {filterCount > 0 ? `Edit filters (${filterCount})` : "Add filters"}
-                </Button>
-              ) : null}
               {mode === "report" && isAdmin ? (
                 <Button type="button" variant="outline" onClick={() => setSaveTemplateOpen(true)}>
                   Save as template
@@ -691,8 +662,8 @@ function ArrangeCanvas({
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto text-sm">
             <p><span className="font-medium">Layout. </span>Drag a card to move it. Drag the top, right, bottom, or left edge to resize it. Cards cannot overlap.</p>
             <p><span className="font-medium">Cards. </span>The header icons add a value, chart, or list card. Reset replaces every card with Blank or a template after confirmation. Click a card to select it and open the card editor. The editor edits title, description, data, and format, plus color and icon for a value, chart type, palette, and value for a chart, or columns for a list. Delete removes the selected card. The close icon hides the editor; clicking a card opens it again.</p>
-            <p><span className="font-medium">Preview. </span>Zoom with the header controls, the percentage (resets to 100%), or Ctrl/Cmd + scroll over the preview. The preview uses the report filters and shows Updating while data reloads.</p>
-            <p><span className="font-medium">Report. </span>Name, default, and the starting layout are chosen before the preview opens. Filters for date range, department, task category, project, and person apply to the preview. Card, layout, and filter changes save automatically. An organization admin can save the layout as an organization template. A SuperAdmin edits a global template. An organization admin who saves a global template creates an override that replaces it for this organization.</p>
+            <p><span className="font-medium">Preview. </span>Zoom with the header controls, the percentage (resets to 100%), or Ctrl/Cmd + scroll over the preview. The preview uses all-time organization data and shows Updating while data reloads. Date range and other filters live on the report page.</p>
+            <p><span className="font-medium">Report. </span>Name, default, and the starting layout are chosen before the preview opens. Card and layout changes save automatically. An organization admin can save the layout as an organization template. A SuperAdmin edits a global template. An organization admin who saves a global template creates an override that replaces it for this organization.</p>
           </div>
           <DialogFooter showCloseButton />
         </DialogContent>
@@ -711,69 +682,6 @@ function ArrangeCanvas({
         confirmLabel="Reset"
         onConfirm={applyReset}
       />
-      {mode === "report" ? (
-        <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
-          <DialogContent className="sm:max-w-xl">
-            <DialogHeader>
-              <DialogTitle>{filterCount > 0 ? "Edit filters" : "Add filters"}</DialogTitle>
-              <DialogDescription>These filters apply to the preview and are saved with the report.</DialogDescription>
-            </DialogHeader>
-            <DateRangeFilter
-              range={{ from: filterDraft.from, to: filterDraft.to }}
-              onChange={(range) =>
-                setFilterDraft((current) => {
-                  const next = { ...current };
-                  if (range.from) next.from = range.from;
-                  else delete next.from;
-                  if (range.to) next.to = range.to;
-                  else delete next.to;
-                  return next;
-                })
-              }
-            />
-            <div className="grid gap-3 sm:grid-cols-2">
-              <SelectField
-                aria-label={copy.department}
-                value={filterDraft.departmentId ?? "any"}
-                onValueChange={(value) => setDraftFilter("departmentId", value)}
-                options={[{ value: "any", label: `Any ${copy.department.toLowerCase()}` }, ...lookups.departments.map((item) => ({ value: item.id, label: item.name }))]}
-              />
-              <SelectField
-                aria-label={copy.taskCategory}
-                value={filterDraft.taskCategoryId ?? "any"}
-                onValueChange={(value) => setDraftFilter("taskCategoryId", value)}
-                options={[{ value: "any", label: `Any ${copy.taskCategory.toLowerCase()}` }, ...lookups.categories.map((item) => ({ value: item.id, label: item.name }))]}
-              />
-              <SelectField
-                aria-label={copy.project}
-                value={filterDraft.projectId ?? "any"}
-                onValueChange={(value) => setDraftFilter("projectId", value)}
-                options={[{ value: "any", label: `Any ${copy.project.toLowerCase()}` }, ...lookups.projects.map((item) => ({ value: item.id, label: item.title }))]}
-              />
-              <SelectField
-                aria-label="Person"
-                value={filterDraft.userId ?? "any"}
-                onValueChange={(value) => setDraftFilter("userId", value)}
-                options={[{ value: "any", label: "Any person" }, ...members.map((member) => ({ value: member.userId, label: personName(member) }))]}
-              />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setFiltersOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                onClick={() => {
-                  setFilters(filterDraft);
-                  setFiltersOpen(false);
-                }}
-              >
-                Apply
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      ) : null}
       <Dialog open={saveTemplateOpen} onOpenChange={setSaveTemplateOpen}>
         <DialogContent>
           <DialogHeader>
@@ -1040,13 +948,24 @@ function CardFields({
   );
 }
 
-export function ReportDesigner({ reportId, dashboard = false }: { reportId?: string; dashboard?: boolean }) {
+export function ReportDesigner({ reportSlug, dashboard = false }: { reportSlug?: string; dashboard?: boolean }) {
   const organization = useOrganization();
+  const router = useRouter();
   const { reports, isPending } = useSavedReports();
+  const listed = reports.find(
+    (item) => item.id === reportSlug || slugForSavedReport(item.name) === reportSlug,
+  );
   const existing = useQuery({
-    ...savedReportQuery(organization.id, reportId ?? ""),
-    enabled: Boolean(reportId),
+    ...savedReportQuery(organization.id, reportSlug ?? ""),
+    enabled: Boolean(reportSlug && isReportId(reportSlug) && !listed && !isPending),
   });
+  const report = listed ?? existing.data ?? null;
+
+  useEffect(() => {
+    if (!reportSlug || !report || !isReportId(reportSlug)) return;
+    const slug = slugForSavedReport(report.name);
+    if (slug !== reportSlug) router.replace(`/reports/${slug}/design`);
+  }, [report, reportSlug, router]);
 
   if (dashboard) {
     if (isPending) return <StatsSkeleton />;
@@ -1072,13 +991,13 @@ export function ReportDesigner({ reportId, dashboard = false }: { reportId?: str
     );
   }
 
-  if (!reportId) return <ReportSetup />;
-  if (existing.isPending) return <StatsSkeleton />;
-  if (existing.isError || !existing.data) {
+  if (!reportSlug) return <ReportSetup />;
+  if ((isPending && !listed) || existing.isPending) return <StatsSkeleton />;
+  if (!report) {
     return <p className="text-sm text-muted-foreground">That report is not available.</p>;
   }
 
-  return <ArrangeCanvas key={existing.data.id} mode="report" report={existing.data} />;
+  return <ArrangeCanvas key={report.id} mode="report" report={report} />;
 }
 
 export function TemplateDesigner({ templateId }: { templateId: string }) {

@@ -126,6 +126,37 @@ describe("voluntime gaps", suite, () => {
     assert.ok(report.json.user.byProject.some((row) => row.id === "unclassified" && row.entries >= 1));
   });
 
+  test("group manager lists owned needs and admin lists all", async () => {
+    const otherGroup = await createJson(ctx.admin.accessToken, `/organizations/${ctx.org.id}/departments`, {
+      name: label("Choir"),
+    });
+    const adminNeed = await createJson(ctx.admin.accessToken, `/organizations/${ctx.org.id}/volunteer-needs`, {
+      name: label("Choir need"),
+      type: "Task",
+      countNeeded: 1,
+      departmentId: otherGroup.id,
+    });
+    const mine = await createJson(ctx.coordinator.accessToken, `/organizations/${ctx.org.id}/volunteer-needs`, {
+      name: label("Symphony need"),
+      type: "Task",
+      countNeeded: 1,
+      departmentId: ctx.groupA.id,
+    });
+    const listed = await callApi(`/organizations/${ctx.org.id}/volunteer-needs?limit=100`, {
+      token: ctx.coordinator.accessToken,
+    });
+    assert.equal(listed.status, 200, listed.text);
+    const ids = listed.json.items.map((item) => item.id);
+    assert.ok(ids.includes(mine.id));
+    assert.equal(ids.includes(adminNeed.id), false);
+    const adminListed = await callApi(`/organizations/${ctx.org.id}/volunteer-needs?limit=100`, {
+      token: ctx.admin.accessToken,
+    });
+    const adminIds = adminListed.json.items.map((item) => item.id);
+    assert.ok(adminIds.includes(mine.id));
+    assert.ok(adminIds.includes(adminNeed.id));
+  });
+
   test("a group manager can list and create needs", async () => {
     const listed = await callApi(`/organizations/${ctx.org.id}/volunteer-needs`, { token: ctx.coordinator.accessToken });
     assert.equal(listed.status, 200, listed.text);

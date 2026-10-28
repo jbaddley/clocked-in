@@ -44,6 +44,7 @@ if (!body) {
 }
 
 const document = JSON.parse(body);
+document.servers = [{ url: "/" }];
 await mkdir(path.dirname(out), { recursive: true });
 await writeFile(out, `${JSON.stringify(document, null, 2)}\n`);
 console.log(`Wrote ${out} (${Object.keys(document.paths ?? {}).length} paths)`);

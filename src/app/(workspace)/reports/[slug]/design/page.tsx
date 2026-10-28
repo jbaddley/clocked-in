@@ -6,12 +6,12 @@ import { ReportDesigner } from "../../report-designer";
 export const metadata: Metadata = { title: "Design report" };
 export const instant = false;
 
-export default async function DesignReportPage({ params }: { params: Promise<{ reportId: string }> }) {
-  const { reportId } = await params;
+export default async function DesignReportPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
   return (
     <Suspense>
       <ReportAccess admin>
-        <ReportDesigner reportId={reportId} />
+        <ReportDesigner reportSlug={slug} />
       </ReportAccess>
     </Suspense>
   );

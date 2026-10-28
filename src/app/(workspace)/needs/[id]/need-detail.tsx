@@ -19,6 +19,7 @@ import { Field } from "@/components/field";
 import { PageHeader } from "@/components/page-header";
 import { PageSkeleton } from "@/components/skeletons";
 import { SubmitButton } from "@/components/submit-button";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -26,6 +27,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useActionMutation } from "@/hooks/use-action-mutation";
 import { useClientRedirect } from "@/hooks/use-client-redirect";
 import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
+import { needStatusLabel, needStatusVariant } from "@/lib/need-status";
 import { keys, needQuery, signupsQuery } from "@/lib/queries";
 import type { VolunteerSignup } from "@/lib/types";
 
@@ -89,8 +91,11 @@ export function NeedDetail({ needId }: { needId: string }) {
         }
       />
       <h1 className="mb-1 font-heading text-2xl font-semibold">{item.name}</h1>
-      <p className="mb-4 text-sm text-muted-foreground">
-        {item.type} · {item.countVetted} of {item.countNeeded} vetted · {item.requireVetting ? "Vetting required" : "Correct answers are vetted automatically"}
+      <p className="mb-4 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+        <Badge variant={needStatusVariant(item.status)}>{needStatusLabel(item.status)}</Badge>
+        <span>
+          {item.type} · {item.countVetted} of {item.countNeeded} vetted · {item.requireVetting ? "Vetting required" : "Correct answers are vetted automatically"}
+        </span>
       </p>
       {share ? (
         <p className="mb-6 text-sm">

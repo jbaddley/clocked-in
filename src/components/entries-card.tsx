@@ -16,12 +16,14 @@ export function EntriesCard({
   rows,
   limit = entriesLimitDefault,
   className,
+  href = "/entries",
 }: {
   title: string;
   description?: string;
   rows?: TimeEntry[];
   limit?: number;
   className?: string;
+  href?: string;
 }) {
   const entries = (rows ?? []).slice(0, limit);
 
@@ -31,7 +33,7 @@ export function EntriesCard({
         <CardTitle>{title}</CardTitle>
         {description ? <CardDescription>{description}</CardDescription> : null}
         <CardAction>
-          <Link href="/entries" className={buttonVariants({ variant: "ghost", size: "sm" })}>
+          <Link href={href} className={buttonVariants({ variant: "ghost", size: "sm" })}>
             View all
           </Link>
         </CardAction>

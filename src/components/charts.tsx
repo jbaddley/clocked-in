@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Bar, BarChart, CartesianGrid, Cell, Label, Pie, PieChart, Text, XAxis, YAxis } from "recharts";
 import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart";
 import { seriesColor, type ChartType } from "@/lib/chart-palette";
@@ -100,15 +102,19 @@ export function ChartPlot({
   colors,
   valueKey = "hours",
   pattern,
+  rowHref,
 }: {
   rows: ReportGroup[];
   chartType: ChartType;
   colors: string[];
   valueKey?: "hours" | "inKind";
   pattern: string;
+  rowHref?: (row: ReportGroup) => string;
 }) {
   if (chartType === "donut" || chartType === "pie") {
-    return <ArcChart rows={rows} colors={colors} valueKey={valueKey} pattern={pattern} donut={chartType === "donut"} />;
+    return (
+      <ArcChart rows={rows} colors={colors} valueKey={valueKey} pattern={pattern} donut={chartType === "donut"} rowHref={rowHref} />
+    );
   }
 
   return (
@@ -118,6 +124,7 @@ export function ChartPlot({
       valueKey={valueKey}
       pattern={pattern}
       orientation={chartType === "bar" ? "horizontal" : "vertical"}
+      rowHref={rowHref}
     />
   );
 }
@@ -128,13 +135,16 @@ function ArcChart({
   valueKey,
   pattern,
   donut,
+  rowHref,
 }: {
   rows: ReportGroup[];
   colors: string[];
   valueKey: "hours" | "inKind";
   pattern: string;
   donut: boolean;
+  rowHref?: (row: ReportGroup) => string;
 }) {
+  const router = useRouter();
   const data = rows.map((row, index) => ({ ...row, fill: seriesColor(colors, index) }));
   const total = data.reduce((sum, row) => sum + row[valueKey], 0);
   const totalLabel = formatWithPattern(total, pattern);
@@ -150,7 +160,15 @@ function ArcChart({
           <ChartTooltip cursor={false} content={<ValueTooltip valueKey={valueKey} pattern={pattern} />} />
           <Pie data={data} dataKey={valueKey} nameKey="id" innerRadius={donut ? "62%" : 0} strokeWidth={2}>
             {data.map((row) => (
-              <Cell key={row.id} fill={row.fill} />
+              <Cell
+                key={row.id}
+                fill={row.fill}
+                cursor={rowHref ? "pointer" : undefined}
+                onClick={() => {
+                  const href = rowHref?.(row);
+                  if (href) router.push(href);
+                }}
+              />
             ))}
             {donut ? (
               <Label
@@ -173,13 +191,27 @@ function ArcChart({
       </ChartContainer>
       </div>
       <ul className="flex min-h-0 w-full min-w-0 flex-col gap-2 overflow-y-auto text-sm">
-        {data.map((row) => (
-          <li key={row.id} className="flex items-center gap-2">
-            <span className="size-2.5 shrink-0 rounded-sm" style={{ background: row.fill }} />
-            <span className="min-w-0 flex-1 truncate">{row.label}</span>
-            <span className="text-muted-foreground tabular-nums">{valueLabel(row[valueKey])}</span>
-          </li>
-        ))}
+        {data.map((row) => {
+          const href = rowHref?.(row);
+          const inner = (
+            <>
+              <span className="size-2.5 shrink-0 rounded-sm" style={{ background: row.fill }} />
+              <span className="min-w-0 flex-1 truncate">{row.label}</span>
+              <span className="text-muted-foreground tabular-nums">{valueLabel(row[valueKey])}</span>
+            </>
+          );
+          return (
+            <li key={row.id}>
+              {href ? (
+                <Link href={href} className="flex items-center gap-2 hover:underline">
+                  {inner}
+                </Link>
+              ) : (
+                <div className="flex items-center gap-2">{inner}</div>
+              )}
+            </li>
+          );
+        })}
       </ul>
       </div>
     </div>
@@ -192,13 +224,16 @@ function SummaryBars({
   valueKey = "hours",
   pattern,
   orientation = "horizontal",
+  rowHref,
 }: {
   rows: ReportGroup[];
   colors: string[];
   valueKey?: "hours" | "inKind";
   pattern: string;
   orientation?: "horizontal" | "vertical";
+  rowHref?: (row: ReportGroup) => string;
 }) {
+  const router = useRouter();
   const frame = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
 
@@ -274,7 +309,15 @@ function SummaryBars({
           <ChartTooltip cursor={false} content={<ValueTooltip valueKey={valueKey} pattern={pattern} />} />
           <Bar dataKey={valueKey} radius={6} maxBarSize={28}>
             {data.map((row) => (
-              <Cell key={row.id} fill={row.fill} />
+              <Cell
+                key={row.id}
+                fill={row.fill}
+                cursor={rowHref ? "pointer" : undefined}
+                onClick={() => {
+                  const href = rowHref?.(row);
+                  if (href) router.push(href);
+                }}
+              />
             ))}
           </Bar>
         </BarChart>

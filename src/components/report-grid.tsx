@@ -10,7 +10,8 @@ import { ReportGridItem } from "@/components/report-grid-item";
 import { ValueCard } from "@/components/value-card";
 import { reflowAfterDrop, resolveMoveTarget, type MoveTarget } from "@/lib/report-drag";
 import { patternFor } from "@/lib/number-pattern";
-import { collides, reportColumnCount, reportMaxRow, type ReportCard } from "@/lib/report-layout";
+import { entriesHrefFromAccessor } from "@/lib/entries-href";
+import { collides, reportColumnCount, reportMaxRow, type ReportCard, type ReportFilters } from "@/lib/report-layout";
 
 export const reportGridGap = 12;
 export const reportRowHeight = 112;
@@ -77,7 +78,13 @@ function cardBody(
   card: ReportCard,
   cards: ReportCard[],
   onChange?: (cards: ReportCard[]) => void,
+  drilldown?: { filters?: ReportFilters; enabled?: boolean },
 ): ReactElement {
+  const href = drilldown?.enabled === false ? undefined : entriesHrefFromAccessor(card.accessor, { filters: drilldown?.filters });
+  const rowHref =
+    drilldown?.enabled === false
+      ? undefined
+      : (row: { id: string }) => entriesHrefFromAccessor(card.accessor, { filters: drilldown?.filters, rowId: row.id });
   if (card.kind === "value") {
     return (
       <ValueCard
@@ -86,6 +93,7 @@ function cardBody(
         color={card.color}
         pattern={card.pattern || patternFor(card.format)}
         icon={card.icon}
+        href={href}
       />
     );
   }
@@ -101,12 +109,13 @@ function cardBody(
         sortKey={card.sortKey}
         sortDir={card.sortDir}
         limit={card.limit}
+        rowHref={rowHref}
       />
     );
   }
 
   if (card.kind === "entries") {
-    return <EntriesCard title={card.title} description={card.description || undefined} limit={card.limit} />;
+    return <EntriesCard title={card.title} description={card.description || undefined} limit={card.limit} href={href} />;
   }
 
   return (
@@ -120,6 +129,8 @@ function cardBody(
       valueKey={card.valueKey}
       format={card.format}
       pattern={card.pattern || patternFor(card.format)}
+      href={href}
+      rowHref={rowHref}
       onChartTypeChange={(chartType) =>
         onChange?.(cards.map((item) => (item.id === card.id && item.kind === "chart" ? { ...item, chartType } : item)))
       }
@@ -138,6 +149,7 @@ export function ReportGrid({
   selectedId,
   onSelect,
   onChange,
+  filters,
 }: {
   cards: ReportCard[];
   data: unknown;
@@ -146,6 +158,7 @@ export function ReportGrid({
   selectedId?: string | null;
   onSelect?: (id: string) => void;
   onChange?: (cards: ReportCard[]) => void;
+  filters?: ReportFilters;
 }) {
   const [draft, setDraft] = useState<ReportCard[] | null>(null);
   const [lift, setLift] = useState<Lift | null>(null);
@@ -304,7 +317,7 @@ export function ReportGrid({
         height: lift.height,
       }}
     >
-      {cardBody(dragged, cards, onChange)}
+      {cardBody(dragged, cards, onChange, { filters, enabled: !editing })}
     </ReportGridItem>
   ) : null;
 
@@ -337,7 +350,7 @@ export function ReportGrid({
             selected={selectedId === card.id}
             title={card.title}
           >
-            {cardBody(card, cards, onChange)}
+            {cardBody(card, cards, onChange, { filters, enabled: !editing })}
           </ReportGridItem>
         ))}
         {target && dragged ? (

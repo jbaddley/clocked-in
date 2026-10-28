@@ -62,7 +62,11 @@ test("coordinator logs for a group member and sees only that group on Reports", 
   await expect(page.getByText("Time saved.")).toBeVisible();
 
   await page.goto("/reports");
+  await expect(page).toHaveURL(/\/reports\/[^/]+/);
   await expect(page.getByRole("heading", { name: "Reports" })).toBeVisible();
+  await page.getByRole("button", { name: "Reports menu" }).click();
+  await expect(page.getByRole("menuitem", { name: "Summary" })).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(page.getByText(department.name)).toBeVisible();
   const other = catalog.departments.find((item) => item.id !== department.id);
   if (other) {

@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useOrganization } from "@/hooks/use-workspace";
-import { apiGroups, defaultOperationId, type ApiOperation } from "@/lib/developer/api-catalog";
+import { apiGroups, defaultOperationId, type ApiContract, type ApiOperation } from "@/lib/developer/api-catalog";
 import { cn } from "cn";
 
 const methodVariant = {
@@ -26,6 +26,32 @@ function organizationValue(operation: ApiOperation, organizationId: string, name
     return organizationId;
   }
   return "";
+}
+
+function ContractList({ heading, contracts }: { heading: string; contracts: ApiContract[] }) {
+  return (
+    <div className="flex flex-col gap-4">
+      {contracts.map((contract, index) => (
+        <div key={`${heading}-${contract.name}-${index}`} className="flex flex-col gap-2">
+          <p className="font-mono text-xs font-medium">
+            {heading}
+            {contract.name === heading ? "" : ` · ${contract.name}`}
+          </p>
+          <ul className="divide-y rounded-lg border">
+            {contract.fields.map((field) => (
+              <li key={field.name} className="flex flex-wrap items-baseline justify-between gap-2 px-3 py-2">
+                <span className="font-mono text-xs">{field.name}</span>
+                <span className="text-xs text-muted-foreground">
+                  {field.type}
+                  {field.required ? "" : " · optional"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function initialValues(operation: ApiOperation, organizationId: string) {
@@ -198,7 +224,7 @@ export function ApiView() {
             </CardTitle>
             <CardDescription>
               {operation.acceptsBody
-                ? "Write requests take a JSON object. The response contract is listed below."
+                ? "Write requests take a JSON object. Request and response contracts are listed below."
                 : "This request has no body. The response contract is listed below."}
             </CardDescription>
           </CardHeader>
@@ -226,7 +252,7 @@ export function ApiView() {
               </div>
             ) : null}
             {operation.acceptsBody ? (
-              <Field label="Request body" htmlFor={`${operation.id}-body`} hint="Leave empty when this route does not need a body.">
+              <Field label="Request body" htmlFor={`${operation.id}-body`} hint="JSON matching the request contract.">
                 <Textarea
                   id={`${operation.id}-body`}
                   value={body}
@@ -261,25 +287,11 @@ export function ApiView() {
                 </pre>
               </div>
             ) : null}
+            {operation.requestContracts.length ? (
+              <ContractList heading="Request" contracts={operation.requestContracts} />
+            ) : null}
             {operation.contracts.length ? (
-              <div className="flex flex-col gap-4">
-                {operation.contracts.map((contract) => (
-                  <div key={contract.name} className="flex flex-col gap-2">
-                    <p className="font-mono text-xs font-medium">{contract.name}</p>
-                    <ul className="divide-y rounded-lg border">
-                      {contract.fields.map((field) => (
-                        <li key={field.name} className="flex flex-wrap items-baseline justify-between gap-2 px-3 py-2">
-                          <span className="font-mono text-xs">{field.name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {field.type}
-                            {field.required ? "" : " · optional"}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
+              <ContractList heading="Response" contracts={operation.contracts} />
             ) : (
               <p className="text-sm text-muted-foreground">This response has no JSON body.</p>
             )}

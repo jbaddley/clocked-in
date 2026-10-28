@@ -26,6 +26,7 @@ export function PersonSelect({
   excludeSelf = false,
   activeOnly = false,
   placeholder,
+  allOption,
 }: {
   value: string;
   onValueChange: (userId: string) => void;
@@ -33,6 +34,7 @@ export function PersonSelect({
   excludeSelf?: boolean;
   activeOnly?: boolean;
   placeholder?: string;
+  allOption?: { value: string; label: string };
 }) {
   const { viewer, isAdmin, isCoordinator, groupDepartments } = useWorkspace();
   const canPick = canLogMemberTime(isAdmin, groupDepartments);
@@ -53,6 +55,9 @@ export function PersonSelect({
   });
   if (!excludeSelf && !activeOnly && !options.some((option) => option.value === viewer.id)) {
     options.unshift({ value: viewer.id, label: `${viewer.username} (you)` });
+  }
+  if (allOption && !options.some((option) => option.value === allOption.value)) {
+    options.unshift(allOption);
   }
 
   return (

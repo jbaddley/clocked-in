@@ -618,8 +618,16 @@ export async function listTimeEntries(access: Access, userId: string, params: UR
     and.push({ organizationId });
   }
 
+  const projectId = queryUuid(params, "projectId");
+  const taskCategoryId = queryUuid(params, "taskCategoryId");
   if (departmentId !== undefined) {
     and.push({ departmentId });
+  }
+  if (projectId !== undefined) {
+    and.push({ projectId });
+  }
+  if (taskCategoryId !== undefined) {
+    and.push({ taskCategoryId });
   }
 
   if (from !== undefined) {
@@ -648,6 +656,9 @@ export async function listOrganizationTimeEntries(access: Access, organizationId
   const paging = page(params);
   await access.requireOrganization(organizationId, false);
   const departmentId = queryUuid(params, "departmentId");
+  const projectId = queryUuid(params, "projectId");
+  const taskCategoryId = queryUuid(params, "taskCategoryId");
+  const userId = queryUuid(params, "userId");
   const from = queryDate(params, "from");
   const to = queryDate(params, "to");
   const and: Prisma.UserTimeEntryWhereInput[] = [];
@@ -666,6 +677,15 @@ export async function listOrganizationTimeEntries(access: Access, organizationId
   }
   if (departmentId !== undefined) {
     and.push({ departmentId });
+  }
+  if (projectId !== undefined) {
+    and.push({ projectId });
+  }
+  if (taskCategoryId !== undefined) {
+    and.push({ taskCategoryId });
+  }
+  if (userId !== undefined) {
+    and.push({ userId });
   }
   if (from !== undefined) {
     and.push({ occurredOn: { gte: from } });
