@@ -15,12 +15,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { useActionMutation } from "@/hooks/use-action-mutation";
 import { useClientRedirect } from "@/hooks/use-client-redirect";
-import { useLookups } from "@/hooks/use-lookups";
 import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
 import { connectionPersonName, memberRelationships, relationshipFor } from "@/lib/member-connection";
 import { connectionsQuery, keys } from "@/lib/queries";
 import { canLogConnectionTime } from "@/lib/roles";
-import { SetupAlert } from "../setup-alert";
 
 const relationshipOptions = memberRelationships.map((relationship) => ({ value: relationship, label: relationship }));
 
@@ -35,7 +33,6 @@ export function ConnectionsTimeView() {
     connectionCount: connections.data?.length ?? 0,
   });
   useClientRedirect(!connections.isPending && !canLog, "/log/own");
-  const { lookups, isSuccess } = useLookups();
   const [adding, setAdding] = useState(false);
   const canAdd = role === "VOLUNTEER" && organization.preferences.allowVolunteersToAddVolunteers;
   if (!canLog && connections.isPending) return null;
@@ -47,14 +44,9 @@ export function ConnectionsTimeView() {
     const relationship = relationshipFor(connection, viewer.id);
     return [{ userId: person.id, label: `${connectionPersonName(person)} (${relationship})` }];
   });
-  const missingProject = isSuccess && lookups.projects.length === 0;
-  const missingCategory = isSuccess && lookups.categories.length === 0;
 
   return (
     <div className="flex flex-col gap-6">
-      {missingProject || missingCategory ? (
-        <SetupAlert isAdmin={isAdmin} missingProject={missingProject} missingCategory={missingCategory} action="save time" />
-      ) : null}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

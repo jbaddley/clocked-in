@@ -325,7 +325,7 @@ export function TimeEntryForm({
       className="flex flex-col gap-4"
       onSubmit={(event) => {
         event.preventDefault();
-        if (!entry && (!placement.ready || (showPerson && !selectedPersonId))) return;
+        if (!entry && showPerson && !selectedPersonId) return;
         const base = placement.placement(notes);
         if (entry) {
           const times = timePatch();
@@ -568,7 +568,7 @@ export function TimeEntryForm({
         {!canEditTimes && !punch ? (
           <p className="col-span-full text-sm text-muted-foreground">Times stay as saved until an admin allows time entry editing.</p>
         ) : null}
-        <PlacementFields state={placement} embedded />
+        <PlacementFields state={placement} embedded optional />
       </div>
       <Field label="Notes" htmlFor={`${idPrefix}-notes`}>
         <Textarea
@@ -587,7 +587,7 @@ export function TimeEntryForm({
         ) : null}
         <SubmitButton
           pending={entry ? update.isPending : create.isPending}
-          disabled={(!entry && !placement.ready) || (showPerson && !selectedPersonId)}
+          disabled={showPerson && !selectedPersonId}
         >
           {submitLabel ?? (entry ? "Save" : extraDates.length > 0 ? `Save ${extraDates.length + 1} days` : "Save time")}
         </SubmitButton>

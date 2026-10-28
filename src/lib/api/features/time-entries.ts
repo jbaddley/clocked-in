@@ -237,11 +237,11 @@ export type EntryPlacement = {
   sourceRef: string | null;
 };
 
-function parsePlacement(body: Body, required: boolean): EntryPlacement {
+function parsePlacement(body: Body): EntryPlacement {
   const organizationId = requireUuid(body, "organizationId");
   const departmentId = optionalUuid(body, "departmentId");
-  const projectId = required ? requireUuid(body, "projectId") : optionalUuid(body, "projectId");
-  const taskCategoryId = required ? requireUuid(body, "taskCategoryId") : optionalUuid(body, "taskCategoryId");
+  const projectId = optionalUuid(body, "projectId");
+  const taskCategoryId = optionalUuid(body, "taskCategoryId");
   const entryDescription = optionalDescription(body);
   const tagIds = ids(body, "tagIds", true);
   return {
@@ -274,7 +274,7 @@ function parseCreate(body: Body, fixedMode: Mode | null): CreateTimeEntryRequest
     mode = value;
   }
 
-  const placement = parsePlacement(body, mode !== "Punch");
+  const placement = parsePlacement(body);
   const hourlyRateId = has(body, "hourlyRateId") ? optionalUuid(body, "hourlyRateId") : null;
   if (mode === "Punch") {
     return { mode, placement, punch: parsePunchFields(body), times: null, hourlyRateId };
@@ -370,7 +370,7 @@ export function parseLogTotal(body: Body) {
 
 export function parseClockIn(body: Body) {
   return {
-    placement: parsePlacement(body, false),
+    placement: parsePlacement(body),
     hourlyRateId: has(body, "hourlyRateId") ? optionalUuid(body, "hourlyRateId") : null,
     userId: has(body, "userId") ? optionalUuid(body, "userId") : null,
   };
@@ -399,8 +399,8 @@ export function parseClockOut(body: Body): ClockOutRequest {
 export type UpdateTimeEntryRequest = {
   organizationId: Optional<string>;
   departmentId: Optional<string | null>;
-  projectId: Optional<string>;
-  taskCategoryId: Optional<string>;
+  projectId: Optional<string | null>;
+  taskCategoryId: Optional<string | null>;
   hourlyRateId: Optional<string | null>;
   description: Optional<string | null>;
   tagIds: Optional<string[]>;
@@ -411,8 +411,8 @@ export function parseUpdateTimeEntry(body: Body): UpdateTimeEntryRequest {
   return {
     organizationId: optional(body, "organizationId", requireUuid),
     departmentId: optional(body, "departmentId", optionalUuid),
-    projectId: optional(body, "projectId", requireUuid),
-    taskCategoryId: optional(body, "taskCategoryId", requireUuid),
+    projectId: optional(body, "projectId", optionalUuid),
+    taskCategoryId: optional(body, "taskCategoryId", optionalUuid),
     hourlyRateId: optional(body, "hourlyRateId", optionalUuid),
     description: optional(body, "description", (b, k) => description(optionalString(b, k))),
     tagIds: optional(body, "tagIds", (b, k) => ids(b, k, false)),
@@ -772,9 +772,6 @@ export async function updateTimeEntry(access: Access, entryId: string, request: 
   const taskCategoryId = or(request.taskCategoryId, existing.taskCategoryId);
   await assertCanWriteUserEntry(access, existing.userId, organizationId, departmentId);
   await assertLogTarget(access, existing.userId, organizationId, departmentId);
-  if (existing.mode !== "Punch" && (!projectId || !taskCategoryId)) {
-    validation("projectId and taskCategoryId are required.");
-  }
   if (projectId) await assertProject(access, existing.userId, organizationId, departmentId, projectId);
   if (taskCategoryId) await assertTaskCategory(organizationId, taskCategoryId);
   const tagIds = request.tagIds.set ? await tagIdsFor(organizationId, request.tagIds.value) : null;

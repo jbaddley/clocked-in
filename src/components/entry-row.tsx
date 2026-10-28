@@ -30,7 +30,7 @@ export function EntryRow({
   onDelete?: (entry: TimeEntry) => void;
 }) {
   const { names } = useLookups();
-  const project = names.project.get(entry.projectId) ?? "Project";
+  const project = names.project.get(entry.projectId) ?? "Unclassified";
   const category = names.category.get(entry.taskCategoryId);
   const open = entry.durationMinutes === null;
   const when = entry.startedAt

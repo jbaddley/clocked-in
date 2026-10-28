@@ -19,25 +19,11 @@ import { dayLabel, formatClock, formatMinutes, formatTime } from "@/lib/format";
 import type { DateRange, TimeEntry } from "@/lib/types";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { UnclassifiedBanner } from "@/components/unclassified-banner";
-import { SetupAlert } from "../setup-alert";
 
 export function OwnTimeView({ range }: { range: DateRange }) {
-  const { isAdmin } = useWorkspace();
-  const { lookups, isSuccess } = useLookups();
-  const missingProject = isSuccess && lookups.projects.length === 0;
-  const missingCategory = isSuccess && lookups.categories.length === 0;
-
   return (
     <div className="flex flex-col gap-6">
       <UnclassifiedBanner />
-      {missingProject || missingCategory ? (
-        <SetupAlert
-          isAdmin={isAdmin}
-          missingProject={missingProject}
-          missingCategory={missingCategory}
-          action="start a timer or save time"
-        />
-      ) : null}
       <TimerCard />
       <ManualEntryCard />
       <EntriesCard range={range} />
@@ -105,7 +91,7 @@ function TimerCard() {
         </div>
       </form>
       <div className="border-t bg-muted/30 p-4">
-        <PlacementFields state={placement} compact />
+        <PlacementFields state={placement} compact optional />
       </div>
       <ConfirmDialog
         open={confirming}

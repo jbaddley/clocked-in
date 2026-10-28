@@ -87,8 +87,8 @@ export async function createDayEntriesAction(
 
 export type EntryPatch = {
   departmentId?: string | null;
-  projectId?: string;
-  taskCategoryId?: string;
+  projectId?: string | null;
+  taskCategoryId?: string | null;
   description?: string | null;
   tagIds?: string[];
   occurredOn?: string;

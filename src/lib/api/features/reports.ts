@@ -456,10 +456,10 @@ export async function csv(access: Access, organizationId: string, params: URLSea
   for (const entry of entries) {
     const cells = [
       sheetDate(entry.occurredOn),
-      entry.project.title,
+      entry.project?.title ?? "",
       personLabel(entry.user),
       entry.department?.name ?? entry.organization.name,
-      entry.taskCategory.name,
+      entry.taskCategory?.name ?? "",
       entryMethod(entry.mode, entry.startedAt, entry.endedAt),
       sheetTime(entry.startedAt),
       sheetTime(entry.endedAt),
