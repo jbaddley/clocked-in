@@ -39,7 +39,7 @@ const viewCopy: Record<string, RegExp | string> = {
   "/log/member": "Add time for a member",
   "/log/group": "Record a session",
   "/entries": "All time",
-  "/reports": "Volunteer Log",
+  "/reports": "All time",
   "/settings": "Hourly rates",
   "/about-prototype": "How this app works",
   "/settings/organization": "Hourly rates",

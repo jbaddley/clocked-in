@@ -1,7 +1,8 @@
 # Docs
 
-- [VolunTime requirements and feedback audit](voluntime-audit.md) — current status vs the Oct 15 brief and Dillon’s Oct 27 feedback, remaining gaps, and answers to his questions.
-- [Original goals assessment](original-goals-assessment.md) — Oct 21 snapshot against the brief. Superseded for current status.
+- [VolunTime review for Dillon](voluntime-review-october-2026.md) — shareable score against the Oct 15 brief and the Oct 27 letter, including answers to the five questions.
+- [VolunTime requirements and feedback audit](voluntime-audit.md) — internal status notes vs the same sources.
+- [Original goals assessment](original-goals-assessment.md) — Oct 21 snapshot against the brief. Historical only.
 - [HTTP contract](api/http.md) — shared Next.js and ClockedIn.Api API.
 - [Domain schema](schema/domain.md) — entities, roles, rates, and time modes.
 - [CASWJ portal runbook](ops/caswj-portal.md) — subdomain install, ownership, and DNS.

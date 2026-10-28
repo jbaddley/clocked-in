@@ -62,6 +62,9 @@ public readonly record struct SaveReportTemplateBody(string? Name, JsonElement L
         var layout = body.TryGetProperty("layout", out var layoutValue) ? layoutValue : default;
         return new SaveReportTemplateBody(name, layout, baseTemplateId);
     }
+
+    public static async ValueTask<SaveReportTemplateBody> BindAsync(HttpContext context) =>
+        Read(JsonSerializer.SerializeToElement(await Body.Read(context)));
 }
 
 public sealed class ReportTemplatesService(ClockedInDbContext db, Access access, TimeProvider time)
@@ -305,12 +308,12 @@ public static class ReportTemplateEndpoints
         var templates = app.MapGroup("/organizations/{id:guid}/report-templates").RequireAuthorization();
         templates.MapGet("", async Task<Ok<ListResponse<ReportTemplateDto>>> (Guid id, [AsParameters] PageQuery query, ReportTemplatesService service, CancellationToken ct) =>
             TypedResults.Ok(await service.List(id, query, ct)));
-        templates.MapPost("", async Task<Ok<ReportTemplateDto>> (Guid id, JsonElement body, ReportTemplatesService service, CancellationToken ct) =>
-            TypedResults.Ok(await service.Create(id, SaveReportTemplateBody.Read(body), ct)));
+        templates.MapPost("", async Task<Ok<ReportTemplateDto>> (Guid id, SaveReportTemplateBody body, ReportTemplatesService service, CancellationToken ct) =>
+            TypedResults.Ok(await service.Create(id, body, ct)));
         templates.MapGet("/{templateId:guid}", async Task<Ok<ReportTemplateDto>> (Guid id, Guid templateId, ReportTemplatesService service, CancellationToken ct) =>
             TypedResults.Ok(await service.Get(id, templateId, ct)));
-        templates.MapPatch("/{templateId:guid}", async Task<Ok<ReportTemplateDto>> (Guid id, Guid templateId, JsonElement body, ReportTemplatesService service, CancellationToken ct) =>
-            TypedResults.Ok(await service.Update(id, templateId, SaveReportTemplateBody.Read(body), ct)));
+        templates.MapPatch("/{templateId:guid}", async Task<Ok<ReportTemplateDto>> (Guid id, Guid templateId, SaveReportTemplateBody body, ReportTemplatesService service, CancellationToken ct) =>
+            TypedResults.Ok(await service.Update(id, templateId, body, ct)));
         templates.MapDelete("/{templateId:guid}", async Task<NoContent> (Guid id, Guid templateId, ReportTemplatesService service, CancellationToken ct) =>
         {
             await service.Delete(id, templateId, ct);

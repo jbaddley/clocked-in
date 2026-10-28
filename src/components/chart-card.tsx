@@ -48,6 +48,8 @@ export function ChartCard({
   empty = "No hours in this range.",
   className,
   configurable = true,
+  href,
+  rowHref,
   onChartTypeChange,
   onPaletteChange,
 }: {
@@ -62,6 +64,8 @@ export function ChartCard({
   empty?: string;
   className?: string;
   configurable?: boolean;
+  href?: string;
+  rowHref?: (row: ReportGroup) => string;
   onChartTypeChange?: (chartType: ChartType) => void;
   onPaletteChange?: (palette: PaletteType) => void;
 }) {
@@ -78,9 +82,13 @@ export function ChartCard({
     <Card className={cn("h-full min-h-64 w-full", className)}>
       <CardHeader>
         <CardTitle>
-          <Link href="/entries" className="hover:underline">
-            {title}
-          </Link>
+          {href ? (
+            <Link href={href} className="hover:underline">
+              {title}
+            </Link>
+          ) : (
+            title
+          )}
         </CardTitle>
         {description ? <CardDescription>{description}</CardDescription> : null}
         {configurable ? (
@@ -139,7 +147,14 @@ export function ChartCard({
       </CardHeader>
       <CardContent className="flex min-h-64 flex-1 flex-col">
         {rows.length ? (
-          <ChartPlot rows={rows} chartType={chartType} colors={colors} valueKey={valueKey} pattern={pattern ?? patternFor(format)} />
+          <ChartPlot
+            rows={rows}
+            chartType={chartType}
+            colors={colors}
+            valueKey={valueKey}
+            pattern={pattern ?? patternFor(format)}
+            rowHref={rowHref}
+          />
         ) : (
           <p className="text-sm text-muted-foreground">{empty}</p>
         )}

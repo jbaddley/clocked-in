@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { cn } from "cn";
 import { DataTable, type Column } from "@/components/data-table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +23,7 @@ export function GroupTable({
   sortDir,
   limit,
   className,
+  rowHref,
 }: {
   title: string;
   description?: string;
@@ -32,7 +34,9 @@ export function GroupTable({
   sortDir?: ListSortDir;
   limit?: number;
   className?: string;
+  rowHref?: (row: ReportGroup) => string;
 }) {
+  const router = useRouter();
   const shown = new Set(visibleColumns);
   const presented = presentListRows(rows, { sortKey, sortDir, limit });
   const total = presented.reduce((sum, row) => sum + row.hours, 0);
@@ -106,7 +110,12 @@ export function GroupTable({
         {columns.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">Choose a column to show.</p>
         ) : presented.length ? (
-          <DataTable rows={presented} columns={columns} rowKey={(row) => row.id} />
+          <DataTable
+            rows={presented}
+            columns={columns}
+            rowKey={(row) => row.id}
+            onRowClick={rowHref ? (row) => router.push(rowHref(row)) : undefined}
+          />
         ) : (
           <p className="py-6 text-center text-sm text-muted-foreground">No hours in this period.</p>
         )}

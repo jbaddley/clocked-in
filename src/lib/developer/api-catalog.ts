@@ -7,6 +7,7 @@ type JsonSchema = {
   properties?: Record<string, JsonSchema>;
   required?: string[];
   items?: JsonSchema;
+  oneOf?: JsonSchema[];
   description?: string;
 };
 
@@ -16,12 +17,14 @@ type OpenApiDocument = {
 };
 
 type OpenApiOperation = {
+  tags?: string[];
   parameters?: {
     name: string;
     in: string;
     required?: boolean;
     schema?: JsonSchema;
   }[];
+  requestBody?: { content?: Record<string, { schema?: JsonSchema }> };
   responses?: Record<string, { content?: Record<string, { schema?: JsonSchema }> }>;
 };
 
@@ -39,9 +42,11 @@ const groupRules: [string, string][] = [
   ["/themes", "Themes"],
   ["/hourly-rates", "Hourly rates"],
   ["/task-categories", "Task categories"],
+  ["/imports", "Imports"],
   ["/departments", "Departments"],
   ["/projects", "Projects"],
-  ["/imports", "Imports"],
+  ["/time-entries.csv", "Reports"],
+  ["/access-requests", "Access requests"],
   ["/time-entries", "Time entries"],
   ["/summary.csv", "Reports"],
   ["/report", "Reports"],
@@ -53,6 +58,7 @@ const groupRules: [string, string][] = [
   ["/users", "Users"],
   ["/roles", "Roles"],
   ["/time/", "Time"],
+  ["/health", "Health"],
   ["/organizations", "Organizations"],
 ];
 
@@ -73,6 +79,7 @@ export type ApiOperation = {
   path: string;
   parameters: ApiParameter[];
   acceptsBody: boolean;
+  requestContracts: ApiContract[];
   contracts: ApiContract[];
 };
 
@@ -89,6 +96,12 @@ function camel(name: string) {
 function typeLabel(schema: JsonSchema | undefined): string {
   if (!schema) return "unknown";
   if (schema.$ref) return refName(schema.$ref);
+  if (schema.oneOf?.length) {
+    const labels = schema.oneOf.map((item) => typeLabel(item)).filter((label) => label !== "null" && label !== "unknown");
+    const hasNull = schema.oneOf.some((item) => item.type === "null" || (Array.isArray(item.type) && item.type.includes("null")));
+    const joined = labels.join(" | ") || "unknown";
+    return hasNull && !joined.endsWith("| null") ? `${joined} | null` : joined;
+  }
   if (schema.format === "uuid") return nullable(schema, "uuid");
   if (schema.format === "date-time") return nullable(schema, "date-time");
   if (schema.format === "date") return nullable(schema, "date");
@@ -122,15 +135,14 @@ function resolve(schema: JsonSchema | undefined): JsonSchema | undefined {
   return schemas[refName(schema.$ref)] ?? schema;
 }
 
-function contractsFor(operation: OpenApiOperation): ApiContract[] {
-  const response = Object.entries(operation.responses ?? {})
-    .filter(([status]) => status.startsWith("2"))
-    .sort(([left], [right]) => left.localeCompare(right))[0]?.[1];
-  const schema = response?.content?.["application/json"]?.schema;
+function contractsFromSchema(schema: JsonSchema | undefined, fallbackName: string): ApiContract[] {
   if (!schema) return [];
+  if (schema.oneOf?.length) {
+    return schema.oneOf.flatMap((item, index) => contractsFromSchema(item, item.$ref ? refName(item.$ref) : `${fallbackName} ${index + 1}`));
+  }
 
   const root = resolve(schema);
-  const name = schema.$ref ? refName(schema.$ref) : "Response";
+  const name = schema.$ref ? refName(schema.$ref) : fallbackName;
   const contracts: ApiContract[] = [{ name, fields: fieldsOf(root) }];
   const seen = new Set<string>([name]);
 
@@ -146,6 +158,17 @@ function contractsFor(operation: OpenApiOperation): ApiContract[] {
   }
 
   return contracts.filter((contract) => contract.fields.length > 0);
+}
+
+function contractsFor(operation: OpenApiOperation): ApiContract[] {
+  const response = Object.entries(operation.responses ?? {})
+    .filter(([status]) => status.startsWith("2"))
+    .sort(([left], [right]) => left.localeCompare(right))[0]?.[1];
+  return contractsFromSchema(response?.content?.["application/json"]?.schema, "Response");
+}
+
+function requestContractsFor(operation: OpenApiOperation): ApiContract[] {
+  return contractsFromSchema(operation.requestBody?.content?.["application/json"]?.schema, "Request");
 }
 
 function parametersFor(path: string, operation: OpenApiOperation): ApiParameter[] {
@@ -164,7 +187,8 @@ function parametersFor(path: string, operation: OpenApiOperation): ApiParameter[
     });
 }
 
-function groupFor(path: string) {
+function groupFor(path: string, tags: string[] | undefined) {
+  if (tags?.[0]) return tags[0];
   return groupRules.find(([needle]) => path.includes(needle))?.[1] ?? "Other";
 }
 
@@ -176,11 +200,12 @@ function buildGroups(): ApiGroup[] {
       if (!operation) continue;
       operations.push({
         id: `${method} ${path}`,
-        group: groupFor(path),
+        group: groupFor(path, operation.tags),
         method: method.toUpperCase(),
         path,
         parameters: parametersFor(path, operation),
-        acceptsBody: method === "post" || method === "put" || method === "patch" || method === "delete",
+        acceptsBody: Boolean(operation.requestBody),
+        requestContracts: requestContractsFor(operation),
         contracts: contractsFor(operation),
       });
     }

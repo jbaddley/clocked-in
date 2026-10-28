@@ -37,7 +37,7 @@ export function ValueCard({
   pattern,
   icon,
   className,
-  href = "/entries",
+  href,
 }: {
   title: string;
   description?: string;
@@ -49,18 +49,24 @@ export function ValueCard({
   href?: string;
 }) {
   const style = tones[color];
+  const body = (
+    <Card className="h-full w-full flex-row items-center gap-4 px-4">
+      <div className={cn("flex size-11 shrink-0 items-center justify-center rounded-xl", style.badge)}>
+        {icon ? <DynamicIcon name={icon as IconName} className="size-5" /> : null}
+      </div>
+      <div className="min-w-0">
+        <p className={cn("truncate text-xs font-medium tracking-wide uppercase", style.text)}>{title}</p>
+        <p className="truncate text-2xl font-semibold text-foreground tabular-nums">{displayValue(value, pattern)}</p>
+        {description ? <p className={cn("truncate text-xs", style.text)}>{description}</p> : null}
+      </div>
+    </Card>
+  );
+  if (!href) {
+    return <div className={cn("h-full w-full", className)}>{body}</div>;
+  }
   return (
     <Link href={href} className={cn("block h-full w-full", className)}>
-      <Card className="h-full w-full flex-row items-center gap-4 px-4">
-        <div className={cn("flex size-11 shrink-0 items-center justify-center rounded-xl", style.badge)}>
-          {icon ? <DynamicIcon name={icon as IconName} className="size-5" /> : null}
-        </div>
-        <div className="min-w-0">
-          <p className={cn("truncate text-xs font-medium tracking-wide uppercase", style.text)}>{title}</p>
-          <p className="truncate text-2xl font-semibold text-foreground tabular-nums">{displayValue(value, pattern)}</p>
-          {description ? <p className={cn("truncate text-xs", style.text)}>{description}</p> : null}
-        </div>
-      </Card>
+      {body}
     </Link>
   );
 }

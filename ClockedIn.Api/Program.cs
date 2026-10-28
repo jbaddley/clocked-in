@@ -6,6 +6,7 @@ using ClockedIn.Api.Entities;
 using ClockedIn.Api.Features;
 using ClockedIn.Api.GitHub;
 using ClockedIn.Api.Http;
+using ClockedIn.Api.OpenApi;
 using ClockedIn.Api.Security;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -54,7 +55,7 @@ builder.Services.AddHttpClient<IGithubIssues, GithubIssuesClient>((services, htt
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddClockedInFeatures();
 builder.Services.AddHealthChecks().AddDbContextCheck<ClockedInDbContext>();
-builder.Services.AddOpenApi();
+builder.Services.AddOpenApi(options => options.AddClockedInOpenApi());
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
@@ -100,6 +101,6 @@ app.MapHealthChecks("/health", new HealthCheckOptions
     ResponseWriter = (context, report) => context.Response.WriteAsJsonAsync(new { status = report.Status == HealthStatus.Healthy ? "ok" : "unavailable" }),
 }).WithMetadata(new HttpMethodMetadata(["GET"])).WithName("Health");
 app.MapClockedInEndpoints();
-app.MapMcp("/mcp").RequireAuthorization();
+app.MapMcp("/mcp").RequireAuthorization().ExcludeFromDescription();
 
 app.Run();

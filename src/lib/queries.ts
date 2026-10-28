@@ -22,6 +22,14 @@ import type {
 
 export const entriesPageSize = 50;
 
+export type EntriesListFilter = DateRange & {
+  projectId?: string;
+  taskCategoryId?: string;
+  departmentId?: string;
+  unclassified?: boolean;
+  everyone?: boolean;
+};
+
 function query(values: Record<string, string | number | undefined>) {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(values)) {
@@ -40,8 +48,20 @@ export const keys = {
   invitations: (organizationId: string) => ["org", organizationId, "invitations"] as const,
   departmentInvitations: (departmentId: string) => ["department", departmentId, "invitations"] as const,
   apiKeys: (organizationId: string) => ["org", organizationId, "api-keys"] as const,
-  entries: (organizationId: string, userId: string, range: DateRange, unclassified = false) =>
-    ["org", organizationId, "entries", userId, range.from ?? "", range.to ?? "", unclassified] as const,
+  entries: (organizationId: string, userId: string, filter: EntriesListFilter = {}) =>
+    [
+      "org",
+      organizationId,
+      "entries",
+      userId,
+      filter.from ?? "",
+      filter.to ?? "",
+      filter.projectId ?? "",
+      filter.taskCategoryId ?? "",
+      filter.departmentId ?? "",
+      filter.unclassified ?? false,
+      filter.everyone ?? false,
+    ] as const,
   organizationEntries: (organizationId: string) => ["org", organizationId, "recent-entries"] as const,
   groupSessions: (organizationId: string) => ["org", organizationId, "group-sessions"] as const,
   report: (organizationId: string, filter: ReportFilters) => ["org", organizationId, "report", filter] as const,
@@ -123,13 +143,23 @@ export function organizationEntriesQuery(organizationId: string) {
   });
 }
 
-export function entriesQuery(organizationId: string, userId: string, range: DateRange, unclassified = false) {
+export function entriesQuery(organizationId: string, userId: string, filter: EntriesListFilter = {}) {
+  const placement = {
+    from: filter.from,
+    to: filter.to,
+    projectId: filter.projectId,
+    taskCategoryId: filter.taskCategoryId,
+    departmentId: filter.departmentId,
+    unclassified: filter.unclassified ? "1" : undefined,
+  };
   return infiniteQueryOptions({
-    queryKey: keys.entries(organizationId, userId, range, unclassified),
+    queryKey: keys.entries(organizationId, userId, filter),
     initialPageParam: 0,
     queryFn: ({ pageParam, signal }) =>
       fetchJson<Paged<TimeEntry>>(
-        `/users/${userId}/time-entries${query({ organizationId, ...range, offset: pageParam, limit: entriesPageSize, unclassified: unclassified ? "1" : undefined })}`,
+        filter.everyone
+          ? `/organizations/${organizationId}/time-entries${query({ ...placement, userId: userId || undefined, offset: pageParam, limit: entriesPageSize })}`
+          : `/users/${userId}/time-entries${query({ organizationId, ...placement, offset: pageParam, limit: entriesPageSize })}`,
         signal,
       ),
     getNextPageParam: (last) => (last.items.length < last.limit ? undefined : last.offset + last.limit),
@@ -276,14 +306,14 @@ export function signupsQuery(needId: string) {
   });
 }
 
-export function csvUrl(organizationId: string, range: DateRange) {
-  return `/organizations/${organizationId}/time-entries.csv${query({ ...range })}`;
+export function csvUrl(organizationId: string, filter: ReportFilters) {
+  return `/organizations/${organizationId}/time-entries.csv${query({ ...filter })}`;
 }
 
-export function summaryCsvUrl(organizationId: string, range: DateRange) {
-  return `/organizations/${organizationId}/summary.csv${query({ ...range })}`;
+export function summaryCsvUrl(organizationId: string, filter: ReportFilters) {
+  return `/organizations/${organizationId}/summary.csv${query({ ...filter })}`;
 }
 
-export function viewCsvUrl(organizationId: string, range: DateRange) {
-  return `/organizations/${organizationId}/view.csv${query({ ...range })}`;
+export function viewCsvUrl(organizationId: string, filter: ReportFilters) {
+  return `/organizations/${organizationId}/view.csv${query({ ...filter })}`;
 }
