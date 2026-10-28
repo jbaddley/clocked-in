@@ -52,7 +52,7 @@ export function registerTimeTools(server: McpServer) {
   tool(
     server,
     "create_time_entry",
-    "Create a time entry for a user. Pass JSON with mode (Punch, Duration, Total), organizationId, projectId, taskCategoryId, and time fields.",
+    "Create a time entry for a user. Pass JSON with mode (Punch, Duration, Total), organizationId, optional projectId, optional taskCategoryId, and time fields.",
     { userId: guid, body: z.string() },
     ({ userId, body }) => createTimeEntry(mcpAccess(), userId, parseCreateTimeEntry(jsonBody(body))),
   );

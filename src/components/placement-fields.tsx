@@ -36,10 +36,13 @@ function projectOptions(projects: Project[]) {
 export const alignedEntryGridClass =
   "grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_4.5rem]";
 
+const none = "none";
+
 export function PlacementFields({
   state,
   departmentIds,
   embedded = false,
+  optional = false,
 }: {
   state: PlacementState;
   /** Accepted so existing timer usage stays valid. Layout no longer changes with it. */
@@ -47,6 +50,8 @@ export function PlacementFields({
   departmentIds?: string[];
   /** Join a parent `alignedEntryGridClass` so these columns line up with date, start, and end. */
   embedded?: boolean;
+  /** Allow leaving project and task category empty. */
+  optional?: boolean;
 }) {
   const { lookups, value, set } = state;
   const projects = useMemo(() => projectOptions(lookups.projects.filter((project) => project.isActive !== false)), [lookups.projects]);
@@ -70,17 +75,23 @@ export function PlacementFields({
         <EntitySelect
           label={copy.project}
           value={value.projectId}
-          onValueChange={(projectId) => set({ projectId })}
-          options={projects}
+          onValueChange={(projectId) => set({ projectId: projectId === none ? "" : projectId })}
+          options={optional ? [{ value: none, label: "None" }, ...projects] : projects}
           searchable
+          placeholder={optional ? "Optional" : undefined}
           createLabel={`Add a ${copy.project.toLowerCase()}`}
           onCreate={() => setCreating("project")}
         />
         <EntitySelect
           label={copy.taskCategory}
           value={value.taskCategoryId}
-          onValueChange={(taskCategoryId) => set({ taskCategoryId })}
-          options={lookups.categories.map((item) => ({ value: item.id, label: item.name }))}
+          onValueChange={(taskCategoryId) => set({ taskCategoryId: taskCategoryId === none ? "" : taskCategoryId })}
+          options={
+            optional
+              ? [{ value: none, label: "None" }, ...lookups.categories.map((item) => ({ value: item.id, label: item.name }))]
+              : lookups.categories.map((item) => ({ value: item.id, label: item.name }))
+          }
+          placeholder={optional ? "Optional" : undefined}
           createLabel={`Add a ${copy.taskCategory.toLowerCase()}`}
           onCreate={() => setCreating("category")}
         />

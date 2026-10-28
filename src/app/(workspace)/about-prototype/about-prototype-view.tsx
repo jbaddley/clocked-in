@@ -93,7 +93,7 @@ export function AboutPrototypeView() {
           title: "Log your own time",
           href: "/log/own",
           where: "Track · Log time",
-          summary: `One live timer at a time — it stays in the header until you stop it — or a saved entry with start and end, or total hours. ${copy.project} and ${category} are required. Notes and tags are optional.`,
+          summary: `One live timer at a time — it stays in the header until you stop it — or a saved entry with start and end, or total hours. ${copy.project}, ${category}, notes, and tags are optional.`,
           access: {
             volunteer: "Volunteer rate",
             staff: "Can choose a professional rate",
