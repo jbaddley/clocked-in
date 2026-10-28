@@ -99,6 +99,7 @@ describe("saved reports", suite, () => {
     assertUuid(created.id);
     assert.equal(created.name, name);
     assert.equal(created.isDefault, true);
+    assert.equal(created.isDashboard, false);
     assert.equal(created.layout.version, 1);
     assert.equal(created.layout.cards.length, 3);
     assert.equal(created.layout.cards[0].pattern, "0,0.[00]");
@@ -140,6 +141,23 @@ describe("saved reports", suite, () => {
     const first = await callApi(`/organizations/${ctx.org.id}/reports/${ctx.report.id}`, { token: ctx.admin.accessToken });
     assert.equal(first.json.isDefault, false);
     ctx.second = next;
+  });
+
+  test("only one report is the dashboard", async () => {
+    const first = await createJson(ctx.admin.accessToken, `/organizations/${ctx.org.id}/reports`, {
+      name: label("Home board"),
+      isDashboard: true,
+      layout: layout([valueCard()]),
+    });
+    assert.equal(first.isDashboard, true);
+    const second = await createJson(ctx.admin.accessToken, `/organizations/${ctx.org.id}/reports`, {
+      name: label("Other board"),
+      isDashboard: true,
+      layout: layout([valueCard()]),
+    });
+    assert.equal(second.isDashboard, true);
+    const previous = await callApi(`/organizations/${ctx.org.id}/reports/${first.id}`, { token: ctx.admin.accessToken });
+    assert.equal(previous.json.isDashboard, false);
   });
 
   test("overlapping cards are rejected", async () => {

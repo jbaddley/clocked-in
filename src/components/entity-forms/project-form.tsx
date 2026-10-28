@@ -4,6 +4,7 @@ import { useId, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "cn";
 import { createProjectAction, updateProjectAction, type ProjectInput } from "@/app/actions/projects";
+import { DialogActions } from "@/components/dialog-actions";
 import { EntityFormDialog } from "@/components/entity-forms/entity-form-dialog";
 import { EntitySelect } from "@/components/entity-forms/entity-select";
 import { rememberLookup, savedProject, upsertProject } from "@/components/entity-forms/lookup-cache";
@@ -144,6 +145,7 @@ export function ProjectForm({
   return (
     <>
       <form
+        id={`${idPrefix}-form`}
         className="flex flex-col gap-3"
         onSubmit={(event) => {
           event.preventDefault();
@@ -203,16 +205,16 @@ export function ProjectForm({
           </Field>
         </div>
         {error ? <p className="text-xs text-destructive">{error}</p> : null}
-        <div className={cn("flex gap-2", layout === "stack" && "justify-end")}>
+        <DialogActions form={`${idPrefix}-form`}>
           {onCancel ? (
-            <Button type="button" variant="outline" className="h-9" onClick={onCancel}>
+            <Button type="button" variant="outline" onClick={onCancel}>
               Cancel
             </Button>
           ) : null}
-          <SubmitButton pending={project ? update.isPending : create.isPending} className="h-9 w-auto">
+          <SubmitButton pending={project ? update.isPending : create.isPending}>
             {submitLabel ?? (project ? "Save" : "Add")}
           </SubmitButton>
-        </div>
+        </DialogActions>
       </form>
       <CreateDepartmentDialog
         open={addingDepartment}

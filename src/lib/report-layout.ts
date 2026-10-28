@@ -21,6 +21,19 @@ export type ValueIcon = (typeof valueIcons)[number];
 export const listColumnKeys = ["name", "type", "hours", "share", "people", "inKind"] as const;
 export type ListColumn = (typeof listColumnKeys)[number];
 
+export const listSortKeys = ["name", "hours", "share", "people", "inKind"] as const;
+export type ListSortKey = (typeof listSortKeys)[number];
+
+export const listSortDirs = ["asc", "desc"] as const;
+export type ListSortDir = (typeof listSortDirs)[number];
+
+export const entriesScopes = ["mine", "organization"] as const;
+export type EntriesScope = (typeof entriesScopes)[number];
+
+export const entriesLimitMax = 20;
+export const entriesLimitDefault = 6;
+export const listLimitMax = 50;
+
 const listColumnLabels: Record<ListColumn, string> = {
   name: "Name",
   type: "Type",
@@ -72,9 +85,18 @@ export type ListReportCard = ReportCardBase & {
   format: ValueFormat;
   pattern: string;
   visibleColumns: ListColumn[];
+  sortKey?: ListSortKey;
+  sortDir?: ListSortDir;
+  limit?: number;
 };
 
-export type ReportCard = ValueReportCard | ChartReportCard | ListReportCard;
+export type EntriesReportCard = ReportCardBase & {
+  kind: "entries";
+  scope: EntriesScope;
+  limit: number;
+};
+
+export type ReportCard = ValueReportCard | ChartReportCard | ListReportCard | EntriesReportCard;
 
 export type ReportLayout = {
   version: 1;
@@ -113,6 +135,27 @@ function leftover(source: Record<string, unknown>, label: string) {
   if (Object.keys(source).length > 0) {
     fail(`${label} contains an unknown field.`);
   }
+}
+
+function optionalOneOf<T extends string>(field: { has: boolean; value: unknown }, key: string, allowed: readonly T[]) {
+  if (!field.has || field.value === undefined || field.value === null) {
+    return undefined;
+  }
+
+  return oneOf(field.value, key, allowed);
+}
+
+function optionalInteger(field: { has: boolean; value: unknown }, key: string, min: number, max: number) {
+  if (!field.has || field.value === undefined || field.value === null) {
+    return undefined;
+  }
+
+  const value = integer(field.value, key);
+  if (value < min || value > max) {
+    fail(`${key} must be from ${min} to ${max}.`);
+  }
+
+  return value;
 }
 
 function text(value: unknown, key: string, max: number, required: boolean) {
@@ -180,7 +223,7 @@ export function overlaps(left: Box, right: Box) {
 
 function card(value: unknown, index: number): ReportCard {
   const source = asObject(value, `cards[${index}]`);
-  const kind = oneOf(take(source, "kind").value, "kind", ["value", "chart", "list"] as const);
+  const kind = oneOf(take(source, "kind").value, "kind", ["value", "chart", "list", "entries"] as const);
   const cardId = id(take(source, "id").value, "id");
   const title = text(take(source, "title").value, "title", 120, true);
   const descriptionField = take(source, "description");
@@ -224,8 +267,30 @@ function card(value: unknown, index: number): ReportCard {
     const format = oneOf(take(source, "format").value, "format", valueFormats);
     const pattern = readPattern(take(source, "pattern"), format);
     const visibleColumns = readVisibleColumns(take(source, "visibleColumns").value);
+    const sortKey = optionalOneOf(take(source, "sortKey"), "sortKey", listSortKeys);
+    const sortDir = optionalOneOf(take(source, "sortDir"), "sortDir", listSortDirs);
+    const limit = optionalInteger(take(source, "limit"), "limit", 1, listLimitMax);
     leftover(source, "cards");
-    return { ...base, kind, format, pattern, visibleColumns };
+    return {
+      ...base,
+      kind,
+      format,
+      pattern,
+      visibleColumns,
+      ...(sortKey ? { sortKey } : {}),
+      ...(sortDir ? { sortDir } : {}),
+      ...(limit !== undefined ? { limit } : {}),
+    };
+  }
+
+  if (kind === "entries") {
+    const scopeField = take(source, "scope");
+    const scope = scopeField.has && scopeField.value !== undefined
+      ? oneOf(scopeField.value, "scope", entriesScopes)
+      : "mine";
+    const limit = optionalInteger(take(source, "limit"), "limit", 1, entriesLimitMax) ?? entriesLimitDefault;
+    leftover(source, "cards");
+    return { ...base, kind, scope, limit, accessor: `entries.${scope}` };
   }
 
   const chartType = oneOf(take(source, "chartType").value, "chartType", chartTypes);
@@ -495,6 +560,125 @@ function volunteerTotals(slot: number): ValueReportCard[] {
     valueCard(slot + 2, 7, { title: "Volunteers", accessor: "user.volunteers", color: "highlight", format: "number", icon: "users" }),
     valueCard(slot + 3, 10, { title: "Entries", accessor: "user.entries", color: "accent", format: "number", icon: "list-checks" }),
   ];
+}
+
+export type ListRow = {
+  id: string;
+  label: string;
+  hours: number;
+  inKind: number;
+  volunteers: number;
+  entries?: number;
+  projectType?: string;
+};
+
+function listSortValue(row: ListRow, key: ListSortKey, totalHours: number): string | number {
+  if (key === "name") return row.label;
+  if (key === "hours") return row.hours;
+  if (key === "inKind") return row.inKind;
+  if (key === "people") return row.volunteers;
+  return totalHours === 0 ? 0 : row.hours / totalHours;
+}
+
+export function presentListRows<T extends ListRow>(
+  rows: T[],
+  card: Pick<ListReportCard, "sortKey" | "sortDir" | "limit">,
+): T[] {
+  const sortKey = card.sortKey ?? (card.limit !== undefined ? "hours" : undefined);
+  const sortDir = card.sortDir ?? "desc";
+  const copy = [...rows];
+  if (sortKey) {
+    const totalHours = rows.reduce((sum, row) => sum + row.hours, 0);
+    copy.sort((left, right) => {
+      const a = listSortValue(left, sortKey, totalHours);
+      const b = listSortValue(right, sortKey, totalHours);
+      const cmp = typeof a === "string" && typeof b === "string" ? a.localeCompare(b) : Number(a) - Number(b);
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }
+
+  if (card.limit === undefined || copy.length <= card.limit) {
+    return copy;
+  }
+
+  const head = copy.slice(0, card.limit);
+  const rest = copy.slice(card.limit);
+  const other = {
+    ...(copy[0] ?? ({ id: "other", label: "Other", hours: 0, inKind: 0, volunteers: 0 } as T)),
+    id: "other",
+    label: "Other",
+    hours: rest.reduce((sum, row) => sum + row.hours, 0),
+    inKind: rest.reduce((sum, row) => sum + row.inKind, 0),
+    volunteers: rest.reduce((sum, row) => sum + row.volunteers, 0),
+    ...(rest[0] && "entries" in rest[0]
+      ? { entries: rest.reduce((sum, row) => sum + (row.entries ?? 0), 0) }
+      : {}),
+    projectType: undefined,
+  } as T;
+  return [...head, other];
+}
+
+function entriesCard(
+  slot: number,
+  place: { column: number; row: number; columns: number; rows: number },
+  input: { title: string; scope?: EntriesScope; limit?: number },
+): EntriesReportCard {
+  const scope = input.scope ?? "mine";
+  return {
+    id: templateId(slot),
+    kind: "entries",
+    title: input.title,
+    description: "",
+    accessor: `entries.${scope}`,
+    scope,
+    limit: input.limit ?? entriesLimitDefault,
+    ...place,
+  };
+}
+
+export function dashboardLayout(): ReportLayout {
+  return {
+    version: 1,
+    cards: [
+      valueCard(50, 1, { title: "Volunteer hours", accessor: "user.hours", color: "primary", format: "hours", icon: "clock" }),
+      valueCard(51, 4, { title: "In-kind value", accessor: "user.inKind", color: "success", format: "currency", icon: "hand-coins" }),
+      valueCard(52, 7, { title: "Volunteers", accessor: "user.volunteers", color: "highlight", format: "number", icon: "users" }),
+      valueCard(53, 10, { title: "Entries", accessor: "user.entries", color: "accent", format: "number", icon: "list-checks" }),
+      {
+        id: templateId(54),
+        kind: "chart",
+        title: "Hours by task category",
+        description: "",
+        accessor: "user.byCategory",
+        chartType: "donut",
+        palette: "single",
+        valueKey: "hours",
+        format: "hours",
+        pattern: formatPatterns.hours,
+        column: 1,
+        row: 2,
+        columns: 6,
+        rows: 4,
+      },
+      {
+        id: templateId(55),
+        kind: "chart",
+        title: "Hours by department",
+        description: "",
+        accessor: "user.byDepartment",
+        chartType: "bar",
+        palette: "single",
+        valueKey: "hours",
+        format: "hours",
+        pattern: formatPatterns.hours,
+        column: 7,
+        row: 2,
+        columns: 6,
+        rows: 4,
+      },
+      entriesCard(56, { column: 1, row: 6, columns: 12, rows: 5 }, { title: "Recent entries" }),
+    ],
+  };
 }
 
 export function collides(cards: ReportCard[], candidate: Box, ignoreId: string) {

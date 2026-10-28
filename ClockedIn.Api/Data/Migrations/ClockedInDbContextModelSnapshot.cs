@@ -967,6 +967,12 @@ namespace ClockedIn.Api.Data.Migrations
                         .HasDefaultValue(false)
                         .HasColumnName("isDefault");
 
+                    b.Property<bool>("IsDashboard")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("isDashboard");
+
                     b.Property<string>("Layout")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -995,6 +1001,11 @@ namespace ClockedIn.Api.Data.Migrations
                         .IsUnique()
                         .HasDatabaseName("Report_one_default")
                         .HasFilter("\"isDefault\" = TRUE");
+
+                    b.HasIndex("OrganizationId")
+                        .IsUnique()
+                        .HasDatabaseName("Report_one_dashboard")
+                        .HasFilter("\"isDashboard\" = TRUE");
 
                     b.HasIndex("OrganizationId", "Name")
                         .IsUnique();

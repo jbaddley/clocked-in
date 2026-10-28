@@ -14,6 +14,10 @@ public static class TimeEntriesEndpoints
         byUser.MapPost("", async Task<Created<TimeEntryDto>> (Guid id, CreateTimeEntryRequest request, TimeEntriesService service, CancellationToken ct) =>
             TypedResults.Created((string?)null, await service.Create(id, request, ct)));
 
+        var byOrganization = app.MapGroup("/organizations/{id:guid}/time-entries").RequireAuthorization();
+        byOrganization.MapGet("", async Task<Ok<ListResponse<TimeEntryDto>>> (Guid id, [AsParameters] PageQuery query, TimeEntriesService service, CancellationToken ct) =>
+            TypedResults.Ok(await service.ListForOrganization(id, query, ct)));
+
         var entries = app.MapGroup("/time-entries").RequireAuthorization();
         entries.MapGet("/{id:guid}", async Task<Ok<TimeEntryDto>> (Guid id, TimeEntriesService service, CancellationToken ct) =>
             TypedResults.Ok(await service.Get(id, ct)));

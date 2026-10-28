@@ -142,7 +142,7 @@ function ArcChart({
   const valueLabel = (value: number) => formatWithPattern(value, pattern);
 
   return (
-    <div className="@container flex h-full min-h-0 w-full flex-1 overflow-hidden">
+    <div className="@container flex h-full min-h-64 w-full flex-1 overflow-hidden">
       <div className="grid h-full min-h-0 w-full grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-3 @[20rem]:grid-cols-[minmax(0,1.1fr)_minmax(7rem,0.9fr)] @[20rem]:grid-rows-1">
       <div className="relative min-h-0 min-w-0">
       <ChartContainer config={configFor(rows, colors)} className="absolute inset-0 aspect-auto h-full w-full">
@@ -226,7 +226,7 @@ function SummaryBars({
   const tickValue = (value: number) => formatWithPattern(value, pattern);
 
   return (
-    <div ref={frame} className="flex h-full min-h-0 w-full flex-1 flex-col">
+    <div ref={frame} className="flex h-full min-h-64 w-full flex-1 flex-col">
       <ChartContainer config={configFor(rows, colors)} className="aspect-auto h-full min-h-0 w-full flex-1">
         <BarChart
           data={data}

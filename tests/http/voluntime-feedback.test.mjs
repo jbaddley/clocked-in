@@ -1,6 +1,17 @@
 import assert from "node:assert/strict";
 import { before, describe, test } from "node:test";
-import { assertError, assertList, callApi, createJson, identity, label, signUp, suite } from "./client.mjs";
+import {
+  assertError,
+  assertList,
+  callApi,
+  createJson,
+  grantSuperAdmin,
+  identity,
+  label,
+  logIn,
+  signUp,
+  suite,
+} from "./client.mjs";
 
 describe("voluntime feedback", suite, () => {
   const ctx = {};
@@ -29,6 +40,41 @@ describe("voluntime feedback", suite, () => {
     assert.equal(created.code, "EVENT_LEAD");
     assert.ok(created.permissions.includes("create_needs"));
     ctx.role = created;
+  });
+
+  test("only a SuperAdmin can update a system role", async () => {
+    const listed = await callApi(`/organizations/${ctx.org.id}/roles`, { token: ctx.admin.accessToken });
+    const volunteer = listed.json.items.find((role) => role.code === "VOLUNTEER" && role.isSystem);
+    assert.ok(volunteer);
+    const denied = await callApi(`/organizations/${ctx.org.id}/roles/${volunteer.id}`, {
+      method: "PATCH",
+      token: ctx.admin.accessToken,
+      body: { name: "Helper", scope: "self", permissions: volunteer.permissions },
+    });
+    assertError(denied, 403, "forbidden", "Forbidden.");
+    const actor = await signUp("vtfsuper");
+    await grantSuperAdmin(actor.user.id);
+    const superAdmin = { ...actor, ...(await logIn(actor.username, actor.password)) };
+    try {
+      const updated = await callApi(`/organizations/${ctx.org.id}/roles/${volunteer.id}`, {
+        method: "PATCH",
+        token: superAdmin.accessToken,
+        body: { name: "Helper", scope: "assigned_groups", permissions: ["log_own_time", "view_reports"] },
+      });
+      assert.equal(updated.status, 200, updated.text);
+      assert.equal(updated.json.name, "Helper");
+      assert.equal(updated.json.scope, "assigned_groups");
+      assert.deepEqual([...updated.json.permissions].sort(), ["log_own_time", "view_reports"]);
+    } finally {
+      const restored = await callApi(`/organizations/${ctx.org.id}/roles/${volunteer.id}`, {
+        method: "PATCH",
+        token: superAdmin.accessToken,
+        body: { name: volunteer.name, scope: volunteer.scope, permissions: volunteer.permissions },
+      });
+      assert.equal(restored.status, 200, restored.text);
+      assert.equal(restored.json.name, volunteer.name);
+      assert.equal(restored.json.scope, volunteer.scope);
+    }
   });
 
   test("invite stores reserved name and username", async () => {

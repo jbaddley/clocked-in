@@ -588,6 +588,33 @@ export async function listTimeEntries(access: Access, userId: string, params: UR
   return list(entries.map(timeEntryJson), paging);
 }
 
+export async function listOrganizationTimeEntries(access: Access, organizationId: string, params: URLSearchParams) {
+  const paging = page(params);
+  await access.requireOrganization(organizationId, false);
+  const departmentId = queryUuid(params, "departmentId");
+  const from = queryDate(params, "from");
+  const to = queryDate(params, "to");
+  const and: Prisma.UserTimeEntryWhereInput[] = [];
+  if (departmentId !== undefined) {
+    and.push({ departmentId });
+  }
+  if (from !== undefined) {
+    and.push({ occurredOn: { gte: from } });
+  }
+  if (to !== undefined) {
+    and.push({ occurredOn: { lte: to } });
+  }
+
+  const entries = await prisma.userTimeEntry.findMany({
+    where: and.length > 0 ? { organizationId, AND: and } : { organizationId },
+    include: entryInclude,
+    orderBy: [{ occurredOn: "desc" }, { startedAt: "desc" }],
+    skip: paging.offset,
+    take: paging.limit,
+  });
+  return list(entries.map(timeEntryJson), paging);
+}
+
 export async function createTimeEntry(access: Access, userId: string, request: CreateTimeEntryRequest) {
   const user = await prisma.user.findUnique({ where: { id: userId }, include: accountInclude });
   if (!user) {

@@ -281,6 +281,7 @@ public class ClockedInDbContext(DbContextOptions<ClockedInDbContext> options, Ti
         {
             entity.Property(report => report.Name).HasColumnType("citext");
             entity.Property(report => report.IsDefault).HasDefaultValue(false);
+            entity.Property(report => report.IsDashboard).HasDefaultValue(false);
             entity.Property(report => report.Layout)
                 .HasColumnType("jsonb")
                 .HasDefaultValueSql("""'{"version":1,"cards":[]}'::jsonb""");
@@ -294,6 +295,10 @@ public class ClockedInDbContext(DbContextOptions<ClockedInDbContext> options, Ti
                 .IsUnique()
                 .HasFilter("\"isDefault\" = TRUE")
                 .HasDatabaseName("Report_one_default");
+            entity.HasIndex(report => report.OrganizationId)
+                .IsUnique()
+                .HasFilter("\"isDashboard\" = TRUE")
+                .HasDatabaseName("Report_one_dashboard");
             entity.HasOne(report => report.Organization)
                 .WithMany(organization => organization.Reports)
                 .HasForeignKey(report => report.OrganizationId)

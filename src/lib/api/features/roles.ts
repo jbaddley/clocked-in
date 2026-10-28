@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Access } from "@/lib/api/access";
 import { guard } from "@/lib/api/db";
-import { conflict, notFound, validation } from "@/lib/api/errors";
+import { conflict, forbidden, notFound, validation } from "@/lib/api/errors";
 import { Body, has, list, page, requireString } from "@/lib/api/json";
 import {
   allPermissions,
@@ -166,8 +166,8 @@ export async function updateOrganizationRole(
     include: roleInclude,
   });
   if (!role) notFound();
-  if (role.isSystem && request.scope && request.scope !== role.scope) {
-    validation("System role scope cannot change.");
+  if (role.isSystem && !access.isSuperAdmin) {
+    forbidden();
   }
   if (role.isSystem && role.code === "ADMIN" && request.permissions) {
     if (!request.permissions.includes("manage_roles") || !request.permissions.includes("manage_members")) {
@@ -191,7 +191,7 @@ export async function updateOrganizationRole(
         where: { id: roleId },
         data: {
           name: request.name,
-          scope: role.isSystem ? undefined : request.scope,
+          scope: request.scope,
         },
         include: roleInclude,
       });

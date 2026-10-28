@@ -29,7 +29,7 @@ type OrgRole = {
 
 export function RolesView() {
   const organization = useOrganization();
-  const { permissions } = useWorkspace();
+  const { permissions, viewer } = useWorkspace();
   const canManage = permissions.includes("manage_roles");
   const { data } = useQuery({
     queryKey: ["org", organization.id, "roles"],
@@ -61,7 +61,14 @@ export function RolesView() {
           {canManage ? <CreateRoleForm /> : null}
         </CardContent>
       </Card>
-      {selected ? <RoleEditor role={selected} canManage={canManage} /> : null}
+      {selected ? (
+        <RoleEditor
+          key={selected.id}
+          role={selected}
+          canManage={canManage}
+          isSuperAdmin={viewer.isSuperAdmin}
+        />
+      ) : null}
     </div>
   );
 }
@@ -89,8 +96,20 @@ function CreateRoleForm() {
   );
 }
 
-function RoleEditor({ role, canManage }: { role: OrgRole; canManage: boolean }) {
+function RoleEditor({
+  role,
+  canManage,
+  isSuperAdmin,
+}: {
+  role: OrgRole;
+  canManage: boolean;
+  isSuperAdmin: boolean;
+}) {
   const organization = useOrganization();
+  const canEditSystemRole = isSuperAdmin;
+  const canEditName = canManage && (!role.isSystem || canEditSystemRole);
+  const canEditScope = canManage && (!role.isSystem || canEditSystemRole);
+  const canEditPermissions = canManage && (!role.isSystem || canEditSystemRole);
   const [name, setName] = useState(role.name);
   const [scope, setScope] = useState(role.scope);
   const [granted, setGranted] = useState<string[]>(role.permissions);
@@ -104,22 +123,26 @@ function RoleEditor({ role, canManage }: { role: OrgRole; canManage: boolean }) 
   const selected = useMemo(() => new Set(granted), [granted]);
 
   return (
-    <Card key={role.id}>
+    <Card>
       <CardHeader>
         <CardTitle>{role.name}</CardTitle>
         <CardDescription>
-          {role.isSystem ? "System role. You can adjust permissions, but you cannot delete it." : "Custom role for this organization."}
+          {role.isSystem
+            ? canEditSystemRole
+              ? "System role. You can change its name, scope, and permissions. You cannot delete it."
+              : "System role. A SuperAdmin can change it. You cannot delete it."
+            : "Custom role for this organization."}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
         <Field label="Name">
-          <Input value={name} onChange={(event) => setName(event.target.value)} disabled={!canManage} className="h-9" />
+          <Input value={name} onChange={(event) => setName(event.target.value)} disabled={!canEditName} className="h-9" />
         </Field>
         <Field label="Scope">
           <SelectField
             value={scope}
             onValueChange={setScope}
-            disabled={!canManage || role.isSystem}
+            disabled={!canEditScope}
             options={[
               { value: "organization", label: "Whole organization" },
               { value: "assigned_groups", label: "Assigned groups" },
@@ -134,7 +157,7 @@ function RoleEditor({ role, canManage }: { role: OrgRole; canManage: boolean }) 
               <label key={item.key} className="flex items-center gap-2 text-sm">
                 <Checkbox
                   checked={selected.has(item.key)}
-                  disabled={!canManage}
+                  disabled={!canEditPermissions}
                   onCheckedChange={(checked) => {
                     setGranted((current) =>
                       checked === true ? [...new Set([...current, item.key])] : current.filter((key) => key !== item.key),
@@ -146,7 +169,7 @@ function RoleEditor({ role, canManage }: { role: OrgRole; canManage: boolean }) 
             ))}
           </div>
         ))}
-        {canManage ? (
+        {canManage && (!role.isSystem || canEditSystemRole) ? (
           <div className="flex gap-2">
             <SubmitButton pending={save.isPending} onClick={() => save.mutate()}>
               Save

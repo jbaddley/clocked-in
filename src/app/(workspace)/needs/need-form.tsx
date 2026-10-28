@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createNeedAction, updateNeedAction } from "@/app/actions/volunteer-needs";
+import { DialogActions } from "@/components/dialog-actions";
 import { Field } from "@/components/field";
 import { QuestionDesigner, type QuestionDraft } from "@/components/question-designer";
 import { SelectField } from "@/components/select-field";
@@ -59,6 +60,7 @@ export function NeedForm({ need, onDone }: { need?: VolunteerNeed; onDone: () =>
 
   return (
     <form
+      id="need-form"
       className="flex flex-col gap-4"
       onSubmit={(event) => {
         event.preventDefault();
@@ -155,12 +157,12 @@ export function NeedForm({ need, onDone }: { need?: VolunteerNeed; onDone: () =>
         Require vetting before a volunteer fills a spot
       </label>
       <QuestionDesigner questions={questions} onChange={setQuestions} />
-      <div className="flex justify-end gap-2">
+      <DialogActions form="need-form">
         <Button type="button" variant="outline" onClick={onDone}>
           Cancel
         </Button>
         <SubmitButton pending={save.isPending}>{need ? "Save" : "Add need"}</SubmitButton>
-      </div>
+      </DialogActions>
     </form>
   );
 }

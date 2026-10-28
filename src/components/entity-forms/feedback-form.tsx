@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import { usePathname } from "next/navigation";
 import { createFeedbackAction } from "@/app/actions/feedback";
+import { DialogActions } from "@/components/dialog-actions";
 import { EntityFormDialog } from "@/components/entity-forms/entity-form-dialog";
 import { Field, FormMessage } from "@/components/field";
 import { SelectField } from "@/components/select-field";
@@ -51,8 +52,11 @@ function FeedbackForm({
     errorToast: false,
   });
 
+  const formId = `${idPrefix}-form`;
+
   return (
     <form
+      id={formId}
       className="grid gap-4"
       onSubmit={(event) => {
         event.preventDefault();
@@ -94,13 +98,13 @@ function FeedbackForm({
       <Field label="Screenshots" htmlFor={`${idPrefix}-screenshots`} hint="Optional. Up to 5 images, 4 MB each.">
         <Input id={`${idPrefix}-screenshots`} name="screenshots" type="file" accept="image/*" multiple className="h-9" />
       </Field>
-      <div className="flex items-center justify-end gap-2">
-        <FormMessage result={create.error ? ({ ok: false, error: create.error.message } satisfies ActionResult) : create.isSuccess ? { ok: true } : null} />
-        <Button type="button" variant="ghost" onClick={onCancel}>
+      <FormMessage result={create.error ? ({ ok: false, error: create.error.message } satisfies ActionResult) : create.isSuccess ? { ok: true } : null} />
+      <DialogActions form={formId}>
+        <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
         <SubmitButton pending={create.isPending}>Send feedback</SubmitButton>
-      </div>
+      </DialogActions>
     </form>
   );
 }

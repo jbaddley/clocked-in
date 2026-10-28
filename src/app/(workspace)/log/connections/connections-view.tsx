@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CalendarClockIcon, PlusIcon } from "lucide-react";
 import { useState } from "react";
 import { createPersonAction, type NewPerson } from "@/app/actions/members";
+import { DialogActions } from "@/components/dialog-actions";
 import { TimeEntryForm } from "@/components/entity-forms/time-entry-form";
 import { EntityFormDialog } from "@/components/entity-forms/entity-form-dialog";
 import { Field, FormMessage } from "@/components/field";
@@ -105,6 +106,7 @@ function AddVolunteerForm({ onCancel, onSaved }: { onCancel: () => void; onSaved
 
   return (
     <form
+      id="connection-form"
       className="flex flex-col gap-4"
       onSubmit={(event) => {
         event.preventDefault();
@@ -152,14 +154,12 @@ function AddVolunteerForm({ onCancel, onSaved }: { onCancel: () => void; onSaved
         </Field>
       </div>
       <FormMessage result={create.error ? { ok: false, error: create.error.message } : null} />
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" className="h-9" onClick={onCancel}>
+      <DialogActions form="connection-form">
+        <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <SubmitButton pending={create.isPending} className="h-9">
-          Add volunteer
-        </SubmitButton>
-      </div>
+        <SubmitButton pending={create.isPending}>Add volunteer</SubmitButton>
+      </DialogActions>
     </form>
   );
 }

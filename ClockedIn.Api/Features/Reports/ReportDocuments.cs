@@ -24,6 +24,9 @@ public static partial class ReportDocuments
     private static readonly string[] ValueFormats = ["number", "hours", "currency"];
     private static readonly string[] ChartFormats = ["number", "hours", "currency"];
     private static readonly string[] ListColumns = ["name", "type", "hours", "share", "people", "inKind"];
+    private static readonly string[] ListSortKeys = ["name", "hours", "share", "people", "inKind"];
+    private static readonly string[] ListSortDirs = ["asc", "desc"];
+    private static readonly string[] EntriesScopes = ["mine", "organization"];
     private static readonly string[] ChartTypes = ["donut", "pie", "bar", "column"];
     private static readonly string[] Palettes = ["single", "categorical", "sequential", "diverging"];
     private static readonly string[] ValueKeys = ["hours", "inKind"];
@@ -125,7 +128,7 @@ public static partial class ReportDocuments
     private static object Card(JsonElement value, int index, List<(string Id, int Column, int Row, int Columns, int Rows)> boxes)
     {
         var source = Object(value, $"cards[{index}]");
-        var kind = Choice(Take(source, "kind"), "kind", ["value", "chart", "list"]);
+        var kind = Choice(Take(source, "kind"), "kind", ["value", "chart", "list", "entries"]);
         var id = Id(Take(source, "id"), "id");
         var title = Text(Take(source, "title"), "title", 120, true);
         var description = source.ContainsKey("description") ? Text(Take(source, "description"), "description", 300, false) : "";
@@ -191,12 +194,31 @@ public static partial class ReportDocuments
             var format = Choice(Take(source, "format"), "format", ValueFormats);
             var pattern = Pattern(source, format);
             var visible = VisibleColumns(Take(source, "visibleColumns"));
-            Leftover(source, "cards");
-            return CardDictionary(id, kind, title, description, column, row, columns, rows, accessor, new Dictionary<string, object?>
+            var extra = new Dictionary<string, object?>
             {
                 ["format"] = format,
                 ["pattern"] = pattern,
                 ["visibleColumns"] = visible,
+            };
+            var sortKey = OptionalChoice(source, "sortKey", ListSortKeys);
+            var sortDir = OptionalChoice(source, "sortDir", ListSortDirs);
+            var limit = OptionalBoundedInteger(source, "limit", 1, 50);
+            if (sortKey is not null) extra["sortKey"] = sortKey;
+            if (sortDir is not null) extra["sortDir"] = sortDir;
+            if (limit is int listLimit) extra["limit"] = listLimit;
+            Leftover(source, "cards");
+            return CardDictionary(id, kind, title, description, column, row, columns, rows, accessor, extra);
+        }
+
+        if (kind == "entries")
+        {
+            var scope = source.ContainsKey("scope") ? Choice(Take(source, "scope"), "scope", EntriesScopes) : "mine";
+            var limit = OptionalBoundedInteger(source, "limit", 1, 20) ?? 6;
+            Leftover(source, "cards");
+            return CardDictionary(id, kind, title, description, column, row, columns, rows, $"entries.{scope}", new Dictionary<string, object?>
+            {
+                ["scope"] = scope,
+                ["limit"] = limit,
             });
         }
 
@@ -417,6 +439,44 @@ public static partial class ReportDocuments
         }
 
         return text;
+    }
+
+    private static string? OptionalChoice(Dictionary<string, object?> source, string key, IReadOnlyList<string> allowed)
+    {
+        if (!source.ContainsKey(key))
+        {
+            return null;
+        }
+
+        var value = Take(source, key);
+        if (value is null)
+        {
+            return null;
+        }
+
+        return Choice(value, key, allowed);
+    }
+
+    private static int? OptionalBoundedInteger(Dictionary<string, object?> source, string key, int min, int max)
+    {
+        if (!source.ContainsKey(key))
+        {
+            return null;
+        }
+
+        var value = Take(source, key);
+        if (value is null)
+        {
+            return null;
+        }
+
+        var number = Integer(value, key);
+        if (number < min || number > max)
+        {
+            throw ApiException.Validation($"{key} must be from {min} to {max}.");
+        }
+
+        return number;
     }
 
     private static string Id(object? value, string key)

@@ -42,6 +42,7 @@ export const keys = {
   apiKeys: (organizationId: string) => ["org", organizationId, "api-keys"] as const,
   entries: (organizationId: string, userId: string, range: DateRange) =>
     ["org", organizationId, "entries", userId, range.from ?? "", range.to ?? ""] as const,
+  organizationEntries: (organizationId: string) => ["org", organizationId, "recent-entries"] as const,
   groupSessions: (organizationId: string) => ["org", organizationId, "group-sessions"] as const,
   report: (organizationId: string, filter: ReportFilters) => ["org", organizationId, "report", filter] as const,
   savedReports: (organizationId: string) => ["org", organizationId, "saved-reports"] as const,
@@ -111,6 +112,14 @@ export function departmentInvitationsQuery(departmentId: string) {
     queryKey: keys.departmentInvitations(departmentId),
     queryFn: async ({ signal }) =>
       (await fetchJson<Paged<Invitation>>(`/departments/${departmentId}/invitations?limit=100`, signal)).items,
+  });
+}
+
+export function organizationEntriesQuery(organizationId: string) {
+  return queryOptions({
+    queryKey: keys.organizationEntries(organizationId),
+    queryFn: ({ signal }) =>
+      fetchJson<Paged<TimeEntry>>(`/organizations/${organizationId}/time-entries${query({ limit: 20 })}`, signal),
   });
 }
 

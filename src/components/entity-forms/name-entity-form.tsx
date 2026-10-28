@@ -4,6 +4,7 @@ import { useId, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "cn";
 import { createLookupAction, updateLookupAction, type NamedLookupKind } from "@/app/actions/lookups";
+import { DialogActions } from "@/components/dialog-actions";
 import { EntityFormDialog } from "@/components/entity-forms/entity-form-dialog";
 import { namedEntity, rememberLookup, upsertNamed, type NamedEntity } from "@/components/entity-forms/lookup-cache";
 import { Field } from "@/components/field";
@@ -159,10 +160,12 @@ function NameEntityForm({
     },
   });
   const inputId = `${idPrefix}-name`;
+  const formId = `${idPrefix}-form`;
   const pending = entity ? update.isPending : create.isPending;
 
   return (
     <form
+      id={formId}
       className={cn("flex gap-2", layout === "stack" ? "flex-col gap-4" : "flex-col sm:flex-row")}
       onSubmit={(event) => {
         event.preventDefault();
@@ -182,16 +185,16 @@ function NameEntityForm({
           className="h-9"
         />
       </Field>
-      <div className={cn("flex gap-2", layout === "stack" ? "justify-end" : "sm:mt-6")}>
+      <DialogActions form={formId} className={layout === "stack" ? undefined : "sm:mt-6"}>
         {onCancel ? (
-          <Button type="button" variant="outline" className="h-9" onClick={onCancel}>
+          <Button type="button" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
         ) : null}
-        <SubmitButton pending={pending} className="h-9 w-auto">
+        <SubmitButton pending={pending}>
           {submitLabel ?? (entity ? "Save" : "Add")}
         </SubmitButton>
-      </div>
+      </DialogActions>
     </form>
   );
 }

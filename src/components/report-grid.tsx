@@ -4,6 +4,7 @@ import { useRef, useState, type PointerEvent, type ReactElement } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "cn";
 import { ChartCard } from "@/components/chart-card";
+import { EntriesCard } from "@/components/entries-card";
 import { GroupTable } from "@/components/group-table";
 import { ReportGridItem } from "@/components/report-grid-item";
 import { ValueCard } from "@/components/value-card";
@@ -97,8 +98,15 @@ function cardBody(
         rows={[]}
         visibleColumns={card.visibleColumns}
         hoursPattern={card.pattern || patternFor(card.format)}
+        sortKey={card.sortKey}
+        sortDir={card.sortDir}
+        limit={card.limit}
       />
     );
+  }
+
+  if (card.kind === "entries") {
+    return <EntriesCard title={card.title} description={card.description || undefined} limit={card.limit} />;
   }
 
   return (

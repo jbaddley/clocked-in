@@ -58,6 +58,20 @@ public sealed class TimeEntriesService(ClockedInDbContext db, Access access, Ent
         return ListResponse.Of(entries.Select(TimeEntryDto.From).ToList(), page);
     }
 
+    public async Task<ListResponse<TimeEntryDto>> ListForOrganization(Guid organizationId, PageQuery query, CancellationToken cancellationToken)
+    {
+        var page = query.Resolve();
+        await access.RequireOrganization(organizationId, false, cancellationToken);
+        var entries = await db.UserTimeEntries.AsNoTracking().Include(entry => entry.Tags)
+            .Where(entry => entry.OrganizationId == organizationId)
+            .OrderByDescending(entry => entry.OccurredOn)
+            .ThenByDescending(entry => entry.StartedAt)
+            .Skip(page.Offset)
+            .Take(page.Limit)
+            .ToListAsync(cancellationToken);
+        return ListResponse.Of(entries.Select(TimeEntryDto.From).ToList(), page);
+    }
+
     public async Task<TimeEntryDto> Create(Guid userId, CreateTimeEntryRequest request, CancellationToken cancellationToken)
     {
         var user = await db.UsersWithProfile().FirstOrDefaultAsync(item => item.Id == userId, cancellationToken)

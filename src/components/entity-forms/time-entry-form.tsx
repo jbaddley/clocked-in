@@ -13,6 +13,7 @@ import {
 } from "@/app/actions/entries";
 import { HourlyRateSelect, defaultVolunteerRateId } from "@/components/hourly-rate-select";
 import { useLookups } from "@/hooks/use-lookups";
+import { DialogActions } from "@/components/dialog-actions";
 import { EntityFormDialog } from "@/components/entity-forms/entity-form-dialog";
 import { Field } from "@/components/field";
 import { PersonSelect, selectableMembers } from "@/components/person-select";
@@ -316,8 +317,11 @@ export function TimeEntryForm({
     return localDateValue(new Date(startedAt.getTime() + typedMinutes * 60000)) !== occurredOn;
   })();
 
+  const formId = `${idPrefix}-form`;
+
   return (
     <form
+      id={formId}
       className="flex flex-col gap-4"
       onSubmit={(event) => {
         event.preventDefault();
@@ -575,20 +579,19 @@ export function TimeEntryForm({
           rows={2}
         />
       </Field>
-      <div className="flex justify-end gap-2">
+      <DialogActions form={formId}>
         {onCancel ? (
-          <Button type="button" variant="outline" className="h-9" onClick={onCancel}>
+          <Button type="button" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
         ) : null}
         <SubmitButton
           pending={entry ? update.isPending : create.isPending}
           disabled={(!entry && !placement.ready) || (showPerson && !selectedPersonId)}
-          className="h-9 w-full sm:w-auto"
         >
           {submitLabel ?? (entry ? "Save" : extraDates.length > 0 ? `Save ${extraDates.length + 1} days` : "Save time")}
         </SubmitButton>
-      </div>
+      </DialogActions>
     </form>
   );
 }

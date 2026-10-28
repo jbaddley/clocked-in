@@ -549,6 +549,7 @@ model Report {
   organizationId String       @db.Uuid
   name           String       @db.Citext
   isDefault      Boolean      @default(false)
+  isDashboard    Boolean      @default(false)
   layout         Json         @default("{\"version\": 1, \"cards\": []}")
   filters        Json         @default("{}")
   createdAt      DateTime     @default(now()) @db.Timestamptz(6)
@@ -557,6 +558,7 @@ model Report {
 
   @@unique([organizationId, name], map: "IX_Report_organizationId_name")
   @@unique([organizationId], map: "Report_one_default", where: raw("(\"isDefault\" = true)"))
+  @@unique([organizationId], map: "Report_one_dashboard", where: raw("(\"isDashboard\" = true)"))
 }
 
 /// A reusable card layout. A null organizationId is a global template. An organization row with baseTemplateId replaces that global for one organization.

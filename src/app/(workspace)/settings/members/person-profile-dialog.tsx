@@ -6,7 +6,7 @@ import { createConnectionAction, deleteConnectionAction, updateConnectionAction 
 import { MarkdownView } from "@/components/markdown-view";
 import { SelectField } from "@/components/select-field";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useActionMutation } from "@/hooks/use-action-mutation";
 import { useMembers } from "@/hooks/use-members";
 import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
@@ -79,10 +79,10 @@ export function PersonProfileDialog({
 
   return (
     <Dialog open={Boolean(member)} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[min(40rem,85vh)] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="flex max-h-[min(40rem,85vh)] flex-col overflow-hidden sm:max-w-lg">
         {member ? (
           <>
-            <DialogHeader className="pr-8">
+            <DialogHeader className="shrink-0 pr-8">
               <div className="flex items-center gap-3">
                 {avatarSrc ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -101,47 +101,50 @@ export function PersonProfileDialog({
               </div>
             </DialogHeader>
 
-            {profileQuery.isPending ? <p className="text-sm text-muted-foreground">Loading profile…</p> : null}
-            {profileQuery.isError ? (
-              <p className="text-sm text-muted-foreground">The rest of this profile is not available.</p>
-            ) : null}
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+              {profileQuery.isPending ? <p className="text-sm text-muted-foreground">Loading profile…</p> : null}
+              {profileQuery.isError ? (
+                <p className="text-sm text-muted-foreground">The rest of this profile is not available.</p>
+              ) : null}
 
-            {profile?.description?.trim() ? (
-              <section>
-                <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">About</h3>
-                <div className="mt-2">
-                  <MarkdownView source={profile.description} />
-                </div>
-              </section>
-            ) : null}
+              {profile?.description?.trim() ? (
+                <section>
+                  <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">About</h3>
+                  <div className="mt-2">
+                    <MarkdownView source={profile.description} />
+                  </div>
+                </section>
+              ) : null}
 
-            {member.orgUserDescription?.trim() ? (
-              <section>
-                <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">In this organization</h3>
-                <div className="mt-2">
-                  <MarkdownView source={member.orgUserDescription} />
-                </div>
-              </section>
-            ) : null}
+              {member.orgUserDescription?.trim() ? (
+                <section>
+                  <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">In this organization</h3>
+                  <div className="mt-2">
+                    <MarkdownView source={member.orgUserDescription} />
+                  </div>
+                </section>
+              ) : null}
 
-            <dl className="grid gap-4 sm:grid-cols-2">
-              <Fact label="Username" value={member.user.username} />
-              <Fact label="Email" value={profileQuery.data?.email ?? member.user.email} />
-              <Fact label="First name" value={profile?.firstName ?? member.user.firstName} />
-              <Fact label="Last name" value={profile?.lastName ?? member.user.lastName} />
-              <Fact label="Display name" value={profile?.displayName ?? member.user.displayName} />
-              <Fact label="Title" value={member.orgUserTitle} />
-              <Fact label="Role" value={member.role.name} />
-              <Fact label="Status" value={member.isActive === false ? "Inactive" : "Active"} />
-              <Fact label="Departments" value={departmentNames.join(", ")} />
-              <Fact label="Member number" value={profile?.memberNumber} />
-              <Fact label="Timezone" value={profile?.timezone} />
-              <Fact label="Phone" value={profile?.phone} />
-              <Fact label="Zip code" value={profile?.zipCode} />
-              <Fact label="Joined" value={formatInstant(member.joinedAt, profile?.timezone || timeZone)} />
-              <Fact label="Notes" value={profile?.notes} />
-            </dl>
-            <MemberConnections member={member} />
+              <dl className="grid gap-4 sm:grid-cols-2">
+                <Fact label="Username" value={member.user.username} />
+                <Fact label="Email" value={profileQuery.data?.email ?? member.user.email} />
+                <Fact label="First name" value={profile?.firstName ?? member.user.firstName} />
+                <Fact label="Last name" value={profile?.lastName ?? member.user.lastName} />
+                <Fact label="Display name" value={profile?.displayName ?? member.user.displayName} />
+                <Fact label="Title" value={member.orgUserTitle} />
+                <Fact label="Role" value={member.role.name} />
+                <Fact label="Status" value={member.isActive === false ? "Inactive" : "Active"} />
+                <Fact label="Departments" value={departmentNames.join(", ")} />
+                <Fact label="Member number" value={profile?.memberNumber} />
+                <Fact label="Timezone" value={profile?.timezone} />
+                <Fact label="Phone" value={profile?.phone} />
+                <Fact label="Zip code" value={profile?.zipCode} />
+                <Fact label="Joined" value={formatInstant(member.joinedAt, profile?.timezone || timeZone)} />
+                <Fact label="Notes" value={profile?.notes} />
+              </dl>
+              <MemberConnections member={member} />
+            </div>
+            <DialogFooter showCloseButton />
           </>
         ) : null}
       </DialogContent>

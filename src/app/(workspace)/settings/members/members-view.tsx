@@ -18,6 +18,7 @@ import {
   type NewPerson,
 } from "@/app/actions/members";
 import { decideAccessRequestAction } from "@/app/actions/access-requests";
+import { DialogActions } from "@/components/dialog-actions";
 import { TimeEntryDialog } from "@/components/entity-forms/time-entry-form";
 import { EntityFormDialog } from "@/components/entity-forms/entity-form-dialog";
 import { Field, FormMessage } from "@/components/field";
@@ -652,7 +653,7 @@ function InviteForm() {
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
         <form
-          className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_8rem_auto]"
+          className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,2fr)]"
           onSubmit={(event) => {
             event.preventDefault();
             invite.mutate({
@@ -693,7 +694,7 @@ function InviteForm() {
           <Field label="Role">
             <SelectField value={role} onValueChange={setRole} options={roleOptions} className="h-9" />
           </Field>
-          <SubmitButton pending={invite.isPending} className="h-9 sm:mt-6">
+          <SubmitButton pending={invite.isPending} className="h-9 sm:col-start-3 sm:mt-6 sm:justify-self-end">
             Send invite
           </SubmitButton>
         </form>
@@ -845,6 +846,7 @@ function AddPersonForm({ onCancel, onSaved }: { onCancel: () => void; onSaved: (
 
   return (
     <form
+      id="add-person-form"
       className="flex flex-col gap-4"
       onSubmit={(event) => {
         event.preventDefault();
@@ -897,14 +899,12 @@ function AddPersonForm({ onCancel, onSaved }: { onCancel: () => void; onSaved: (
       </div>
       <DepartmentChecks value={departmentIds} onChange={setDepartmentIds} />
       <FormMessage result={create.error ? { ok: false, error: create.error.message } : null} />
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" className="h-9" onClick={onCancel}>
+      <DialogActions form="add-person-form">
+        <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <SubmitButton pending={create.isPending} className="h-9">
-          Add person
-        </SubmitButton>
-      </div>
+        <SubmitButton pending={create.isPending}>Add person</SubmitButton>
+      </DialogActions>
     </form>
   );
 }
@@ -972,6 +972,7 @@ function EditPersonForm({
 
   return (
     <form
+      id="edit-person-form"
       className="flex flex-col gap-4"
       onSubmit={(event) => {
         event.preventDefault();
@@ -1074,14 +1075,12 @@ function EditPersonForm({
         </TabsContent>
       </Tabs>
       <FormMessage result={save.error ? { ok: false, error: save.error.message } : null} />
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" className="h-9" onClick={onCancel}>
+      <DialogActions form="edit-person-form">
+        <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <SubmitButton pending={save.isPending} className="h-9">
-          Save
-        </SubmitButton>
-      </div>
+        <SubmitButton pending={save.isPending}>Save</SubmitButton>
+      </DialogActions>
     </form>
   );
 }

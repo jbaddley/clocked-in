@@ -7,6 +7,7 @@ import {
   type GroupSessionPatch,
   type NewGroupSession,
 } from "@/app/actions/collective";
+import { DialogActions } from "@/components/dialog-actions";
 import { EntityFormDialog } from "@/components/entity-forms/entity-form-dialog";
 import { Field } from "@/components/field";
 import { alignedEntryGridClass, PlacementFields } from "@/components/placement-fields";
@@ -112,8 +113,11 @@ export function GroupSessionForm({
   const preview = times && count ? groupValue(times.startedAt, times.endedAt, count, hourlyRate) : null;
   const hours = times ? (times.endedAt.getTime() - times.startedAt.getTime()) / 3_600_000 : 0;
 
+  const formId = `${idPrefix}-form`;
+
   return (
     <form
+      id={formId}
       className="flex flex-col gap-4"
       onSubmit={(event) => {
         event.preventDefault();
@@ -212,20 +216,16 @@ export function GroupSessionForm({
           {formatCurrency(hourlyRate)}/h
         </p>
       ) : null}
-      <div className="flex justify-end gap-2">
+      <DialogActions form={formId}>
         {onCancel ? (
-          <Button type="button" variant="outline" className="h-9" onClick={onCancel}>
+          <Button type="button" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
         ) : null}
-        <SubmitButton
-          pending={session ? update.isPending : create.isPending}
-          disabled={!placement.ready}
-          className="h-9 w-full sm:w-auto"
-        >
+        <SubmitButton pending={session ? update.isPending : create.isPending} disabled={!placement.ready}>
           {submitLabel ?? (session ? "Save" : "Save session")}
         </SubmitButton>
-      </div>
+      </DialogActions>
     </form>
   );
 }

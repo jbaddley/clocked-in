@@ -20,11 +20,12 @@ export function ReportSwitcher({
   const router = useRouter();
   const { isAdmin } = useWorkspace();
   const { reports } = useSavedReports();
-  if (reports.length === 0 && !isAdmin) return null;
+  const listed = reports.filter((report) => !(report.isDashboard && !report.isDefault));
+  if (listed.length === 0 && !isAdmin) return null;
 
   const options = [
     { value: "standard", label: "Standard" },
-    ...reports.map((report) => ({
+    ...listed.map((report) => ({
       value: report.id,
       label: report.isDefault ? `${report.name} (default)` : report.name,
     })),
@@ -32,7 +33,7 @@ export function ReportSwitcher({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {reports.length > 0 ? (
+          {listed.length > 0 ? (
         <SelectField
           aria-label="Report"
           className="w-56"

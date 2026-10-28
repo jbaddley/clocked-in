@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChartColumnIcon, CircleHelpIcon, HashIcon, ListIcon, XIcon, ZoomInIcon, ZoomOutIcon } from "lucide-react";
+import { ChartColumnIcon, CircleHelpIcon, HashIcon, InboxIcon, ListIcon, XIcon, ZoomInIcon, ZoomOutIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
@@ -45,14 +45,22 @@ import {
   updateReportTemplateAction,
 } from "@/app/actions/reports";
 import { formatPatterns, formatPresetLabel } from "@/lib/number-pattern";
+import { useReportEntries, withEntries } from "@/hooks/use-report-entries";
 import { keys, reportQuery, reportTemplateQuery, reportTemplatesQuery, savedReportQuery } from "@/lib/queries";
 import {
   chartValueKeys,
+  dashboardLayout,
   emptyLayout,
+  entriesLimitDefault,
+  entriesLimitMax,
+  entriesScopes,
   firstOpening,
   layoutError,
   listColumnKeys,
   listColumnLabel,
+  listLimitMax,
+  listSortDirs,
+  listSortKeys,
   builtinTemplateIds,
   reportTemplate,
   reportTemplateIds,
@@ -65,6 +73,7 @@ import {
   type ValueColor,
 } from "@/lib/report-layout";
 import { scalarAccessors, seriesAccessors } from "@/lib/report-path";
+import { useSavedReports } from "./report-switcher";
 import { cn } from "cn";
 
 const designerPreferencesKey = "clocked-in.report-designer";
@@ -316,10 +325,12 @@ function ArrangeCanvas({
   mode,
   report,
   template,
+  dashboard = false,
 }: {
   mode: "report" | "template";
   report?: SavedReport;
   template?: ReportTemplate;
+  dashboard?: boolean;
 }) {
   const organization = useOrganization();
   const { isAdmin, viewer } = useWorkspace();
@@ -348,6 +359,8 @@ function ArrangeCanvas({
   const [frameWidth, setFrameWidth] = useState(0);
   const [contentHeight, setContentHeight] = useState(0);
 
+  const reportIdRef = useRef(report?.id ?? "");
+
   const persist = useCallback(
     async (body: { layout: ReportLayout; filters: ReportFilters }) => {
       const problem = layoutError(body.layout);
@@ -357,13 +370,26 @@ function ArrangeCanvas({
       }
 
       if (mode === "report") {
-        const result = await updateReportAction(organization.id, report!.id, {
-          layout: body.layout,
-          filters: body.filters,
-        });
-        if (!result.ok) throw new Error(result.error);
-        await queryClient.invalidateQueries({ queryKey: keys.savedReports(organization.id) });
-        await queryClient.invalidateQueries({ queryKey: keys.savedReport(organization.id, report!.id) });
+        if (!reportIdRef.current) {
+          const result = await createReportAction(organization.id, {
+            name: report?.name || "Dashboard",
+            isDashboard: dashboard,
+            layout: body.layout,
+            filters: body.filters,
+          });
+          if (!result.ok || !result.data) throw new Error(result.ok ? "The report could not be saved." : result.error);
+          reportIdRef.current = result.data.id;
+          await queryClient.invalidateQueries({ queryKey: keys.savedReports(organization.id) });
+          await queryClient.invalidateQueries({ queryKey: keys.savedReport(organization.id, result.data.id) });
+        } else {
+          const result = await updateReportAction(organization.id, reportIdRef.current, {
+            layout: body.layout,
+            filters: body.filters,
+          });
+          if (!result.ok) throw new Error(result.error);
+          await queryClient.invalidateQueries({ queryKey: keys.savedReports(organization.id) });
+          await queryClient.invalidateQueries({ queryKey: keys.savedReport(organization.id, reportIdRef.current) });
+        }
       } else if (template!.scope === "global" && !viewer.isSuperAdmin) {
         const result = await createReportTemplateAction(organization.id, {
           name: template!.name,
@@ -382,7 +408,7 @@ function ArrangeCanvas({
 
       setError(null);
     },
-    [mode, organization.id, queryClient, report, router, template, viewer.isSuperAdmin],
+    [dashboard, mode, organization.id, queryClient, report, router, template, viewer.isSuperAdmin],
   );
 
   useArrangeSave(true, layout, filters, persist);
@@ -418,6 +444,8 @@ function ArrangeCanvas({
   }, [setZoom, zoom]);
 
   const preview = useQuery(reportQuery(organization.id, filters));
+  const { entries } = useReportEntries();
+  const previewData = withEntries(preview.data, entries);
   const selected = layout.cards.find((card) => card.id === selectedId) ?? null;
   const filterCount = Object.keys(filters).length;
   const paths = selected?.kind === "value" ? scalarAccessors : seriesAccessors;
@@ -455,8 +483,8 @@ function ArrangeCanvas({
   }
 
   function addCard(kind: ReportCard["kind"]) {
-    const columns = kind === "value" ? 3 : 6;
-    const rows = kind === "value" ? 1 : kind === "list" ? 5 : 4;
+    const columns = kind === "value" ? 3 : kind === "entries" ? 12 : 6;
+    const rows = kind === "value" ? 1 : kind === "chart" ? 4 : 5;
     const spot = firstOpening(layout.cards, columns, rows);
     if (!spot) {
       setError("There is no open space for that card.");
@@ -489,19 +517,30 @@ function ArrangeCanvas({
               visibleColumns: ["name", "hours", "share", "inKind"],
               ...spot,
             }
-          : {
-              id: crypto.randomUUID(),
-              kind,
-              title: "Chart",
-              description: "",
-              accessor: "user.byDepartment",
-              chartType: "column",
-              palette: "single",
-              valueKey: "hours",
-              format: "hours",
-              pattern: formatPatterns.hours,
-              ...spot,
-            };
+          : kind === "entries"
+            ? {
+                id: crypto.randomUUID(),
+                kind,
+                title: "Recent entries",
+                description: "",
+                accessor: "entries.mine",
+                scope: "mine",
+                limit: entriesLimitDefault,
+                ...spot,
+              }
+            : {
+                id: crypto.randomUUID(),
+                kind,
+                title: "Chart",
+                description: "",
+                accessor: "user.byDepartment",
+                chartType: "column",
+                palette: "single",
+                valueKey: "hours",
+                format: "hours",
+                pattern: formatPatterns.hours,
+                ...spot,
+              };
     setError(null);
     setLayout((current) => ({ version: 1, cards: [...current.cards, card] }));
     setSelectedId(card.id);
@@ -557,6 +596,9 @@ function ArrangeCanvas({
               <Button type="button" variant="outline" size="icon" aria-label="Add list card" onClick={() => addCard("list")}>
                 <ListIcon />
               </Button>
+              <Button type="button" variant="outline" size="icon" aria-label="Add entries card" onClick={() => addCard("entries")}>
+                <InboxIcon />
+              </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger render={<Button type="button" variant="outline" />}>Reset</DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -599,7 +641,7 @@ function ArrangeCanvas({
                 ) : null}
                 <ReportGrid
                   cards={layout.cards}
-                  data={preview.data}
+                  data={previewData}
                   editing
                   scroll={false}
                   selectedId={selectedId}
@@ -641,17 +683,18 @@ function ArrangeCanvas({
       {error ? <p className="shrink-0 text-sm text-destructive">{error}</p> : null}
       {problem ? <p className="shrink-0 text-sm text-destructive">{problem}</p> : null}
       <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
-        <DialogContent className="sm:max-w-xl">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[min(40rem,85vh)] flex-col overflow-hidden sm:max-w-xl">
+          <DialogHeader className="shrink-0">
             <DialogTitle>Report builder</DialogTitle>
             <DialogDescription>How to arrange cards and save this report.</DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col gap-3 text-sm">
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto text-sm">
             <p><span className="font-medium">Layout. </span>Drag a card to move it. Drag the top, right, bottom, or left edge to resize it. Cards cannot overlap.</p>
             <p><span className="font-medium">Cards. </span>The header icons add a value, chart, or list card. Reset replaces every card with Blank or a template after confirmation. Click a card to select it and open the card editor. The editor edits title, description, data, and format, plus color and icon for a value, chart type, palette, and value for a chart, or columns for a list. Delete removes the selected card. The close icon hides the editor; clicking a card opens it again.</p>
             <p><span className="font-medium">Preview. </span>Zoom with the header controls, the percentage (resets to 100%), or Ctrl/Cmd + scroll over the preview. The preview uses the report filters and shows Updating while data reloads.</p>
             <p><span className="font-medium">Report. </span>Name, default, and the starting layout are chosen before the preview opens. Filters for date range, department, task category, project, and person apply to the preview. Card, layout, and filter changes save automatically. An organization admin can save the layout as an organization template. A SuperAdmin edits a global template. An organization admin who saves a global template creates an override that replaces it for this organization.</p>
           </div>
+          <DialogFooter showCloseButton />
         </DialogContent>
       </Dialog>
       <ConfirmDialog
@@ -774,6 +817,52 @@ function CardFields({
   onPickIcon: () => void;
   onDelete: () => void;
 }) {
+  if (card.kind === "entries") {
+    return (
+      <>
+        <Field label="Title" htmlFor="card-title">
+          <Input id="card-title" value={card.title} onChange={(event) => onPatch({ title: event.target.value })} />
+        </Field>
+        <Field label="Description" htmlFor="card-description">
+          <Textarea id="card-description" value={card.description} onChange={(event) => onPatch({ description: event.target.value })} />
+        </Field>
+        <Field label="Scope" htmlFor="card-scope">
+          <SelectField
+            id="card-scope"
+            value={card.scope}
+            onValueChange={(scope) => {
+              if (scope === "mine" || scope === "organization") {
+                onPatch({ scope, accessor: `entries.${scope}` } as Partial<ReportCard>);
+              }
+            }}
+            options={entriesScopes.map((value) => ({
+              value,
+              label: value === "mine" ? "My entries" : "Organization entries",
+            }))}
+          />
+        </Field>
+        <Field label="Limit" htmlFor="card-limit">
+          <Input
+            id="card-limit"
+            type="number"
+            min={1}
+            max={entriesLimitMax}
+            value={card.limit}
+            onChange={(event) => {
+              const next = Number(event.target.value);
+              if (Number.isInteger(next) && next >= 1 && next <= entriesLimitMax) {
+                onPatch({ limit: next } as Partial<ReportCard>);
+              }
+            }}
+          />
+        </Field>
+        <Button type="button" variant="destructive" onClick={onDelete}>
+          Delete card
+        </Button>
+      </>
+    );
+  }
+
   return (
     <>
       <Field label="Title" htmlFor="card-title">
@@ -885,6 +974,65 @@ function CardFields({
           ))}
         </fieldset>
       ) : null}
+      {card.kind === "list" ? (
+        <>
+          <Field label="Sort by" htmlFor="card-sort-key">
+            <SelectField
+              id="card-sort-key"
+              value={card.sortKey ?? (card.limit !== undefined ? "hours" : "api")}
+              onValueChange={(sortKey) => {
+                if (sortKey === "api") {
+                  onPatch({ sortKey: undefined } as Partial<ReportCard>);
+                  return;
+                }
+                if (listSortKeys.includes(sortKey as (typeof listSortKeys)[number])) {
+                  onPatch({ sortKey } as Partial<ReportCard>);
+                }
+              }}
+              options={[
+                { value: "api", label: "API order" },
+                ...listSortKeys.map((value) => ({
+                  value,
+                  label: value === "people" ? "People" : value === "inKind" ? "In-kind" : value.charAt(0).toUpperCase() + value.slice(1),
+                })),
+              ]}
+            />
+          </Field>
+          <Field label="Direction" htmlFor="card-sort-dir">
+            <SelectField
+              id="card-sort-dir"
+              value={card.sortDir ?? "desc"}
+              onValueChange={(sortDir) => {
+                if (listSortDirs.includes(sortDir as (typeof listSortDirs)[number])) {
+                  onPatch({ sortDir } as Partial<ReportCard>);
+                }
+              }}
+              options={listSortDirs.map((value) => ({ value, label: value === "asc" ? "Ascending" : "Descending" }))}
+            />
+          </Field>
+          <Field label="Limit" htmlFor="card-list-limit">
+            <Input
+              id="card-list-limit"
+              type="number"
+              min={1}
+              max={listLimitMax}
+              placeholder="No limit"
+              value={card.limit ?? ""}
+              onChange={(event) => {
+                const raw = event.target.value;
+                if (raw === "") {
+                  onPatch({ limit: undefined } as Partial<ReportCard>);
+                  return;
+                }
+                const next = Number(raw);
+                if (Number.isInteger(next) && next >= 1 && next <= listLimitMax) {
+                  onPatch({ limit: next } as Partial<ReportCard>);
+                }
+              }}
+            />
+          </Field>
+        </>
+      ) : null}
       <Button type="button" variant="destructive" onClick={onDelete}>
         Delete card
       </Button>
@@ -892,12 +1040,37 @@ function CardFields({
   );
 }
 
-export function ReportDesigner({ reportId }: { reportId?: string }) {
+export function ReportDesigner({ reportId, dashboard = false }: { reportId?: string; dashboard?: boolean }) {
   const organization = useOrganization();
+  const { reports, isPending } = useSavedReports();
   const existing = useQuery({
     ...savedReportQuery(organization.id, reportId ?? ""),
     enabled: Boolean(reportId),
   });
+
+  if (dashboard) {
+    if (isPending) return <StatsSkeleton />;
+    const saved = reports.find((item) => item.isDashboard);
+    if (saved) return <ArrangeCanvas key={saved.id} mode="report" report={saved} dashboard />;
+    return (
+      <ArrangeCanvas
+        key="dashboard-draft"
+        mode="report"
+        dashboard
+        report={{
+          id: "",
+          organizationId: organization.id,
+          name: "Dashboard",
+          isDefault: false,
+          isDashboard: true,
+          layout: dashboardLayout(),
+          filters: {},
+          createdAt: "",
+          updatedAt: "",
+        }}
+      />
+    );
+  }
 
   if (!reportId) return <ReportSetup />;
   if (existing.isPending) return <StatsSkeleton />;

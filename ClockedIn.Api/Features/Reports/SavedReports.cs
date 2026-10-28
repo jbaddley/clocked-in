@@ -13,6 +13,7 @@ public sealed record SavedReportDto(
     Guid OrganizationId,
     string Name,
     bool IsDefault,
+    bool IsDashboard,
     JsonElement Layout,
     JsonElement Filters,
     DateTime CreatedAt,
@@ -23,13 +24,14 @@ public sealed record SavedReportDto(
         report.OrganizationId,
         report.Name,
         report.IsDefault,
+        report.IsDashboard,
         ReportDocuments.Element(report.Layout),
         ReportDocuments.Element(report.Filters),
         report.CreatedAt,
         report.UpdatedAt);
 }
 
-public readonly record struct SaveReportBody(string? Name, bool? IsDefault, JsonElement Layout, JsonElement Filters)
+public readonly record struct SaveReportBody(string? Name, bool? IsDefault, bool? IsDashboard, JsonElement Layout, JsonElement Filters)
 {
     public static SaveReportBody Read(JsonElement body)
     {
@@ -57,9 +59,20 @@ public readonly record struct SaveReportBody(string? Name, bool? IsDefault, Json
             };
         }
 
+        bool? isDashboard = null;
+        if (body.TryGetProperty("isDashboard", out var dashboardValue) && dashboardValue.ValueKind != JsonValueKind.Null)
+        {
+            isDashboard = dashboardValue.ValueKind switch
+            {
+                JsonValueKind.True => true,
+                JsonValueKind.False => false,
+                _ => throw ApiException.Validation("isDashboard must be a boolean."),
+            };
+        }
+
         var layout = body.TryGetProperty("layout", out var layoutValue) ? layoutValue : default;
         var filters = body.TryGetProperty("filters", out var filtersValue) ? filtersValue : default;
-        return new SaveReportBody(name, isDefault, layout, filters);
+        return new SaveReportBody(name, isDefault, isDashboard, layout, filters);
     }
 }
 
@@ -99,10 +112,16 @@ public sealed class SavedReportsService(ClockedInDbContext db, Access access, Re
         var layout = ReportDocuments.Layout(body.Layout);
         var filters = ReportDocuments.Filters(body.Filters);
         var isDefault = body.IsDefault ?? false;
+        var isDashboard = body.IsDashboard ?? false;
         await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
         if (isDefault)
         {
             await ClearDefault(organizationId, null, cancellationToken);
+        }
+
+        if (isDashboard)
+        {
+            await ClearDashboard(organizationId, null, cancellationToken);
         }
 
         await EnsureNameAvailable(organizationId, name, null, cancellationToken);
@@ -113,6 +132,7 @@ public sealed class SavedReportsService(ClockedInDbContext db, Access access, Re
             OrganizationId = organizationId,
             Name = name,
             IsDefault = isDefault,
+            IsDashboard = isDashboard,
             Layout = layout,
             Filters = filters,
             CreatedAt = now,
@@ -160,6 +180,16 @@ public sealed class SavedReportsService(ClockedInDbContext db, Access access, Re
         else if (body.IsDefault is false)
         {
             report.IsDefault = false;
+        }
+
+        if (body.IsDashboard is true)
+        {
+            await ClearDashboard(organizationId, report.Id, cancellationToken);
+            report.IsDashboard = true;
+        }
+        else if (body.IsDashboard is false)
+        {
+            report.IsDashboard = false;
         }
 
         report.UpdatedAt = time.GetUtcNow().UtcDateTime;
@@ -221,6 +251,22 @@ public sealed class SavedReportsService(ClockedInDbContext db, Access access, Re
         foreach (var item in await defaults.ToListAsync(cancellationToken))
         {
             item.IsDefault = false;
+            item.UpdatedAt = time.GetUtcNow().UtcDateTime;
+        }
+    }
+
+    private async Task ClearDashboard(Guid organizationId, Guid? exceptId, CancellationToken cancellationToken)
+    {
+        await db.LockOrganizationAsync(organizationId, cancellationToken);
+        var dashboards = db.Reports.Where(item => item.OrganizationId == organizationId && item.IsDashboard);
+        if (exceptId is Guid keepId)
+        {
+            dashboards = dashboards.Where(item => item.Id != keepId);
+        }
+
+        foreach (var item in await dashboards.ToListAsync(cancellationToken))
+        {
+            item.IsDashboard = false;
             item.UpdatedAt = time.GetUtcNow().UtcDateTime;
         }
     }

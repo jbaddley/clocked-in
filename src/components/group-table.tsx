@@ -4,7 +4,7 @@ import { cn } from "cn";
 import { DataTable, type Column } from "@/components/data-table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { countPattern, formatWithPattern, moneyPattern } from "@/lib/number-pattern";
-import { listColumnLabel, type ListColumn } from "@/lib/report-layout";
+import { listColumnLabel, presentListRows, type ListColumn, type ListSortDir, type ListSortKey } from "@/lib/report-layout";
 import { share } from "@/lib/format";
 import type { ReportGroup } from "@/lib/types";
 
@@ -18,6 +18,9 @@ export function GroupTable({
   rows,
   visibleColumns,
   hoursPattern,
+  sortKey,
+  sortDir,
+  limit,
   className,
 }: {
   title: string;
@@ -25,10 +28,14 @@ export function GroupTable({
   rows: ReportGroup[];
   visibleColumns: ListColumn[];
   hoursPattern: string;
+  sortKey?: ListSortKey;
+  sortDir?: ListSortDir;
+  limit?: number;
   className?: string;
 }) {
   const shown = new Set(visibleColumns);
-  const total = rows.reduce((sum, row) => sum + row.hours, 0);
+  const presented = presentListRows(rows, { sortKey, sortDir, limit });
+  const total = presented.reduce((sum, row) => sum + row.hours, 0);
   const columns: Column<ReportGroup>[] = [];
 
   if (shown.has("name")) {
@@ -98,8 +105,8 @@ export function GroupTable({
       <CardContent className="min-h-0 flex-1 overflow-auto">
         {columns.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">Choose a column to show.</p>
-        ) : rows.length ? (
-          <DataTable rows={rows} columns={columns} rowKey={(row) => row.id} />
+        ) : presented.length ? (
+          <DataTable rows={presented} columns={columns} rowKey={(row) => row.id} />
         ) : (
           <p className="py-6 text-center text-sm text-muted-foreground">No hours in this period.</p>
         )}

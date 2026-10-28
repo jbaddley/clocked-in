@@ -18,6 +18,7 @@ type ReportRow = {
   organizationId: string;
   name: string;
   isDefault: boolean;
+  isDashboard: boolean;
   layout: Prisma.JsonValue;
   filters: Prisma.JsonValue;
   createdAt: Date;
@@ -54,6 +55,7 @@ function savedReportJson(row: ReportRow) {
     organizationId: row.organizationId,
     name: row.name,
     isDefault: row.isDefault,
+    isDashboard: row.isDashboard,
     layout: readLayout(row.layout),
     filters: readFilters(row.filters),
     createdAt: row.createdAt.toISOString(),
@@ -111,14 +113,27 @@ export async function createSavedReport(access: Access, organizationId: string, 
     validation("isDefault must be a boolean.");
   }
 
+  const isDashboard = body.isDashboard === undefined ? false : body.isDashboard;
+  if (typeof isDashboard !== "boolean") {
+    validation("isDashboard must be a boolean.");
+  }
+
   await ensureNameAvailable(organizationId, name);
   const now = new Date();
   const row = await transaction(async (tx) => {
-    if (isDefault) {
+    if (isDefault || isDashboard) {
       await lockOrganization(tx, organizationId);
+    }
+    if (isDefault) {
       await tx.report.updateMany({
         where: { organizationId, isDefault: true },
         data: { isDefault: false, updatedAt: now },
+      });
+    }
+    if (isDashboard) {
+      await tx.report.updateMany({
+        where: { organizationId, isDashboard: true },
+        data: { isDashboard: false, updatedAt: now },
       });
     }
 
@@ -128,6 +143,7 @@ export async function createSavedReport(access: Access, organizationId: string, 
         organizationId,
         name,
         isDefault,
+        isDashboard,
         layout,
         filters,
         createdAt: now,
@@ -157,23 +173,40 @@ export async function updateSavedReport(access: Access, organizationId: string, 
     isDefault = body.isDefault;
   }
 
+  let isDashboard = current.isDashboard;
+  if (has(body, "isDashboard")) {
+    if (typeof body.isDashboard !== "boolean") {
+      validation("isDashboard must be a boolean.");
+    }
+
+    isDashboard = body.isDashboard;
+  }
+
   if (has(body, "name")) {
     await ensureNameAvailable(organizationId, name, reportId);
   }
 
   const now = new Date();
   const row = await transaction(async (tx) => {
-    if (isDefault) {
+    if (isDefault || isDashboard) {
       await lockOrganization(tx, organizationId);
+    }
+    if (isDefault) {
       await tx.report.updateMany({
         where: { organizationId, isDefault: true, NOT: { id: reportId } },
         data: { isDefault: false, updatedAt: now },
       });
     }
+    if (isDashboard) {
+      await tx.report.updateMany({
+        where: { organizationId, isDashboard: true, NOT: { id: reportId } },
+        data: { isDashboard: false, updatedAt: now },
+      });
+    }
 
     return tx.report.update({
       where: { id: reportId },
-      data: { name, isDefault, layout, filters, updatedAt: now },
+      data: { name, isDefault, isDashboard, layout, filters, updatedAt: now },
     });
   });
   return savedReportJson(row);
@@ -229,6 +262,7 @@ export type SavedReport = {
   organizationId: string;
   name: string;
   isDefault: boolean;
+  isDashboard: boolean;
   layout: ReportLayout;
   filters: ReportFilters;
   createdAt: string;

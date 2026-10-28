@@ -6,6 +6,7 @@ export function welcomeTitle(name: string) {
 export function viewTitle(pathname: string | null, name: string, organizationName?: string | null) {
   if (!pathname) return "";
   if (pathname === "/") return organizationName?.trim() || "Home";
+  if (pathname === "/dashboard/design") return "Edit dashboard";
   if (pathname.startsWith("/dashboard")) return welcomeTitle(name);
   if (pathname.startsWith("/log")) return "Log time";
   if (pathname.startsWith("/entries")) return "Entries";

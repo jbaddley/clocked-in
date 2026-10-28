@@ -5,6 +5,7 @@ import { useId, useState } from "react";
 import { toast } from "sonner";
 import { createApiKeyAction, revokeApiKeyAction, rotateApiKeyAction, updateApiKeyAction } from "@/app/actions/api-keys";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { DialogActions } from "@/components/dialog-actions";
 import { EntityFormDialog } from "@/components/entity-forms/entity-form-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { Field } from "@/components/field";
@@ -229,6 +230,7 @@ function KeyForm({
 
   return (
     <form
+      id={`${formId}-form`}
       className="flex flex-col gap-4"
       onSubmit={(event) => {
         event.preventDefault();
@@ -282,14 +284,12 @@ function KeyForm({
           className="h-9"
         />
       </Field>
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" className="h-9" onClick={onCancel}>
+      <DialogActions form={`${formId}-form`}>
+        <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <SubmitButton pending={save.isPending} className="h-9 w-auto">
-          {apiKey ? "Save" : "Create key"}
-        </SubmitButton>
-      </div>
+        <SubmitButton pending={save.isPending}>{apiKey ? "Save" : "Create key"}</SubmitButton>
+      </DialogActions>
     </form>
   );
 }
@@ -308,11 +308,10 @@ function SecretDialog({ issued, onClose }: { issued: IssuedKey | null; onClose: 
           <Field label={issued.name} htmlFor={fieldId}>
             <Input id={fieldId} readOnly value={issued.key} className="h-9 font-mono text-xs" />
           </Field>
-          <div className="flex justify-end gap-2">
+          <DialogActions>
             <Button
               type="button"
               variant="outline"
-              className="h-9"
               onClick={() => {
                 void navigator.clipboard.writeText(issued.key).then(
                   () => toast.success("Secret copied."),
@@ -323,10 +322,10 @@ function SecretDialog({ issued, onClose }: { issued: IssuedKey | null; onClose: 
               <CopyIcon />
               Copy
             </Button>
-            <Button type="button" className="h-9" onClick={onClose}>
+            <Button type="button" onClick={onClose}>
               Done
             </Button>
-          </div>
+          </DialogActions>
         </div>
       ) : null}
     </EntityFormDialog>

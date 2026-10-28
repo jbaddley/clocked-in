@@ -6246,6 +6246,7 @@
           "organizationId",
           "name",
           "isDefault",
+          "isDashboard",
           "layout",
           "filters",
           "createdAt",
@@ -6265,6 +6266,9 @@
             "type": "string"
           },
           "isDefault": {
+            "type": "boolean"
+          },
+          "isDashboard": {
             "type": "boolean"
           },
           "layout": {

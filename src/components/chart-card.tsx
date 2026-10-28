@@ -74,7 +74,7 @@ export function ChartCard({
   const paletteChoices = paletteTypes.filter((type) => paletteForChart(chartType, type) === type);
 
   return (
-    <Card className={cn("h-full w-full", className)}>
+    <Card className={cn("h-full min-h-64 w-full", className)}>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
         {description ? <CardDescription>{description}</CardDescription> : null}
@@ -132,7 +132,7 @@ export function ChartCard({
         </CardAction>
         ) : null}
       </CardHeader>
-      <CardContent className="flex min-h-0 flex-1 flex-col">
+      <CardContent className="flex min-h-64 flex-1 flex-col">
         {rows.length ? (
           <ChartPlot rows={rows} chartType={chartType} colors={colors} valueKey={valueKey} pattern={pattern ?? patternFor(format)} />
         ) : (
