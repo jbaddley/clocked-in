@@ -129,8 +129,8 @@ export function TimeEntryForm({
     entry
       ? {
           departmentId: entry.departmentId ?? organizationWide,
-          projectId: entry.projectId,
-          taskCategoryId: entry.taskCategoryId,
+          projectId: entry.projectId ?? undefined,
+          taskCategoryId: entry.taskCategoryId ?? undefined,
           tagIds: entry.tagIds,
         }
       : preferred,
