@@ -82,18 +82,24 @@ export async function removeMembersAction(organizationId: string, membershipIds:
   }, count === 1 ? "Person removed from the organization." : `${count} people removed from the organization.`);
 }
 
-export async function inviteMemberAction(organizationId: string, email: string, role: string) {
+export async function inviteMemberAction(
+  organizationId: string,
+  input: { email: string; role: string; firstName: string; lastName: string; username?: string },
+) {
   return run(async () => {
     const access = await requireAccess();
-    await createOrganizationInvitation(access, organizationId, parseCreateInvitation({ email, role }));
-  }, `Invitation sent to ${email}.`);
+    await createOrganizationInvitation(access, organizationId, parseCreateInvitation(input));
+  }, `Invitation sent to ${input.email}.`);
 }
 
-export async function inviteDepartmentMemberAction(departmentId: string, email: string, role: string) {
+export async function inviteDepartmentMemberAction(
+  departmentId: string,
+  input: { email: string; role: string; firstName: string; lastName: string; username?: string },
+) {
   return run(async () => {
     const access = await requireAccess();
-    await createDepartmentInvitation(access, departmentId, parseCreateInvitation({ email, role }));
-  }, `Invitation sent to ${email}.`);
+    await createDepartmentInvitation(access, departmentId, parseCreateInvitation(input));
+  }, `Invitation sent to ${input.email}.`);
 }
 
 export async function revokeDepartmentInvitationAction(departmentId: string, invitationId: string) {

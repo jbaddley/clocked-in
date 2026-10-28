@@ -9,23 +9,27 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
-import { csvUrl, summaryCsvUrl } from "@/lib/queries";
+import { csvUrl, summaryCsvUrl, viewCsvUrl } from "@/lib/queries";
 import type { DateRange } from "@/lib/types";
 
 export function ReportActions({ range, reportId }: { range: DateRange; reportId?: string }) {
   const organization = useOrganization();
-  const { isAdmin } = useWorkspace();
+  const { isAdmin, permissions } = useWorkspace();
+  const canDesign = isAdmin || permissions.includes("design_reports");
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger render={<Button type="button" variant="outline" size="lg" />}>Actions</DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {isAdmin && reportId ? (
+        {canDesign && reportId ? (
           <DropdownMenuItem render={<Link href={`/reports/${reportId}/design`} />}>Edit Report</DropdownMenuItem>
         ) : null}
-        {isAdmin ? (
+        {canDesign ? (
           <DropdownMenuItem render={<Link href="/reports/new" />}>Create custom report</DropdownMenuItem>
         ) : null}
+        <DropdownMenuItem render={<a href={viewCsvUrl(organization.id, range)} download="report-view.csv" />}>
+          Download this view
+        </DropdownMenuItem>
         <DropdownMenuItem render={<a href={csvUrl(organization.id, range)} download="volunteer-log.csv" />}>
           Download log
         </DropdownMenuItem>

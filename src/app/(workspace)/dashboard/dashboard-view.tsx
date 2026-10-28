@@ -15,7 +15,6 @@ import { useReport } from "@/hooks/use-report";
 import { DashboardSkeleton } from "@/components/skeletons";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { formatCurrency, formatHours, formatNumber, toDateOnly } from "@/lib/format";
-import { canLogGroupTime, canSeeReports } from "@/lib/roles";
 
 function weekStart() {
   const now = new Date();
@@ -25,8 +24,7 @@ function weekStart() {
 
 export function DashboardView() {
   const workspace = useWorkspace();
-  const { viewer, groupDepartments } = workspace;
-  const groupSessionsHref = canLogGroupTime(groupDepartments) ? "/log/group" : canSeeReports(workspace) ? "/reports" : null;
+  const { viewer } = workspace;
   const copy = useLabels();
   const week = weekStart();
   const { data: report, isPending } = useReport({});
@@ -41,22 +39,21 @@ export function DashboardView() {
   return (
     <div className="flex flex-col gap-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Link href="/entries" className="block">
         <StatCard
           icon={ClockIcon}
           label="Volunteer hours"
           value={formatNumber(people.hours)}
-          hint={
-            groupSessionsHref ? (
-              <Link href={groupSessionsHref} className="underline-offset-2 hover:underline">
-                {formatNumber(report.collective.hours)} more in group sessions
-              </Link>
-            ) : (
-              `${formatNumber(report.collective.hours)} more in group sessions`
-            )
-          }
+          hint={`${formatNumber(report.collective.hours)} more in group sessions`}
         />
+        </Link>
+        <Link href="/reports" className="block">
         <StatCard icon={HandCoinsIcon} tone="success" label="In-kind value" value={formatCurrency(people.inKind)} hint="At your volunteer rate" />
+        </Link>
+        <Link href="/reports" className="block">
         <StatCard icon={UsersIcon} tone="highlight" label="Volunteers" value={people.volunteers} hint={`${people.entries} entries logged`} />
+        </Link>
+        <Link href={`/reports?userId=${viewer.id}`} className="block">
         <StatCard
           icon={UserRoundIcon}
           tone="accent"
@@ -64,6 +61,7 @@ export function DashboardView() {
           value={formatNumber(mine?.hours ?? 0)}
           hint={mine ? `${formatCurrency(mine.inKind)} in-kind` : "Log your first hours"}
         />
+        </Link>
       </div>
 
       <Card>
@@ -84,6 +82,7 @@ export function DashboardView() {
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
+        <Link href="/reports" className="block">
         <ChartCard
           title={`Hours by ${copy.taskCategory.toLowerCase()}`}
           description="All time"
@@ -91,6 +90,8 @@ export function DashboardView() {
           chartType="donut"
           empty={`${copy.taskCategories} appear once time is logged.`}
         />
+        </Link>
+        <Link href="/reports" className="block">
         <ChartCard
           title={`Hours by ${copy.department.toLowerCase()}`}
           description="All time"
@@ -98,6 +99,7 @@ export function DashboardView() {
           chartType="bar"
           empty={`${copy.departments} appear once time is logged.`}
         />
+        </Link>
       </div>
 
       <Card className="pb-0">

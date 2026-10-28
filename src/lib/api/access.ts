@@ -12,17 +12,24 @@ import { forbidden, notFound, passwordChangeRequired, unauthorized } from "@/lib
 import { parseGuid } from "@/lib/api/guid";
 import { type RoleCode } from "@/lib/api/json";
 import { readAccessSubject } from "@/lib/api/security";
+import {
+  apiKeyPermissions,
+  defaultPermissionsForCode,
+  groupManagerPermissions,
+  type Permission,
+} from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 export const accountInclude = { profile: true } as const;
 export type Account = Prisma.UserGetPayload<{ include: typeof accountInclude }>;
 
-type CallerOrganization = { isActive: boolean; role: RoleCode | null };
+type CallerOrganization = { isActive: boolean; role: RoleCode | null; roleId: string | null };
 type CallerDepartment = { departmentId: string; organizationId: string; isAdmin: boolean };
 
 export class Access {
   private organizations?: Map<string, CallerOrganization>;
   private departments?: CallerDepartment[];
+  private permissionSets?: Map<string, Set<Permission>>;
 
   constructor(
     private readonly account: Account | null,
@@ -79,7 +86,7 @@ export class Access {
     }
 
     const membership = (await this.organizationMemberships()).get(organizationId);
-    if (!membership || !membership.isActive || (admin && membership.role !== "ADMIN")) {
+    if (!membership || !membership.isActive || (admin && !(await this.can(organizationId, "manage_organization")))) {
       forbidden();
     }
 
@@ -113,7 +120,8 @@ export class Access {
 
     if (
       !this.isSuperAdmin &&
-      !(await this.isOrgAdmin(department.organizationId)) &&
+      !(await this.can(department.organizationId, "manage_organization")) &&
+      !(await this.can(department.organizationId, "invite_members", departmentId)) &&
       !(await this.isDepartmentAdmin(departmentId))
     ) {
       forbidden();
@@ -122,13 +130,94 @@ export class Access {
     return department;
   }
 
-  async isOrgAdmin(organizationId: string) {
+  async can(organizationId: string, permission: Permission, departmentId?: string | null) {
+    if (this.isSuperAdmin) {
+      return true;
+    }
+
     if (this.apiKey) {
-      return this.apiKey.organizationId === organizationId && this.apiKey.isAdmin;
+      if (this.apiKey.organizationId !== organizationId) {
+        return false;
+      }
+      return apiKeyPermissions(this.apiKey.isAdmin, this.apiKey.canWrite).includes(permission);
     }
 
     const membership = (await this.organizationMemberships()).get(organizationId);
-    return membership !== undefined && membership.isActive && membership.role === "ADMIN";
+    if (!membership?.isActive) {
+      return false;
+    }
+
+    const granted = await this.permissionsFor(organizationId);
+    if (!granted.has(permission)) {
+      return false;
+    }
+
+    if (departmentId && groupManagerPermissions.includes(permission) && membership.role !== "ADMIN") {
+      return this.isDepartmentAdmin(departmentId);
+    }
+
+    return true;
+  }
+
+  async requirePermission(organizationId: string, permission: Permission, departmentId?: string | null) {
+    const organization = await this.requireOrganization(organizationId, false);
+    if (!(await this.can(organizationId, permission, departmentId))) {
+      forbidden();
+    }
+    return organization;
+  }
+
+  async permissionsFor(organizationId: string) {
+    if (!this.permissionSets) {
+      this.permissionSets = new Map();
+    }
+
+    const cached = this.permissionSets.get(organizationId);
+    if (cached) {
+      return cached;
+    }
+
+    if (this.isSuperAdmin) {
+      const all = new Set(apiKeyPermissions(true, true));
+      this.permissionSets.set(organizationId, all);
+      return all;
+    }
+
+    if (this.apiKey) {
+      const granted = new Set(apiKeyPermissions(this.apiKey.isAdmin, this.apiKey.canWrite));
+      this.permissionSets.set(organizationId, granted);
+      return granted;
+    }
+
+    const membership = (await this.organizationMemberships()).get(organizationId);
+    const granted = new Set<Permission>(defaultPermissionsForCode(membership?.role));
+    if (membership?.roleId) {
+      const rows = await prisma.rolePermission.findMany({
+        where: { roleId: membership.roleId, allowed: true },
+        select: { permission: true },
+      });
+      if (rows.length > 0) {
+        granted.clear();
+        for (const row of rows) {
+          if (apiKeyPermissions(true, true).includes(row.permission as Permission)) {
+            granted.add(row.permission as Permission);
+          }
+        }
+      }
+    }
+
+    if ((await this.adminDepartmentIds(organizationId)).length > 0) {
+      for (const permission of groupManagerPermissions) {
+        granted.add(permission);
+      }
+    }
+
+    this.permissionSets.set(organizationId, granted);
+    return granted;
+  }
+
+  async isOrgAdmin(organizationId: string) {
+    return this.can(organizationId, "manage_organization");
   }
 
   async isOrgVolunteer(organizationId: string) {
@@ -146,9 +235,18 @@ export class Access {
   }
 
   async organizationsWhereCallerCanReadOthers() {
-    return [...(await this.organizationMemberships()).entries()]
-      .filter(([, membership]) => membership.isActive && membership.role !== "VOLUNTEER")
-      .map(([organizationId]) => organizationId);
+    const ids: string[] = [];
+    for (const [organizationId, membership] of await this.organizationMemberships()) {
+      if (!membership.isActive) continue;
+      if (
+        (await this.can(organizationId, "log_member_time")) ||
+        (await this.can(organizationId, "view_reports")) ||
+        (await this.can(organizationId, "manage_members"))
+      ) {
+        ids.push(organizationId);
+      }
+    }
+    return ids;
   }
 
   async isDepartmentAdmin(departmentId: string) {
@@ -200,7 +298,9 @@ export class Access {
     }
 
     if (this.apiKey) {
-      this.organizations = new Map([[this.apiKey.organizationId, { isActive: true, role: this.apiKey.isAdmin ? "ADMIN" : "MEMBER" }]]);
+      this.organizations = new Map([
+        [this.apiKey.organizationId, { isActive: true, role: this.apiKey.isAdmin ? "ADMIN" : "MEMBER", roleId: null }],
+      ]);
       return this.organizations;
     }
 
@@ -208,16 +308,14 @@ export class Access {
       (
         await prisma.organizationMembership.findMany({
           where: { userId: this.caller.id },
-          select: { organizationId: true, isActive: true, role: { select: { code: true } } },
+          select: { organizationId: true, isActive: true, roleId: true, role: { select: { code: true } } },
         })
       ).map((membership) => [
         membership.organizationId,
         {
           isActive: membership.isActive,
-          role:
-            membership.role.code === "ADMIN" || membership.role.code === "MEMBER" || membership.role.code === "VOLUNTEER"
-              ? membership.role.code
-              : null,
+          roleId: membership.roleId,
+          role: membership.role.code || null,
         },
       ]),
     );

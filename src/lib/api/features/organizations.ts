@@ -11,6 +11,7 @@ import {
     list,
     normalizeRateType,
     optional,
+    optionalString,
     Optional,
     page,
     RateType,
@@ -151,6 +152,7 @@ export function organizationJson(
     accentImageUrl: string | null;
     description: string | null;
     websiteUrl: string | null;
+    publicSlug?: string | null;
   },
   volunteerHourlyRate: number,
 ) {
@@ -168,6 +170,7 @@ export function organizationJson(
     accentImageUrl: organization.accentImageUrl,
     description: organization.description,
     websiteUrl: organization.websiteUrl,
+    publicSlug: organization.publicSlug ?? null,
   };
 }
 
@@ -189,6 +192,7 @@ export type UpdateOrganizationRequest = {
   accentImageUrl: Optional<string | null>;
   description: Optional<string | null>;
   websiteUrl: Optional<string | null>;
+  publicSlug: Optional<string | null>;
 };
 
 export function parseUpdateOrganization(body: Body): UpdateOrganizationRequest {
@@ -211,6 +215,15 @@ export function parseUpdateOrganization(body: Body): UpdateOrganizationRequest {
     accentImageUrl: optional(body, "accentImageUrl", brandUrl),
     description: optional(body, "description", (b, k) => limited(b, k, 8000, "description must be 8000 characters or fewer.")),
     websiteUrl: optional(body, "websiteUrl", (b, k) => limited(b, k, 2000, "websiteUrl must be a URL.")),
+    publicSlug: optional(body, "publicSlug", (b, k) => {
+      const value = optionalString(b, k);
+      if (!value) return null;
+      const slug = value.trim().toLowerCase();
+      if (!/^[a-z0-9][a-z0-9-]{1,47}$/.test(slug)) {
+        validation("publicSlug must be 2 to 48 letters, numbers, or hyphens.");
+      }
+      return slug;
+    }),
   };
   if (
     !request.name.set &&
@@ -223,7 +236,8 @@ export function parseUpdateOrganization(body: Body): UpdateOrganizationRequest {
     !request.markUrl.set &&
     !request.accentImageUrl.set &&
     !request.description.set &&
-    !request.websiteUrl.set
+    !request.websiteUrl.set &&
+    !request.publicSlug.set
   ) {
     validation("Provide at least one field to update.");
   }
@@ -319,6 +333,7 @@ export async function updateOrganization(access: Access, organizationId: string,
         accentImageUrl: request.accentImageUrl.set ? request.accentImageUrl.value : undefined,
         description: request.description.set ? request.description.value : undefined,
         websiteUrl: request.websiteUrl.set ? request.websiteUrl.value : undefined,
+        publicSlug: request.publicSlug.set ? request.publicSlug.value : undefined,
         preferences: nextPreferences,
       },
     });

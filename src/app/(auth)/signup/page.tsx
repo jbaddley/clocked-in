@@ -43,7 +43,12 @@ export default async function SignupPage({ searchParams }: PageProps<"/signup">)
       }
     >
       <Suspense fallback={<AuthFormSkeleton fields={5} />}>
-        <SignupForm email={invitedEmail} />
+        <SignupForm
+          email={invitedEmail}
+          firstName={invite?.firstName ?? undefined}
+          lastName={invite?.lastName ?? undefined}
+          username={invite?.username ?? undefined}
+        />
       </Suspense>
     </AuthCard>
   );

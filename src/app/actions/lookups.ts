@@ -2,7 +2,7 @@
 
 import { createDepartment, deleteDepartment, updateDepartment } from "@/lib/api/features/departments";
 import { parseName } from "@/lib/api/features/organizations";
-import { createProject, deleteProject, parseCreateProject } from "@/lib/api/features/projects";
+import { createProject, deleteProject, parseCreateProject, parseUpdateProject, updateProject } from "@/lib/api/features/projects";
 import { createTag, deleteTag, updateTag } from "@/lib/api/features/tags";
 import { createTaskCategory, deleteTaskCategory, updateTaskCategory } from "@/lib/api/features/task-categories";
 import { run } from "@/lib/server/action";
@@ -40,6 +40,20 @@ export async function updateLookupAction(kind: NamedLookupKind, id: string, name
         return updateTag(access, id, request);
     }
   }, "Saved.");
+}
+
+export async function archiveProjectAction(projectId: string, isActive: boolean) {
+  return run(async () => {
+    const access = await requireAccess();
+    return updateProject(access, projectId, parseUpdateProject({ isActive }));
+  }, isActive ? "Project restored." : "Project archived.");
+}
+
+export async function archiveTagAction(tagId: string, isArchived: boolean) {
+  return run(async () => {
+    const access = await requireAccess();
+    return updateTag(access, tagId, { name: "", isArchived });
+  }, isArchived ? "Tag archived." : "Tag restored.");
 }
 
 export async function deleteLookupAction(kind: LookupKind, id: string) {

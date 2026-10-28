@@ -34,9 +34,9 @@ function dates(need: VolunteerNeed) {
 export function NeedsView() {
   const router = useRouter();
   const organization = useOrganization();
-  const { isAdmin } = useWorkspace();
+  const { isAdmin, isCoordinator, permissions } = useWorkspace();
   const { names } = useLookups();
-  useClientRedirect(!isAdmin, "/dashboard");
+  useClientRedirect(!(isAdmin || isCoordinator || permissions.includes("create_needs")), "/dashboard");
   const { data, isPending } = useQuery(needsQuery(organization.id));
   const [search, setSearch] = useState("");
   const [type, setType] = useState("all");

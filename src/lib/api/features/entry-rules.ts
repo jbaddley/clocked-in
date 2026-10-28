@@ -70,15 +70,22 @@ export async function assertLogTarget(
 
 export async function assertCollectiveWrite(access: Access, organizationId: string, departmentId: string | null) {
   await assertPlacement(organizationId, departmentId);
+  if (access.isSuperAdmin || access.canWrite(organizationId)) {
+    return;
+  }
+  if (departmentId === null) {
+    if (await access.can(organizationId, "log_event_totals")) {
+      return;
+    }
+    forbidden();
+  }
   if (
-    access.isSuperAdmin ||
-    access.canWrite(organizationId) ||
-    (await access.isOrgAdmin(organizationId)) ||
-    (departmentId !== null && (await access.isDepartmentAdmin(departmentId)))
+    (await access.can(organizationId, "log_group_sessions", departmentId)) ||
+    (await access.can(organizationId, "log_event_totals", departmentId)) ||
+    (await access.isDepartmentAdmin(departmentId))
   ) {
     return;
   }
-
   forbidden();
 }
 

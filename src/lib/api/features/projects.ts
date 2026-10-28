@@ -249,6 +249,10 @@ export async function listProjects(access: Access, organizationId: string, param
     };
   }
 
+  const includeInactive = params.get("includeInactive") === "true";
+  if (!includeInactive) {
+    where = { ...where, isActive: true };
+  }
   const projects = await prisma.project.findMany({
     where,
     include: projectInclude,

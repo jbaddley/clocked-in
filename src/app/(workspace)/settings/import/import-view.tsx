@@ -2,7 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { CheckIcon } from "lucide-react";
-import { importDepartmentsAction, importPeopleAction, importProjectsAction } from "@/app/actions/imports";
+import { importPeopleAction, importProjectsAction } from "@/app/actions/imports";
+import { peopleRowMatch } from "@/lib/import/people-review";
+import { usernameFromName } from "@/lib/import/username";
+import { useMembers } from "@/hooks/use-members";
 import { SelectField } from "@/components/select-field";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,9 +21,8 @@ import { maxImportRows, parseCsv } from "@/lib/import/parse-csv";
 import { applyMapping, fieldChoices, missingRequired, reconcile, type ColumnAssignment } from "@/lib/import/reconcile";
 import { keys } from "@/lib/queries";
 
-const entities: { id: ImportEntity; label: (copy: { departments: string; projects: string }) => string }[] = [
+const entities: { id: Exclude<ImportEntity, "departments">; label: (copy: { projects: string }) => string }[] = [
   { id: "people", label: () => "People" },
-  { id: "departments", label: (copy) => copy.departments },
   { id: "projects", label: (copy) => copy.projects },
 ];
 
@@ -40,7 +42,9 @@ function requiredMessage(missing: ImportField[]) {
 export function ImportView() {
   const organization = useOrganization();
   const copy = useLabels();
-  const [entity, setEntity] = useState<ImportEntity>("people");
+  const [entity, setEntity] = useState<Exclude<ImportEntity, "departments">>("people");
+  const [emailUsers, setEmailUsers] = useState(false);
+  const { members } = useMembers();
   const [hasHeaders, setHasHeaders] = useState(true);
   const [rows, setRows] = useState<string[][] | null>(null);
   const [fileName, setFileName] = useState("");
@@ -73,11 +77,7 @@ export function ImportView() {
   const importRows = useActionMutation(
     (input: Record<string, string>[]) => {
       if (entity === "people") {
-        return importPeopleAction(organization.id, input);
-      }
-
-      if (entity === "departments") {
-        return importDepartmentsAction(organization.id, input);
+        return importPeopleAction(organization.id, input, emailUsers);
       }
 
       return importProjectsAction(organization.id, input);
@@ -98,7 +98,7 @@ export function ImportView() {
     setFileKey((key) => key + 1);
   }
 
-  function chooseEntity(next: ImportEntity) {
+  function chooseEntity(next: Exclude<ImportEntity, "departments">) {
     setEntity(next);
     resetFile();
   }
@@ -137,8 +137,8 @@ export function ImportView() {
       <CardHeader>
         <CardTitle>Import</CardTitle>
         <CardDescription>
-          Create people, {copy.departments.toLowerCase()}, or {copy.projects.toLowerCase()} from a CSV. Records that
-          already exist are skipped.
+          Import creates accounts. It does not send invitations. Existing emails are skipped. Check Email users to send
+          welcome credentials. Add {copy.departments.toLowerCase()} one at a time on the {copy.departments} screen.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -155,6 +155,21 @@ export function ImportView() {
             </Button>
           ))}
         </div>
+        <div className="flex flex-wrap gap-3">
+          <a
+            className="text-sm underline-offset-2 hover:underline"
+            href={`data:text/csv;charset=utf-8,${encodeURIComponent(fields.map((field) => field.label).join(","))}`}
+            download={`${entity}-template.csv`}
+          >
+            Download template
+          </a>
+        </div>
+        {entity === "people" ? (
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox checked={emailUsers} onCheckedChange={(checked) => setEmailUsers(checked === true)} />
+            Email users welcome credentials after import
+          </label>
+        ) : null}
         <label className="flex items-center gap-2 text-sm">
           <Checkbox
             checked={hasHeaders}
@@ -230,6 +245,9 @@ export function ImportView() {
               </TableBody>
             </Table>
           </div>
+        ) : null}
+        {entity === "people" && rows && missing.length === 0 && data.length > 0 ? (
+          <PeopleReview rows={applyMapping(data, assignments)} members={members} />
         ) : null}
         {rows && missing.length > 0 && data.length > 0 && !tooMany ? (
           <p className="text-sm text-muted-foreground">{requiredMessage(missing)}</p>
@@ -344,6 +362,51 @@ function ImportSummary({ result }: { result: ImportResult }) {
           </Table>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function PeopleReview({
+  rows,
+  members,
+}: {
+  rows: Record<string, string>[];
+  members: { user: { email: string; firstName: string | null; lastName: string | null } }[];
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-sm font-medium">Review before import</p>
+      <p className="text-xs text-muted-foreground">
+        Exact email matches will be skipped. Same name with a different email is flagged as a near match.
+      </p>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Name</TableHead>
+            <TableHead>Username</TableHead>
+            <TableHead>Email</TableHead>
+            <TableHead>Group</TableHead>
+            <TableHead>Match</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row, index) => {
+            const firstName = row.firstName ?? "";
+            const lastName = row.lastName ?? "";
+            return (
+              <TableRow key={`${row.email}-${index}`}>
+                <TableCell>
+                  {firstName} {lastName}
+                </TableCell>
+                <TableCell>{row.username || usernameFromName(firstName, lastName)}</TableCell>
+                <TableCell>{row.email}</TableCell>
+                <TableCell>{row.primaryDepartment || "—"}</TableCell>
+                <TableCell>{peopleRowMatch(row, members.map((member) => member.user))}</TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
     </div>
   );
 }

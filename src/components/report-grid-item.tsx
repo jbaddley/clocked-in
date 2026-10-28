@@ -1,9 +1,11 @@
 "use client";
 
-import { cloneElement, isValidElement, type CSSProperties, type ReactElement } from "react";
+import { cloneElement, isValidElement, type CSSProperties, type ReactNode } from "react";
 import { cn } from "cn";
 import { getPath } from "@/lib/report-path";
 import type { ReportGroup } from "@/lib/types";
+
+type CardChildProps = { value?: unknown; rows?: ReportGroup[]; className?: string };
 
 export function ReportGridItem({
   column,
@@ -34,12 +36,12 @@ export function ReportGridItem({
   title?: string;
   className?: string;
   style?: CSSProperties;
-  children: ReactElement<{ value?: unknown; rows?: ReportGroup[]; className?: string }>;
+  children: ReactNode;
 }) {
   const resolved = getPath(data, accessor);
   const series = (Array.isArray(resolved) ? resolved : []) as ReportGroup[];
   const value = Array.isArray(resolved) ? undefined : resolved;
-  const child = isValidElement(children)
+  const child = isValidElement<CardChildProps>(children)
     ? cloneElement(children, { value, rows: series, className: cn("h-full w-full", children.props.className) })
     : children;
 

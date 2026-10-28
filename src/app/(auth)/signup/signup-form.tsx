@@ -8,7 +8,17 @@ import { SubmitButton } from "@/components/submit-button";
 import { Input } from "@/components/ui/input";
 import type { ActionResult } from "@/lib/types";
 
-export function SignupForm({ email }: { email?: string }) {
+export function SignupForm({
+  email,
+  firstName,
+  lastName,
+  username,
+}: {
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  username?: string;
+}) {
   const next = useSearchParams().get("next") ?? "/dashboard";
   const [result, action] = useActionState((previous: ActionResult | null, formData: FormData) => {
     formData.set("timezone", Intl.DateTimeFormat().resolvedOptions().timeZone);
@@ -20,14 +30,38 @@ export function SignupForm({ email }: { email?: string }) {
       <input type="hidden" name="next" value={next} />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="First name" htmlFor="firstName">
-          <Input id="firstName" name="firstName" autoComplete="given-name" required className="h-10" />
+          <Input
+            id="firstName"
+            name="firstName"
+            autoComplete="given-name"
+            required
+            defaultValue={firstName}
+            readOnly={Boolean(firstName)}
+            className={firstName ? "h-10 bg-muted" : "h-10"}
+          />
         </Field>
         <Field label="Last name" htmlFor="lastName">
-          <Input id="lastName" name="lastName" autoComplete="family-name" required className="h-10" />
+          <Input
+            id="lastName"
+            name="lastName"
+            autoComplete="family-name"
+            required
+            defaultValue={lastName}
+            readOnly={Boolean(lastName)}
+            className={lastName ? "h-10 bg-muted" : "h-10"}
+          />
         </Field>
       </div>
       <Field label="Username" htmlFor="username">
-        <Input id="username" name="username" autoComplete="username" required className="h-10" />
+        <Input
+          id="username"
+          name="username"
+          autoComplete="username"
+          required
+          defaultValue={username}
+          readOnly={Boolean(username)}
+          className={username ? "h-10 bg-muted" : "h-10"}
+        />
       </Field>
       <Field
         label="Email"

@@ -8,7 +8,7 @@ namespace ClockedIn.Api.Features.Memberships;
 
 public sealed record RoleDto(Guid Id, string Code, string Name)
 {
-    public static RoleDto From(Role role) => new(role.Id, role.Code.ToString(), role.Name);
+    public static RoleDto From(Role role) => new(role.Id, role.Code, role.Name);
 }
 
 public sealed record MemberUserDto(

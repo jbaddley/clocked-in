@@ -3,9 +3,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useOrganization } from "@/hooks/use-workspace";
 import { reportQuery } from "@/lib/queries";
-import type { DateRange } from "@/lib/types";
+import type { ReportFilters } from "@/lib/report-layout";
 
-export function useReport(range: DateRange) {
+export function useReport(filter: ReportFilters) {
   const organization = useOrganization();
-  return useQuery(reportQuery(organization.id, range));
+  return useQuery(reportQuery(organization.id, filter));
 }

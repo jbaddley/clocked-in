@@ -16,7 +16,7 @@ import { useOrganization } from "@/hooks/use-workspace";
 const roles = [
   { key: "volunteer", label: "Volunteer" },
   { key: "staff", label: "Staff" },
-  { key: "coordinator", label: "Coordinator" },
+  { key: "coordinator", label: "Group manager" },
   { key: "admin", label: "Admin" },
 ] as const;
 
@@ -301,7 +301,7 @@ export function AboutPrototypeView() {
           <RoleCard
             icon={UsersIcon}
             tone="highlight"
-            title="Group coordinator"
+            title="Group manager"
             body={`Administers specific ${groups}. Invites people there, logs time for them, records group sessions, and reads those reports. Settings shows People and ${copy.projects} & lists.`}
           />
           <RoleCard

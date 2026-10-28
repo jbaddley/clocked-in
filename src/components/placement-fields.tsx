@@ -49,7 +49,7 @@ export function PlacementFields({
   embedded?: boolean;
 }) {
   const { lookups, value, set } = state;
-  const projects = useMemo(() => projectOptions(lookups.projects), [lookups.projects]);
+  const projects = useMemo(() => projectOptions(lookups.projects.filter((project) => project.isActive !== false)), [lookups.projects]);
   const departments = departmentIds
     ? lookups.departments.filter((item) => departmentIds.includes(item.id))
     : lookups.departments;
@@ -150,7 +150,7 @@ function TagInput({
       if (!namedEntity(data)) return;
       rememberLookup(queryClient, organization.id, (current) => ({
         ...current,
-        tags: upsertNamed(current.tags, { id: data.id, organizationId: organization.id, name: data.name }),
+        tags: upsertNamed(current.tags, { id: data.id, organizationId: organization.id, name: data.name, isArchived: false }),
       }));
       if (!selectedRef.current.includes(data.id)) {
         onChange([...selectedRef.current, data.id]);

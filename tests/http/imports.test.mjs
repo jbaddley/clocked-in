@@ -74,7 +74,7 @@ describe("imports", suite, () => {
     assert.equal(created.json.errors[1].message, "lastName is required.");
     assert.equal(created.json.passwords.length, 1);
     assert.equal(created.json.passwords[0].email, person.email);
-    assert.equal(created.json.passwords[0].username, person.email.split("@")[0]);
+    assert.equal(created.json.passwords[0].username, "alovelace");
     assert.ok(created.json.passwords[0].temporaryPassword.length >= 16);
 
     const session = await logIn(created.json.passwords[0].username, created.json.passwords[0].temporaryPassword, {
@@ -116,33 +116,13 @@ describe("imports", suite, () => {
     assert.equal(stillOut.json.items.some((item) => item.user.email === ctx.existing.email), false);
   });
 
-  test("creates departments and skips names that already exist", async () => {
-    const name = label("Imported group");
-    const created = await callApi(`/organizations/${ctx.org.id}/imports/departments`, {
+  test("no longer imports groups", async () => {
+    const response = await callApi(`/organizations/${ctx.org.id}/imports/departments`, {
       method: "POST",
       token: ctx.admin.accessToken,
-      body: { rows: [{ name }, { name: name.toUpperCase() }, { name: "   " }] },
+      body: { rows: [{ name: label("Imported group") }] },
     });
-    assert.equal(created.status, 200, created.text);
-    assertKeys(created.json, ["created", "skipped", "errors"]);
-    assert.equal(created.json.created, 1);
-    assert.equal(created.json.skipped, 1);
-    assert.deepEqual(created.json.errors, []);
-
-    const again = await callApi(`/organizations/${ctx.org.id}/imports/departments`, {
-      method: "POST",
-      token: ctx.admin.accessToken,
-      body: { rows: [{ name: name.toLowerCase() }] },
-    });
-    assert.equal(again.json.created, 0);
-    assert.equal(again.json.skipped, 1);
-
-    const tooMany = await callApi(`/organizations/${ctx.org.id}/imports/departments`, {
-      method: "POST",
-      token: ctx.admin.accessToken,
-      body: { rows: Array.from({ length: 1001 }, () => ({ name: "overflow" })) },
-    });
-    assertError(tooMany, 400, "validation_error", "A CSV import can include at most 1000 rows.");
+    assert.equal(response.status, 404);
   });
 
   test("creates projects and skips titles that already exist", async () => {

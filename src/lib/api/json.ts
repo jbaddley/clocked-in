@@ -309,7 +309,8 @@ export function normalizePassword(value: string) {
   return value;
 }
 
-export type RoleCode = "MEMBER" | "VOLUNTEER" | "ADMIN";
+export type SystemRoleCode = "MEMBER" | "VOLUNTEER" | "ADMIN";
+export type RoleCode = string;
 export type RateType = "Volunteer" | "Professional";
 export type AccessType = "Public" | "Private" | "Department";
 export type ProjectType = "Project" | "Event";
@@ -339,8 +340,8 @@ export function isCompletedFeedback(status: FeedbackStatus) {
 
 export function normalizeRole(value: string): RoleCode {
   const role = value.trim().toUpperCase();
-  if (role !== "MEMBER" && role !== "VOLUNTEER" && role !== "ADMIN") {
-    validation("role must be MEMBER, VOLUNTEER, or ADMIN.");
+  if (!/^[A-Z][A-Z0-9_]{1,49}$/.test(role)) {
+    validation("role must be 2 to 50 letters, numbers, or underscores.");
   }
 
   return role;

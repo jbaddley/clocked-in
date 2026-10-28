@@ -58,11 +58,12 @@ export const getWorkspace = cache(async () => {
   const stored = store.get(organizationCookie)?.value || defaultOrganizationId();
   const organization = organizations.find((item) => item.id === stored) ?? organizations[0] ?? null;
   const role = organization ? await access.organizationRole(organization.id) : null;
-  const isAdmin = organization ? viewer.isSuperAdmin || role === "ADMIN" : false;
-  const canSelectRate = organization ? viewer.isSuperAdmin || role === "ADMIN" || role === "MEMBER" : false;
+  const permissions = organization ? [...(await access.permissionsFor(organization.id))] : [];
+  const isAdmin = organization ? viewer.isSuperAdmin || (await access.can(organization.id, "manage_organization")) : false;
+  const canSelectRate = organization ? viewer.isSuperAdmin || role === "ADMIN" || role === "MEMBER" || isAdmin : false;
   const groupDepartments: GroupDepartments = !organization
     ? []
-    : viewer.isSuperAdmin || role === "ADMIN"
+    : viewer.isSuperAdmin || isAdmin
       ? "all"
       : await access.adminDepartmentIds(organization.id);
   return {
@@ -73,6 +74,7 @@ export const getWorkspace = cache(async () => {
     isCoordinator: isCoordinator(groupDepartments),
     canSelectRate,
     role,
+    permissions,
     groupDepartments,
   };
 });

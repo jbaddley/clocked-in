@@ -38,7 +38,7 @@ export function UserMenu() {
             <span className="truncate text-sm font-medium text-foreground">{viewer.name}</span>
             <span className="truncate text-xs font-normal">{viewer.email}</span>
             {isAdmin ? <span className="text-xs font-normal text-highlight">Organization admin</span> : null}
-            {!isAdmin && isCoordinator ? <span className="text-xs font-normal text-highlight">Group coordinator</span> : null}
+            {!isAdmin && isCoordinator ? <span className="text-xs font-normal text-highlight">Group manager</span> : null}
           </DropdownMenuLabel>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />

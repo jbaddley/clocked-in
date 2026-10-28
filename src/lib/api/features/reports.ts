@@ -505,3 +505,21 @@ export async function summaryCsv(access: Access, organizationId: string, params:
   ];
   return csvResponse(lines);
 }
+
+export async function viewCsv(access: Access, organizationId: string, params: URLSearchParams) {
+  await access.requirePermission(organizationId, "export_reports");
+  const data = await report(access, organizationId, params);
+  const organization = await access.requireOrganization(organizationId, false);
+  const copy = labels(readPreferences(organization.preferences));
+  const side = params.get("side") === "collective" ? data.collective : data.user;
+  return csvResponse([
+    ["Label", "Hours", "In-kind"].map(csvCell).join(","),
+    ...side.byProject.map((row) => [row.label, hoursCell(Math.round(row.hours * 60)), row.inKind.toFixed(2)].map(csvCell).join(",")),
+    "",
+    [`By ${copy.taskCategory}`, "Hours", "In-kind"].map(csvCell).join(","),
+    ...side.byCategory.map((row) => [row.label, hoursCell(Math.round(row.hours * 60)), row.inKind.toFixed(2)].map(csvCell).join(",")),
+    "",
+    [`By ${copy.department}`, "Hours", "In-kind"].map(csvCell).join(","),
+    ...side.byDepartment.map((row) => [row.label, hoursCell(Math.round(row.hours * 60)), row.inKind.toFixed(2)].map(csvCell).join(",")),
+  ]);
+}

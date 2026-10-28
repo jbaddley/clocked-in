@@ -25,10 +25,16 @@ test("volunteer starts and stops the timer", async ({ page, request }) => {
   await createOrgPerson(request, person);
   await loginAs(page, person.username, person.password);
   await page.goto("/log/own");
+  await page.getByRole("combobox", { name: /project|event/i }).click();
+  await page.getByRole("option").first().click();
+  await page.getByRole("combobox", { name: /task category|category/i }).click();
+  await page.getByRole("option").first().click();
+  await expect(page.getByRole("button", { name: "Start timer" })).toBeEnabled();
   await page.getByLabel("What are you working on?").fill(`e2e-timer ${stamp}`);
   await page.getByRole("button", { name: "Start timer" }).click();
   await expect(page.getByRole("button", { name: "Stop" })).toBeVisible();
   await page.getByRole("button", { name: "Stop" }).click();
+  await page.getByRole("button", { name: "Save time" }).click();
   await expect(page.getByRole("button", { name: "Start timer" })).toBeVisible();
   await expect(page.getByText(`e2e-timer ${stamp}`)).toBeVisible();
 });

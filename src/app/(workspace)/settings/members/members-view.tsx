@@ -2,6 +2,7 @@
 
 import { ChevronDownIcon, MoreVerticalIcon, PencilIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   createPersonAction,
@@ -16,6 +17,7 @@ import {
   type MemberPatch,
   type NewPerson,
 } from "@/app/actions/members";
+import { decideAccessRequestAction } from "@/app/actions/access-requests";
 import { TimeEntryDialog } from "@/components/entity-forms/time-entry-form";
 import { EntityFormDialog } from "@/components/entity-forms/entity-form-dialog";
 import { Field, FormMessage } from "@/components/field";
@@ -58,16 +60,31 @@ import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
 import { fetchJson } from "@/lib/fetch-json";
 import { formatInstant } from "@/lib/format";
 import { keys } from "@/lib/queries";
-import type { Invitation, Membership } from "@/lib/types";
+import type { Invitation, Membership, Paged } from "@/lib/types";
 
-const roles = [
+const fallbackRoles = [
   { value: "VOLUNTEER", label: "Volunteer" },
   { value: "MEMBER", label: "Staff" },
   { value: "ADMIN", label: "Admin" },
 ];
 
 function roleLabel(code: string, fallback: string) {
-  return roles.find((role) => role.value === code)?.label ?? fallback;
+  return fallbackRoles.find((role) => role.value === code)?.label ?? fallback;
+}
+
+function useOrgRoleOptions() {
+  const organization = useOrganization();
+  const { data } = useQuery({
+    queryKey: ["org", organization.id, "roles"],
+    queryFn: ({ signal }) =>
+      fetchJson<Paged<{ code: string; name: string }>>(`/organizations/${organization.id}/roles?limit=100`, signal),
+  });
+  const items = data?.items ?? [];
+  if (items.length === 0) return fallbackRoles;
+  return items.map((role) => ({
+    value: role.code,
+    label: role.code === "MEMBER" ? "Staff" : role.name,
+  }));
 }
 
 function personName(member: Membership) {
@@ -285,6 +302,7 @@ export function MembersView() {
   return (
     <div className="flex flex-col gap-6">
       <InviteForm />
+      {isAdmin ? <AccessRequestsCard /> : null}
       {isAdmin ? <ConnectionsCard /> : null}
       <Card>
         <CardHeader>
@@ -595,7 +613,10 @@ function InviteForm() {
   const { isAdmin, isCoordinator, groupDepartments } = useWorkspace();
   const { lookups } = useLookups();
   const coordinated = lookups.departments.filter((department) => groupDepartments.includes(department.id));
+  const roleOptions = useOrgRoleOptions();
   const [email, setEmail] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [role, setRole] = useState("VOLUNTEER");
   const [departmentId, setDepartmentId] = useState(coordinated[0]?.id ?? "");
   const { invitations } = useInvitations();
@@ -605,11 +626,11 @@ function InviteForm() {
     keys.members(organization.id),
   ];
   const invite = useActionMutation(
-    (input: { email: string; role: string; departmentId?: string }) =>
+    (input: { email: string; role: string; firstName: string; lastName: string; departmentId?: string }) =>
       input.departmentId
-        ? inviteDepartmentMemberAction(input.departmentId, input.email, input.role)
-        : inviteMemberAction(organization.id, input.email, input.role),
-    { invalidate, onSuccess: () => setEmail("") },
+        ? inviteDepartmentMemberAction(input.departmentId, input)
+        : inviteMemberAction(organization.id, input),
+    { invalidate, onSuccess: () => { setEmail(""); setFirstName(""); setLastName(""); } },
   );
   const revoke = useActionMutation(
     (invitation: Invitation) =>
@@ -627,16 +648,28 @@ function InviteForm() {
     <Card>
       <CardHeader>
         <CardTitle>Invite someone</CardTitle>
-        <CardDescription>We email them a 6-digit code and a link to enter it.</CardDescription>
+        <CardDescription>Set their name when you invite them. We email a 6-digit code and their username.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
         <form
           className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_8rem_auto]"
           onSubmit={(event) => {
             event.preventDefault();
-            invite.mutate({ email, role, departmentId: isCoordinator ? departmentId || coordinated[0]?.id : undefined });
+            invite.mutate({
+              email,
+              firstName,
+              lastName,
+              role,
+              departmentId: isCoordinator ? departmentId || coordinated[0]?.id : undefined,
+            });
           }}
         >
+          <Field label="First name" htmlFor="invite-first">
+            <Input id="invite-first" required value={firstName} onChange={(event) => setFirstName(event.target.value)} className="h-9" />
+          </Field>
+          <Field label="Last name" htmlFor="invite-last">
+            <Input id="invite-last" required value={lastName} onChange={(event) => setLastName(event.target.value)} className="h-9" />
+          </Field>
           <Field label="Email" htmlFor="invite-email">
             <Input
               id="invite-email"
@@ -658,7 +691,7 @@ function InviteForm() {
             </Field>
           ) : null}
           <Field label="Role">
-            <SelectField value={role} onValueChange={setRole} options={roles} className="h-9" />
+            <SelectField value={role} onValueChange={setRole} options={roleOptions} className="h-9" />
           </Field>
           <SubmitButton pending={invite.isPending} className="h-9 sm:mt-6">
             Send invite
@@ -679,6 +712,50 @@ function InviteForm() {
         ) : (
           <p className="text-sm text-muted-foreground">No invitations yet.</p>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function AccessRequestsCard() {
+  const organization = useOrganization();
+  const { data } = useQuery({
+    queryKey: ["org", organization.id, "access-requests"],
+    queryFn: ({ signal }) =>
+      fetchJson<Paged<{ id: string; name: string; email: string; status: string; message: string | null }>>(
+        `/organizations/${organization.id}/access-requests?limit=50`,
+        signal,
+      ),
+  });
+  const decide = useActionMutation(
+    ({ id, status }: { id: string; status: "approved" | "declined" }) => decideAccessRequestAction(organization.id, id, status),
+    { invalidate: [["org", organization.id, "access-requests"], keys.members(organization.id)] },
+  );
+  const pending = (data?.items ?? []).filter((item) => item.status === "pending");
+  if (pending.length === 0) return null;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Access requests</CardTitle>
+        <CardDescription>Approve or decline people who asked for more access.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ul className="divide-y rounded-lg border">
+          {pending.map((item) => (
+            <li key={item.id} className="flex flex-wrap items-center gap-3 px-3 py-2">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">{item.name}</p>
+                <p className="text-xs text-muted-foreground">{item.email}{item.message ? ` · ${item.message}` : ""}</p>
+              </div>
+              <Button type="button" size="sm" onClick={() => decide.mutate({ id: item.id, status: "approved" })}>
+                Approve
+              </Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => decide.mutate({ id: item.id, status: "declined" })}>
+                Decline
+              </Button>
+            </li>
+          ))}
+        </ul>
       </CardContent>
     </Card>
   );
@@ -756,6 +833,7 @@ function PersonDialog({
 
 function AddPersonForm({ onCancel, onSaved }: { onCancel: () => void; onSaved: () => void }) {
   const organization = useOrganization();
+  const roleOptions = useOrgRoleOptions();
   const [role, setRole] = useState("VOLUNTEER");
   const [departmentIds, setDepartmentIds] = useState<string[]>([]);
   const [emailUser, setEmailUser] = useState(true);
@@ -814,7 +892,7 @@ function AddPersonForm({ onCancel, onSaved }: { onCancel: () => void; onSaved: (
           </p>
         </div>
         <Field label="Role">
-          <SelectField value={role} onValueChange={setRole} options={roles} className="h-9" />
+          <SelectField value={role} onValueChange={setRole} options={roleOptions} className="h-9" />
         </Field>
       </div>
       <DepartmentChecks value={departmentIds} onChange={setDepartmentIds} />
@@ -841,6 +919,7 @@ function EditPersonForm({
   onSaved: () => void;
 }) {
   const organization = useOrganization();
+  const roleOptions = useOrgRoleOptions();
   const [role, setRole] = useState(member.role.code);
   const [departmentIds, setDepartmentIds] = useState(member.departmentIds ?? []);
   const [profile, setProfile] = useState({
@@ -917,7 +996,7 @@ function EditPersonForm({
         </TabsList>
         <TabsContent value="membership" className="mt-4 flex flex-col gap-4">
           <Field label="Role">
-            <SelectField value={role} onValueChange={setRole} options={roles} className="h-9" />
+            <SelectField value={role} onValueChange={setRole} options={roleOptions} className="h-9" />
           </Field>
           <DepartmentChecks value={departmentIds} onChange={setDepartmentIds} />
         </TabsContent>

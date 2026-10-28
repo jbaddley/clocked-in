@@ -22,7 +22,9 @@ import {
 } from "@/lib/api/json";
 import { hashPassword } from "@/lib/api/security";
 import { maxImportRows } from "@/lib/import/parse-csv";
-import { usernameFromEmail } from "@/lib/import/username";
+import { usernameFromName } from "@/lib/import/username";
+import { sendEmail } from "@/lib/api/mail";
+import { appUrl } from "@/lib/api/security";
 import { prisma } from "@/lib/prisma";
 
 export type ImportError = { row: number; message: string };
@@ -177,7 +179,8 @@ async function departmentByName(tx: Prisma.TransactionClient, organizationId: st
 
 async function allocateUsername(
   tx: Prisma.TransactionClient,
-  email: string,
+  firstName: string,
+  lastName: string,
   requested: string | null,
   seen: Set<string>,
 ) {
@@ -190,7 +193,7 @@ async function allocateUsername(
     return username;
   }
 
-  const base = usernameFromEmail(email);
+  const base = usernameFromName(firstName, lastName);
   let suffix = "";
   for (let attempt = 0; attempt < 1000; attempt += 1) {
     const username = `${base.slice(0, 50 - suffix.length)}${suffix}`;
@@ -204,8 +207,8 @@ async function allocateUsername(
   validation("username is already in use.");
 }
 
-export async function importPeople(access: Access, organizationId: string, rows: unknown[]) {
-  await access.requireOrganizationAdmin(organizationId);
+export async function importPeople(access: Access, organizationId: string, rows: unknown[], emailUsers = false) {
+  await access.requirePermission(organizationId, "import_people");
   const organization = await prisma.organization.findUnique({
     where: { id: organizationId },
     select: { defaultRateType: true },
@@ -251,7 +254,7 @@ export async function importPeople(access: Access, organizationId: string, rows:
         validation("primaryDepartment was not found.");
       }
 
-      const username = await allocateUsername(tx, email, text(row, "username"), seenUsernames);
+      const username = await allocateUsername(tx, firstName, lastName, text(row, "username"), seenUsernames);
       const password = temporaryPassword();
       const user = await tx.user.create({
         data: {
@@ -308,6 +311,18 @@ export async function importPeople(access: Access, organizationId: string, rows:
 
     return outcome;
   });
+  if (emailUsers) {
+    const organizationName =
+      (await prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true } }))?.name ?? "VolunTime";
+    for (const item of result.passwords ?? []) {
+      await sendEmail(item.email, "account-welcome", {
+        organizationName,
+        username: item.username,
+        password: item.temporaryPassword,
+        url: appUrl("/login"),
+      }).catch(() => undefined);
+    }
+  }
   return { ...result, passwords: result.passwords ?? [] };
 }
 

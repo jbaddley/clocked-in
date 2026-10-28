@@ -203,6 +203,17 @@ describe("reports", suite, () => {
     });
     assertError(forbiddenDept, 403, "forbidden", "Forbidden.");
   });
+
+  test("view csv exports the current report breakdown", async () => {
+    const response = await callApi(`/organizations/${ctx.org.id}/view.csv`, {
+      token: ctx.admin.accessToken,
+      query: { from: "2026-10-01", to: "2026-10-31" },
+    });
+    assert.equal(response.status, 200, response.text);
+    assert.match(response.headers.get("content-type") ?? "", /^text\/csv/);
+    assert.match(response.text, /Label,Hours,In-kind/);
+    assert.match(response.text, new RegExp(escapeRegExp(ctx.project.title)));
+  });
 });
 
 function escapeRegExp(value) {

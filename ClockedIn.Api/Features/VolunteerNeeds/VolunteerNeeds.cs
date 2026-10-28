@@ -335,6 +335,7 @@ public sealed class VolunteerNeedsService(
             ProjectId = request.ProjectId,
             TaskCategoryId = request.TaskCategoryId,
             DepartmentId = request.DepartmentId,
+            Status = "published",
             CreatedAt = now,
             UpdatedAt = now,
         };
@@ -406,7 +407,7 @@ public sealed class VolunteerNeedsService(
         await captcha.Verify(request.CaptchaToken, cancellationToken);
         var user = current.UserOrNull;
         await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
-        var need = await db.VolunteerNeeds.FirstOrDefaultAsync(item => item.PublicToken == token && item.AllowPublic, cancellationToken)
+        var need = await db.VolunteerNeeds.FirstOrDefaultAsync(item => item.PublicToken == token && item.AllowPublic && item.Status == "published", cancellationToken)
             ?? throw ApiException.NotFound();
         await db.LockVolunteerNeedAsync(need.Id, cancellationToken);
         await db.Entry(need).ReloadAsync(cancellationToken);
@@ -576,7 +577,7 @@ public sealed class VolunteerNeedsService(
     {
         var need = await db.VolunteerNeeds.AsNoTracking()
             .Include(item => item.Organization)
-            .FirstOrDefaultAsync(item => item.PublicToken == token && item.AllowPublic, cancellationToken);
+            .FirstOrDefaultAsync(item => item.PublicToken == token && item.AllowPublic && item.Status == "published", cancellationToken);
         return need ?? throw ApiException.NotFound();
     }
 

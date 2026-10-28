@@ -17,6 +17,7 @@ import { usePlacement } from "@/hooks/use-placement";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { dayLabel, formatClock, formatMinutes, formatTime } from "@/lib/format";
 import type { DateRange, TimeEntry } from "@/lib/types";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { SetupAlert } from "../setup-alert";
 
 export function OwnTimeView({ range }: { range: DateRange }) {
@@ -49,6 +50,7 @@ function TimerCard() {
   const { clockIn, clockOut } = useClock();
   const placement = usePlacement();
   const [description, setDescription] = useState("");
+  const [confirming, setConfirming] = useState(false);
   const running = Boolean(punch);
   const canStart = placement.ready;
 
@@ -59,9 +61,7 @@ function TimerCard() {
         onSubmit={(event) => {
           event.preventDefault();
           if (running) {
-            clockOut.mutate(description.trim() ? { description: description.trim() } : {}, {
-              onSuccess: () => setDescription(""),
-            });
+            setConfirming(true);
           } else if (canStart) {
             clockIn.mutate(placement.placement(description));
           }
@@ -107,6 +107,21 @@ function TimerCard() {
           <PlacementFields state={placement} compact />
         </div>
       ) : null}
+      <ConfirmDialog
+        open={confirming}
+        onOpenChange={setConfirming}
+        title="Check this time before saving"
+        description="Confirm the project, task category, and group are right, then save."
+        confirmLabel="Save time"
+        onConfirm={() =>
+          clockOut.mutate(description.trim() ? { description: description.trim() } : {}, {
+            onSuccess: () => {
+              setDescription("");
+              setConfirming(false);
+            },
+          })
+        }
+      />
     </Card>
   );
 }

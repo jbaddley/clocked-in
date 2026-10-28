@@ -59,6 +59,7 @@ export async function updateOrganizationDetailsAction(
         name: text(formData, "name"),
         description: text(formData, "description"),
         websiteUrl: text(formData, "websiteUrl"),
+        publicSlug: text(formData, "publicSlug"),
       }),
     );
     refresh();
@@ -91,6 +92,7 @@ export async function updateOrganizationSettingsAction(
       organizationId,
       parseUpdateOrganization({
         preferences,
+        publicSlug: text(formData, "publicSlug") || null,
       }),
     );
     refresh();

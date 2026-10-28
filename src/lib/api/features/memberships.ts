@@ -120,9 +120,28 @@ export function departmentMembershipJson(
   };
 }
 
-export async function roleId(code: RoleCode) {
-  const role = await prisma.role.findUniqueOrThrow({ where: { code }, select: { id: true } });
+export async function roleId(code: RoleCode, organizationId?: string | null) {
+  const role = await resolveRole(code, organizationId);
+  if (!role) {
+    validation("role was not found.");
+  }
   return role.id;
+}
+
+export async function resolveRole(code: string, organizationId?: string | null) {
+  const normalized = code.trim().toUpperCase();
+  if (organizationId) {
+    const custom = await prisma.role.findFirst({
+      where: { code: normalized, organizationId },
+      select: { id: true, code: true, name: true, organizationId: true, isSystem: true, scope: true },
+    });
+    if (custom) return custom;
+  }
+
+  return prisma.role.findFirst({
+    where: { code: normalized, organizationId: null },
+    select: { id: true, code: true, name: true, organizationId: true, isSystem: true, scope: true },
+  });
 }
 
 export type CreateOrgMembershipRequest = {
@@ -324,7 +343,7 @@ export async function createOrgMembership(access: Access, organizationId: string
   }
   // Resolve outside the transaction. The production pool has one connection, so a
   // query on the global client while the transaction holds it times out.
-  const resolvedRoleId = await roleId(request.role);
+  const resolvedRoleId = await roleId(request.role, organizationId);
   let createdAccount = false;
   let organizationName = "";
   const membership = await transaction(async (tx) => {
@@ -440,7 +459,7 @@ export async function updateOrgMembership(
   request: UpdateOrgMembershipRequest,
 ) {
   await access.requireOrganizationAdmin(organizationId);
-  const nextRoleId = request.role.set ? await roleId(request.role.value) : undefined;
+  const nextRoleId = request.role.set ? await roleId(request.role.value, organizationId) : undefined;
   return transaction(async (tx) => {
     await lockOrganization(tx, organizationId);
     const membership = await tx.organizationMembership.findFirst({

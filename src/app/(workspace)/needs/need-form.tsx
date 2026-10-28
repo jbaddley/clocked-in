@@ -12,7 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useActionMutation } from "@/hooks/use-action-mutation";
 import { useLookups } from "@/hooks/use-lookups";
-import { useOrganization } from "@/hooks/use-workspace";
+import { CreateProjectDialog } from "@/components/entity-forms/project-form";
+import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
 import { keys } from "@/lib/queries";
 import type { VolunteerNeed } from "@/lib/types";
 
@@ -28,7 +29,9 @@ function localInput(value: string | null) {
 
 export function NeedForm({ need, onDone }: { need?: VolunteerNeed; onDone: () => void }) {
   const organization = useOrganization();
+  const { permissions } = useWorkspace();
   const { lookups } = useLookups();
+  const [creatingProject, setCreatingProject] = useState(false);
   const [name, setName] = useState(need?.name ?? "");
   const [description, setDescription] = useState(need?.description ?? "");
   const [type, setType] = useState(need?.type ?? "Position");
@@ -109,13 +112,24 @@ export function NeedForm({ need, onDone }: { need?: VolunteerNeed; onDone: () =>
         <Input id="need-deadline" type="datetime-local" value={requiredBy} onChange={(event) => setRequiredBy(event.target.value)} />
       </Field>
       <Field label="Project">
-        <SelectField
-          aria-label="Project"
-          value={projectId}
-          options={[{ value: none, label: "None" }, ...lookups.projects.map((project) => ({ value: project.id, label: project.title }))]}
-          onValueChange={setProjectId}
-        />
+        <div className="flex flex-col gap-2">
+          <SelectField
+            aria-label="Project"
+            value={projectId}
+            options={[
+              { value: none, label: "None" },
+              ...lookups.projects.filter((project) => project.isActive !== false).map((project) => ({ value: project.id, label: project.title })),
+            ]}
+            onValueChange={setProjectId}
+          />
+          {permissions.includes("create_projects") ? (
+            <Button type="button" variant="ghost" size="sm" className="self-start" onClick={() => setCreatingProject(true)}>
+              + New project / event
+            </Button>
+          ) : null}
+        </div>
       </Field>
+      <CreateProjectDialog open={creatingProject} onOpenChange={setCreatingProject} />
       <Field label="Task category">
         <SelectField
           aria-label="Task category"

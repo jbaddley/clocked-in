@@ -35,8 +35,8 @@ function sessionMinutes(session: GroupSession) {
 
 export function GroupTimeView() {
   const organization = useOrganization();
-  const { isAdmin, groupDepartments } = useWorkspace();
-  const allowed = canLogGroupTime(groupDepartments);
+  const { isAdmin, groupDepartments, permissions } = useWorkspace();
+  const allowed = canLogGroupTime(groupDepartments, permissions) || permissions.includes("log_event_totals");
   useClientRedirect(!allowed, "/log/own");
   const { lookups, isSuccess } = useLookups();
   const queryClient = useQueryClient();
@@ -88,7 +88,7 @@ export function GroupTimeView() {
             Record a session
           </CardTitle>
           <CardDescription>
-            In-kind value is the session length times the number of people, at the organization volunteer rate.
+            Log a group session or an event total. In-kind value is the session length times the number of people, at the volunteer rate.
           </CardDescription>
         </CardHeader>
         <CardContent>

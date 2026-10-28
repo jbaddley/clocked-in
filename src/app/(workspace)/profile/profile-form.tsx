@@ -11,6 +11,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { Textarea } from "@/components/ui/textarea";
+import { requestAccessAction } from "@/app/actions/access-requests";
+import { useActionMutation } from "@/hooks/use-action-mutation";
+import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
 import { ProfileNav, type ProfileSection } from "./profile-nav";
 
 const selectClass =
@@ -77,6 +80,7 @@ export function ProfileForm({ user }: { user: EditableProfile }) {
     >
       <div className={section === "about" ? undefined : "hidden"}>
         <AboutForm user={user} onStatus={setProfileStatus} />
+        <RequestAccessCard />
       </div>
       <div className={section === "password" ? undefined : "hidden"}>
         <PasswordForm onStatus={setPasswordStatus} />
@@ -312,5 +316,27 @@ function PasswordForm({ onStatus }: { onStatus: (status: SaveStatus) => void }) 
         </CardContent>
       </Card>
     </form>
+  );
+}
+
+function RequestAccessCard() {
+  const organization = useOrganization();
+  const { isAdmin, isCoordinator } = useWorkspace();
+  const [message, setMessage] = useState("");
+  const request = useActionMutation(() => requestAccessAction(organization.id, { message, requestedRole: "ADMIN" }));
+  if (isAdmin || isCoordinator) return null;
+  return (
+    <Card className="mt-6">
+      <CardHeader>
+        <CardTitle>Request more access</CardTitle>
+        <CardDescription>Ask an admin for group manager or admin access.</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <Textarea value={message} onChange={(event) => setMessage(event.target.value)} placeholder="Why do you need more access?" />
+        <SubmitButton pending={request.isPending} onClick={() => request.mutate()}>
+          Send request
+        </SubmitButton>
+      </CardContent>
+    </Card>
   );
 }

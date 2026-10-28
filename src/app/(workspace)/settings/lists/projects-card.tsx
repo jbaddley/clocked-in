@@ -2,7 +2,7 @@
 
 import { FolderKanbanIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
-import { deleteLookupAction } from "@/app/actions/lookups";
+import { archiveProjectAction, deleteLookupAction } from "@/app/actions/lookups";
 import { ProjectDialog } from "@/components/entity-forms/project-form";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
@@ -57,6 +57,10 @@ export function ProjectsCard() {
   const remove = useActionMutation((id: string) => deleteLookupAction("projects", id), {
     invalidate: [keys.lookups(organization.id)],
   });
+  const archive = useActionMutation(
+    ({ id, isActive }: { id: string; isActive: boolean }) => archiveProjectAction(id, isActive),
+    { invalidate: [keys.lookups(organization.id)] },
+  );
 
   return (
     <Card>
@@ -85,13 +89,24 @@ export function ProjectsCard() {
                   {group.items.map((project) => (
                     <li key={project.id} className="flex items-center gap-3 px-3 py-2">
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm">{project.title}</p>
+                        <p className="truncate text-sm">
+                          {project.title}
+                          {project.isActive === false ? <span className="ml-2 text-xs text-muted-foreground">Archived</span> : null}
+                        </p>
                         <p className="truncate text-xs text-muted-foreground">
                           {project.departmentId ? (names.department.get(project.departmentId) ?? copy.department) : `Whole ${copy.organization.toLowerCase()}`}
                           {" · "}
                           {dateRange(project)}
                         </p>
                       </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => archive.mutate({ id: project.id, isActive: project.isActive === false })}
+                      >
+                        {project.isActive === false ? "Unarchive" : "Archive"}
+                      </Button>
                       <Button type="button" variant="ghost" size="icon-sm" aria-label={`Edit ${project.title}`} onClick={() => setEditing(project)}>
                         <PencilIcon />
                       </Button>

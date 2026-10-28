@@ -13,6 +13,7 @@ export type Workspace = {
   isCoordinator: boolean;
   canSelectRate: boolean;
   role: RoleCode | null;
+  permissions: string[];
   groupDepartments: GroupDepartments;
 };
 
@@ -24,6 +25,7 @@ export function WorkspaceProvider({ value, children }: { value: Workspace; child
       value={{
         ...value,
         isCoordinator: value.isCoordinator || isCoordinator(value.groupDepartments),
+        permissions: value.permissions ?? [],
       }}
     >
       {children}

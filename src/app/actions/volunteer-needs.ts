@@ -2,6 +2,7 @@
 
 import {
   createVolunteerNeed,
+  decideNeed,
   deleteSignup,
   deleteVolunteerNeed,
   emailVolunteers,
@@ -47,6 +48,10 @@ export async function deleteSignupAction(needId: string, signupId: string) {
 
 export async function emailVolunteersAction(needId: string, body: Record<string, unknown>) {
   return run(async () => emailVolunteers(await requireAccess(), needId, parseVolunteerEmail(body)), "Email sent.");
+}
+
+export async function decideNeedAction(needId: string, status: "published" | "rejected") {
+  return run(async () => decideNeed(await requireAccess(), needId, status), status === "published" ? "Need published." : "Need rejected.");
 }
 
 export async function signUpForNeedAction(token: string, body: Record<string, unknown>) {

@@ -231,6 +231,7 @@ function needJson(need: NeedRow) {
     requiredBy: need.requiredBy ? need.requiredBy.toISOString() : null,
     allowPublic: need.allowPublic,
     requireVetting: need.requireVetting,
+    status: "status" in need ? String(need.status ?? "published") : "published",
     questions: questionsFrom(need.questions),
     projectId: need.projectId,
     taskCategoryId: need.taskCategoryId,
@@ -314,7 +315,12 @@ async function relations(organizationId: string, projectId: string | null, taskC
 async function managed(access: Access, needId: string) {
   const need = await prisma.volunteerNeed.findUnique({ where: { id: needId } });
   if (!need) notFound();
-  await access.requireOrganization(need.organizationId, true);
+  if (
+    !(await access.can(need.organizationId, "create_needs", need.departmentId)) &&
+    !(await access.can(need.organizationId, "approve_needs"))
+  ) {
+    await access.requireOrganization(need.organizationId, true);
+  }
   return need;
 }
 
@@ -375,6 +381,7 @@ export function parsePublicSignup(body: Body) {
     answers: has(body, "answers") ? body.answers : undefined,
     acknowledged: has(body, "acknowledged") ? requireBool(body, "acknowledged") : false,
     captchaToken: optionalString(body, "captchaToken") ?? null,
+    requestAccess: has(body, "requestAccess") ? requireBool(body, "requestAccess") : false,
   };
 }
 
@@ -392,7 +399,9 @@ export async function linkGuest(db: Prisma.TransactionClient | typeof prisma, em
 
 export async function listVolunteerNeeds(access: Access, organizationId: string, params: URLSearchParams) {
   const paging = page(params);
-  await access.requireOrganization(organizationId, true);
+  if (!(await access.can(organizationId, "create_needs")) && !(await access.can(organizationId, "approve_needs"))) {
+    await access.requireOrganization(organizationId, true);
+  }
   const q = params.get("q")?.trim();
   if (q && q.length > 200) validation("q must be 200 characters or fewer.");
   const type = params.get("type");
@@ -423,10 +432,12 @@ export async function getVolunteerNeed(access: Access, needId: string) {
 }
 
 export async function createVolunteerNeed(access: Access, organizationId: string, request: ReturnType<typeof parseSaveNeed>) {
-  await access.requireOrganization(organizationId, true);
+  await access.requirePermission(organizationId, "create_needs", request.departmentId);
   assertDates(request.startDate, request.endDate);
   await relations(organizationId, request.projectId, request.taskCategoryId, request.departmentId);
   const now = utcNow();
+  const publishNow = await access.can(organizationId, "approve_needs");
+  const status = publishNow ? "published" : "pending_approval";
   const need = await guard(
     prisma.volunteerNeed.create({
       data: {
@@ -447,11 +458,28 @@ export async function createVolunteerNeed(access: Access, organizationId: string
         projectId: request.projectId,
         taskCategoryId: request.taskCategoryId,
         departmentId: request.departmentId,
+        status,
         createdAt: now,
         updatedAt: now,
       },
     }),
   );
+  if (!publishNow) {
+    const organization = await prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true } });
+    const admins = await prisma.organizationMembership.findMany({
+      where: { organizationId, isActive: true, role: { code: "ADMIN" } },
+      include: { user: { select: { email: true } } },
+    });
+    await Promise.all(
+      admins.map((admin) =>
+        sendEmail(admin.user.email, "need-submitted", {
+          organizationName: organization?.name ?? "VolunTime",
+          needName: need.name,
+          managerName: access.caller.profile?.firstName || access.caller.username,
+        }).catch(() => undefined),
+      ),
+    );
+  }
   return needJson(need);
 }
 
@@ -507,7 +535,7 @@ export async function listSignups(access: Access, needId: string) {
 
 export async function publicVolunteerNeed(token: string) {
   const need = await prisma.volunteerNeed.findFirst({
-    where: { publicToken: token, allowPublic: true },
+    where: { publicToken: token, allowPublic: true, status: "published" },
     include: { Organization: true },
   });
   if (!need) notFound();
@@ -534,7 +562,7 @@ export async function signUpForNeed(access: Access | null, token: string, reques
   await verifyCaptcha(request.captchaToken);
   const user = access && !access.isApiKey ? access.caller : null;
   const signupId = await transaction(async (tx) => {
-    const need = await tx.volunteerNeed.findFirst({ where: { publicToken: token, allowPublic: true } });
+    const need = await tx.volunteerNeed.findFirst({ where: { publicToken: token, allowPublic: true, status: "published" } });
     if (!need) notFound();
     await tx.$queryRaw`SELECT "id" FROM "VolunteerNeed" WHERE "id" = CAST(${need.id} AS uuid) FOR UPDATE`;
     const locked = await tx.volunteerNeed.findUniqueOrThrow({ where: { id: need.id } });
@@ -599,7 +627,20 @@ export async function signUpForNeed(access: Access | null, token: string, reques
     return id;
   });
   const signup = await prisma.volunteerSignup.findUniqueOrThrow({ where: { id: signupId }, include: signupInclude });
-  return signupJson(signup);
+  const json = signupJson(signup);
+  if (request.requestAccess) {
+    const need = await prisma.volunteerNeed.findFirst({ where: { publicToken: token }, select: { organizationId: true, id: true } });
+    if (need) {
+      const { createPublicAccessRequest } = await import("@/lib/api/features/access-requests");
+      await createPublicAccessRequest(need.organizationId, {
+        email: json.email,
+        name: json.name,
+        guestId: json.guestId,
+        volunteerNeedId: need.id,
+      }).catch(() => undefined);
+    }
+  }
+  return json;
 }
 
 async function changeVetting(access: Access, needId: string, signupId: string, vetted: boolean) {
@@ -667,4 +708,51 @@ export async function emailVolunteers(access: Access, needId: string, request: R
     });
   }
   return { sent: signups.length };
+}
+
+export async function listPublicNeeds(slug: string) {
+  const organization = await prisma.organization.findFirst({
+    where: { publicSlug: slug.toLowerCase() },
+    select: { id: true, name: true, publicSlug: true },
+  });
+  if (!organization) notFound();
+  const needs = await prisma.volunteerNeed.findMany({
+    where: { organizationId: organization.id, allowPublic: true, status: "published" },
+    orderBy: { startDate: "asc" },
+  });
+  return {
+    organizationName: organization.name,
+    slug: organization.publicSlug,
+    items: needs.map((need) => ({
+      id: need.id,
+      name: need.name,
+      description: need.description,
+      type: need.type,
+      countNeeded: need.countNeeded,
+      countVetted: need.countVetted,
+      remaining: need.countNeeded - need.countVetted,
+      startDate: need.startDate ? asDateOnly(need.startDate) : null,
+      endDate: need.endDate ? asDateOnly(need.endDate) : null,
+      token: need.publicToken,
+    })),
+  };
+}
+
+export async function decideNeed(access: Access, needId: string, status: "published" | "rejected") {
+  const need = await managed(access, needId);
+  await access.requirePermission(need.organizationId, "approve_needs");
+  const updated = await prisma.volunteerNeed.update({
+    where: { id: needId },
+    data: { status, updatedAt: utcNow() },
+  });
+  const creator = await prisma.user.findUnique({ where: { id: need.createdByUserId }, select: { email: true } });
+  const organization = await prisma.organization.findUnique({ where: { id: need.organizationId }, select: { name: true } });
+  if (creator) {
+    await sendEmail(creator.email, "need-decided", {
+      organizationName: organization?.name ?? "VolunTime",
+      needName: need.name,
+      decision: status,
+    }).catch(() => undefined);
+  }
+  return needJson(updated);
 }

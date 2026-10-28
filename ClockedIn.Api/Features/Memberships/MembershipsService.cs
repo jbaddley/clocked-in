@@ -24,6 +24,7 @@ public sealed class MembershipsService(
     {
         var page = query.Resolve();
         var roles = await db.Roles.AsNoTracking()
+            .Where(role => role.OrganizationId == null)
             .OrderBy(role => role.Code)
             .Skip(page.Offset)
             .Take(page.Limit)

@@ -120,6 +120,8 @@ public class User
     public ICollection<VolunteerNeed> VolunteerNeedsCreated { get; set; } = [];
     public ICollection<VolunteerSignup> VolunteerSignups { get; set; } = [];
     public ICollection<Guest> Guests { get; set; } = [];
+    public ICollection<AccessRequest> AccessRequests { get; set; } = [];
+    public ICollection<AccessRequest> AccessRequestsReviewed { get; set; } = [];
 }
 
 public class UserProfile
@@ -155,12 +157,26 @@ public class Role
     };
 
     public Guid Id { get; set; }
-    public RoleCode Code { get; set; }
+    public string Code { get; set; } = null!;
     public string Name { get; set; } = null!;
+    public Guid? OrganizationId { get; set; }
+    public bool IsSystem { get; set; }
+    public string Scope { get; set; } = "organization";
 
+    public Organization? Organization { get; set; }
+    public ICollection<RolePermission> Permissions { get; set; } = [];
     public ICollection<OrganizationMembership> OrganizationMemberships { get; set; } = [];
     public ICollection<DepartmentMembership> DepartmentMemberships { get; set; } = [];
     public ICollection<Invitation> Invitations { get; set; } = [];
+}
+
+public class RolePermission
+{
+    public Guid Id { get; set; }
+    public Guid RoleId { get; set; }
+    public string Permission { get; set; } = null!;
+    public bool Allowed { get; set; } = true;
+    public Role Role { get; set; } = null!;
 }
 
 public class EntityLabels
@@ -186,6 +202,7 @@ public class Organization
     // Organization about information in Markdown format
     public string? Description { get; set; }
     public string? WebsiteUrl { get; set; }
+    public string? PublicSlug { get; set; }
     public RateType DefaultRateType { get; set; } = RateType.Volunteer;
     public OrganizationPreferences Preferences { get; set; } = new();
     public Guid ThemeId { get; set; } = Theme.ClockedInId;
@@ -211,6 +228,7 @@ public class Organization
     public ICollection<Report> Reports { get; set; } = [];
     public ICollection<ReportTemplate> ReportTemplates { get; set; } = [];
     public ICollection<VolunteerNeed> VolunteerNeeds { get; set; } = [];
+    public ICollection<AccessRequest> AccessRequests { get; set; } = [];
 }
 
 public class Report
@@ -363,6 +381,7 @@ public class Tag
     public Guid Id { get; set; }
     public Guid OrganizationId { get; set; }
     public string Name { get; set; } = null!;
+    public bool IsArchived { get; set; }
 
     public Organization Organization { get; set; } = null!;
     public ICollection<UserTimeEntry> UserTimeEntries { get; set; } = [];
@@ -428,6 +447,7 @@ public class VolunteerNeed
     public Guid? DepartmentId { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+    public string Status { get; set; } = "published";
 
     public Organization Organization { get; set; } = null!;
     public User CreatedBy { get; set; } = null!;
@@ -435,6 +455,7 @@ public class VolunteerNeed
     public TaskCategory? TaskCategory { get; set; }
     public Department? Department { get; set; }
     public ICollection<VolunteerSignup> Signups { get; set; } = [];
+    public ICollection<AccessRequest> AccessRequests { get; set; } = [];
 }
 
 public class Guest
@@ -447,6 +468,7 @@ public class Guest
 
     public User? User { get; set; }
     public ICollection<VolunteerSignup> Signups { get; set; } = [];
+    public ICollection<AccessRequest> AccessRequests { get; set; } = [];
 }
 
 public class VolunteerSignup
@@ -583,11 +605,37 @@ public class Invitation
     public DateTime? AcceptedAt { get; set; }
     public DateTime? RevokedAt { get; set; }
     public DateTime CreatedAt { get; set; }
+    public string? FirstName { get; set; }
+    public string? LastName { get; set; }
+    public string? Username { get; set; }
 
     public Organization Organization { get; set; } = null!;
     public Department? Department { get; set; }
     public Role Role { get; set; } = null!;
     public User InvitedBy { get; set; } = null!;
+}
+
+public class AccessRequest
+{
+    public Guid Id { get; set; }
+    public Guid OrganizationId { get; set; }
+    public Guid? UserId { get; set; }
+    public Guid? GuestId { get; set; }
+    public Guid? RequestedRoleId { get; set; }
+    public string RequestedDepartmentIds { get; set; } = "[]";
+    public string? Message { get; set; }
+    public string Status { get; set; } = "pending";
+    public Guid? ReviewedByUserId { get; set; }
+    public DateTime? ReviewedAt { get; set; }
+    public Guid? VolunteerNeedId { get; set; }
+    public DateTime CreatedAt { get; set; }
+
+    public Organization Organization { get; set; } = null!;
+    public User? User { get; set; }
+    public Guest? Guest { get; set; }
+    public Role? RequestedRole { get; set; }
+    public User? ReviewedBy { get; set; }
+    public VolunteerNeed? VolunteerNeed { get; set; }
 }
 
 public class PasswordResetCode

@@ -11,6 +11,8 @@ public class ClockedInDbContext(DbContextOptions<ClockedInDbContext> options, Ti
     public DbSet<User> Users => Set<User>();
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
     public DbSet<Role> Roles => Set<Role>();
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
+    public DbSet<AccessRequest> AccessRequests => Set<AccessRequest>();
     public DbSet<Organization> Organizations => Set<Organization>();
     public DbSet<Theme> Themes => Set<Theme>();
     public DbSet<HourlyRate> HourlyRates => Set<HourlyRate>();
@@ -79,12 +81,70 @@ public class ClockedInDbContext(DbContextOptions<ClockedInDbContext> options, Ti
 
         modelBuilder.Entity<Role>(entity =>
         {
-            entity.Property(role => role.Code).HasConversion<string>();
-            entity.HasIndex(role => role.Code).IsUnique();
+            entity.Property(role => role.IsSystem).HasDefaultValue(false);
+            entity.Property(role => role.Scope).HasDefaultValue("organization");
+            entity.HasIndex(role => role.Code)
+                .IsUnique()
+                .HasFilter("\"organizationId\" IS NULL")
+                .HasDatabaseName("Role_system_code_key");
+            entity.HasIndex(role => new { role.OrganizationId, role.Code })
+                .IsUnique()
+                .HasFilter("\"organizationId\" IS NOT NULL")
+                .HasDatabaseName("Role_org_code_key");
+            entity.HasOne(role => role.Organization)
+                .WithMany()
+                .HasForeignKey(role => role.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade);
             entity.HasData(
-                new Role { Id = Role.MemberId, Code = RoleCode.MEMBER, Name = "Member" },
-                new Role { Id = Role.VolunteerId, Code = RoleCode.VOLUNTEER, Name = "Volunteer" },
-                new Role { Id = Role.AdminId, Code = RoleCode.ADMIN, Name = "Admin" });
+                new Role { Id = Role.MemberId, Code = "MEMBER", Name = "Member", IsSystem = true },
+                new Role { Id = Role.VolunteerId, Code = "VOLUNTEER", Name = "Volunteer", IsSystem = true, Scope = "self" },
+                new Role { Id = Role.AdminId, Code = "ADMIN", Name = "Admin", IsSystem = true });
+        });
+
+        modelBuilder.Entity<RolePermission>(entity =>
+        {
+            entity.Property(permission => permission.Allowed).HasDefaultValue(true);
+            entity.HasIndex(permission => new { permission.RoleId, permission.Permission }).IsUnique();
+            entity.HasOne(permission => permission.Role)
+                .WithMany(role => role.Permissions)
+                .HasForeignKey(permission => permission.RoleId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AccessRequest>(entity =>
+        {
+            entity.Property(request => request.RequestedDepartmentIds)
+                .HasColumnType("jsonb")
+                .HasDefaultValueSql("'[]'::jsonb");
+            entity.Property(request => request.Status).HasDefaultValue("pending");
+            entity.Property(request => request.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.HasIndex(request => request.OrganizationId);
+            entity.HasIndex(request => request.UserId);
+            entity.HasIndex(request => request.Status);
+            entity.HasOne(request => request.Organization)
+                .WithMany(organization => organization.AccessRequests)
+                .HasForeignKey(request => request.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(request => request.User)
+                .WithMany(user => user.AccessRequests)
+                .HasForeignKey(request => request.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(request => request.Guest)
+                .WithMany(guest => guest.AccessRequests)
+                .HasForeignKey(request => request.GuestId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(request => request.RequestedRole)
+                .WithMany()
+                .HasForeignKey(request => request.RequestedRoleId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(request => request.ReviewedBy)
+                .WithMany(user => user.AccessRequestsReviewed)
+                .HasForeignKey(request => request.ReviewedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(request => request.VolunteerNeed)
+                .WithMany(need => need.AccessRequests)
+                .HasForeignKey(request => request.VolunteerNeedId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<Organization>(entity =>
@@ -107,6 +167,10 @@ public class ClockedInDbContext(DbContextOptions<ClockedInDbContext> options, Ti
                 owned.OwnsOne(preferences => preferences.EntityLabels);
                 owned.PrimitiveCollection(preferences => preferences.FeedbackNotifyUserIds);
             });
+            entity.HasIndex(organization => organization.PublicSlug)
+                .IsUnique()
+                .HasFilter("\"publicSlug\" IS NOT NULL")
+                .HasDatabaseName("IX_Organization_publicSlug");
             entity.ToTable(table => table.HasCheckConstraint(
                 "Organization_rate_check",
                 "\"defaultRateType\" IN ('Volunteer', 'Professional')"));
@@ -348,6 +412,7 @@ public class ClockedInDbContext(DbContextOptions<ClockedInDbContext> options, Ti
         modelBuilder.Entity<Tag>(entity =>
         {
             entity.Property(tag => tag.Name).HasColumnType("citext");
+            entity.Property(tag => tag.IsArchived).HasDefaultValue(false);
             entity.HasIndex(tag => new { tag.OrganizationId, tag.Name }).IsUnique();
             entity.HasOne(tag => tag.Organization)
                 .WithMany(organization => organization.Tags)
@@ -711,6 +776,7 @@ public class ClockedInDbContext(DbContextOptions<ClockedInDbContext> options, Ti
             entity.Property(need => need.EndDate).HasColumnType("date");
             entity.Property(need => need.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(need => need.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(need => need.Status).HasDefaultValue("published");
             entity.HasIndex(need => need.PublicToken).IsUnique();
             entity.HasIndex(need => need.OrganizationId);
             entity.HasOne(need => need.Organization)

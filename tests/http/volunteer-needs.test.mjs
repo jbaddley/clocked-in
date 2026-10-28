@@ -37,6 +37,7 @@ const needKeys = [
   "projectId",
   "taskCategoryId",
   "departmentId",
+  "status",
   "createdAt",
   "updatedAt",
 ];

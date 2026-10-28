@@ -3,28 +3,36 @@ import { bodyText, codeBox, codeText, EmailLayout, linkText, quietText } from ".
 
 export const invitation = {
   id: "invitation",
-  subject: "You are invited to join the {{targetKind}} {{targetName}}",
-  variables: ["targetKind", "targetName", "roleName", "code", "url"],
+  subject: "{{organizationName}} invited you to join VolunTime",
+  variables: ["targetKind", "targetName", "organizationName", "roleName", "username", "code", "url"],
 };
 
 export default function InvitationEmail({
   targetKind = "Organization",
   targetName = "Harbor Volunteers",
+  organizationName = "Harbor Volunteers",
   roleName = "Member",
+  username = "jsmith",
   code = "482913",
   url = "http://localhost:3025/accept?code=482913",
 }: {
   targetKind?: string;
   targetName?: string;
+  organizationName?: string;
   roleName?: string;
+  username?: string;
   code?: string;
   url?: string;
 }) {
   return (
-    <EmailLayout preview={`You are invited to join the ${targetKind} ${targetName}.`} title="You have an invite">
+    <EmailLayout
+      preview={`Log your volunteer hours with ${organizationName}.`}
+      title="You have an invite"
+    >
       <Text style={bodyText}>
-        You have been invited to join the {targetKind} {targetName} as {roleName}.
+        {organizationName} invited you to join the {targetKind} {targetName} as {roleName}.
       </Text>
+      <Text style={bodyText}>Your username will be {username}.</Text>
       <Text style={bodyText}>Use this code to accept the invite:</Text>
       <Section style={codeBox}>
         <Text style={codeText}>{code}</Text>

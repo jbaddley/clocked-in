@@ -50,7 +50,7 @@ test("coordinator logs for a group member and sees only that group on Reports", 
 
   await loginAs(page, coordinator.username, coordinator.password);
   await page.getByRole("button", { name: "Account menu" }).click();
-  await expect(page.getByText("Group coordinator")).toBeVisible();
+  await expect(page.getByText("Group manager")).toBeVisible();
   await page.goto("/log/member");
   await expect(page.getByText("Add time for a member")).toBeVisible();
   await page.getByRole("combobox", { name: /person/i }).click();

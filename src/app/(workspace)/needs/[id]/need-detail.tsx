@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
+  decideNeedAction,
   deleteNeedAction,
   deleteSignupAction,
   emailVolunteersAction,
@@ -31,8 +32,9 @@ import type { VolunteerSignup } from "@/lib/types";
 export function NeedDetail({ needId }: { needId: string }) {
   const router = useRouter();
   const organization = useOrganization();
-  const { isAdmin } = useWorkspace();
-  useClientRedirect(!isAdmin, "/dashboard");
+  const { isAdmin, isCoordinator, permissions } = useWorkspace();
+  const canManage = isAdmin || isCoordinator || permissions.includes("create_needs") || permissions.includes("approve_needs");
+  useClientRedirect(!canManage, "/dashboard");
   const need = useQuery(needQuery(needId));
   const signups = useQuery(signupsQuery(needId));
   const [editing, setEditing] = useState(false);
@@ -53,7 +55,8 @@ export function NeedDetail({ needId }: { needId: string }) {
     { invalidate, onSuccess: () => setSelected([]) },
   );
 
-  if (!isAdmin || need.isPending || signups.isPending) return <PageSkeleton rows={8} />;
+  const decide = useActionMutation((status: "published" | "rejected") => decideNeedAction(needId, status), { invalidate });
+  if (!canManage || need.isPending || signups.isPending) return <PageSkeleton rows={8} />;
   if (!need.data) return <p className="text-sm text-muted-foreground">This need is not available.</p>;
 
   const item = need.data;
@@ -70,6 +73,12 @@ export function NeedDetail({ needId }: { needId: string }) {
         description={item.description || "No description."}
         actions={
           <div className="flex gap-2">
+            {item.status === "pending_approval" && permissions.includes("approve_needs") ? (
+              <>
+                <Button type="button" onClick={() => decide.mutate("published")}>Publish</Button>
+                <Button type="button" variant="outline" onClick={() => decide.mutate("rejected")}>Reject</Button>
+              </>
+            ) : null}
             <Button type="button" variant="outline" onClick={() => setEditing(true)}>
               Edit
             </Button>

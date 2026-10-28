@@ -107,6 +107,36 @@ public sealed class Access(ClockedInDbContext db, CurrentUser current)
         return department;
     }
 
+    public async Task<bool> Can(Guid organizationId, string permission, CancellationToken cancellationToken)
+    {
+        if (IsSuperAdmin)
+        {
+            return true;
+        }
+
+        if (current.ApiKey is { } key)
+        {
+            return key.OrganizationId == organizationId && (key.IsAdmin || permission is "view_reports" or "export_reports" or "log_own_time");
+        }
+
+        if (permission is "manage_organization" or "manage_roles" or "manage_members" or "approve_access_requests" or "approve_needs")
+        {
+            return await IsOrgAdmin(organizationId, cancellationToken);
+        }
+
+        if (await IsOrgAdmin(organizationId, cancellationToken))
+        {
+            return true;
+        }
+
+        if (permission is "log_member_time" or "log_group_sessions" or "log_event_totals" or "create_needs" or "create_projects" or "invite_members" or "view_reports" or "export_reports")
+        {
+            return (await AdminDepartmentIds(organizationId, cancellationToken)).Count > 0;
+        }
+
+        return permission is "log_own_time";
+    }
+
     public async Task<bool> IsOrgAdmin(Guid organizationId, CancellationToken cancellationToken)
     {
         if (current.ApiKey is { } key)

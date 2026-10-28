@@ -274,3 +274,7 @@ export function csvUrl(organizationId: string, range: DateRange) {
 export function summaryCsvUrl(organizationId: string, range: DateRange) {
   return `/organizations/${organizationId}/summary.csv${query({ ...range })}`;
 }
+
+export function viewCsvUrl(organizationId: string, range: DateRange) {
+  return `/organizations/${organizationId}/view.csv${query({ ...range })}`;
+}

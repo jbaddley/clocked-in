@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type PointerEvent, type ReactNode } from "react";
+import { useRef, useState, type PointerEvent, type ReactElement } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "cn";
 import { ChartCard } from "@/components/chart-card";
@@ -76,7 +76,7 @@ function cardBody(
   card: ReportCard,
   cards: ReportCard[],
   onChange?: (cards: ReportCard[]) => void,
-): ReactNode {
+): ReactElement {
   if (card.kind === "value") {
     return (
       <ValueCard
@@ -165,7 +165,8 @@ export function ReportGrid({
     const resize = targetNode.closest("[data-resize]")?.getAttribute("data-resize");
     if (!resize && targetNode.closest("button, a, input, textarea, select, [role='menuitem']")) return;
     const cardNode = targetNode.closest("[data-card-id]");
-    const id = cardNode?.getAttribute("data-card-id");
+    if (!(cardNode instanceof HTMLElement)) return;
+    const id = cardNode.getAttribute("data-card-id");
     if (!id) return;
     const card = cards.find((item) => item.id === id);
     if (!card) return;

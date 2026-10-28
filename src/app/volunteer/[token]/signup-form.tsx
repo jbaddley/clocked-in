@@ -45,6 +45,7 @@ export function VolunteerSignup({
   const [phone, setPhone] = useState("");
   const [comment, setComment] = useState("");
   const [acknowledged, setAcknowledged] = useState(false);
+  const [requestAccess, setRequestAccess] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string[]>>({});
   const signup = useActionMutation((body: Record<string, unknown>) => signUpForNeedAction(token, body));
 
@@ -88,6 +89,7 @@ export function VolunteerSignup({
           ...(account ? {} : { name, email, phone }),
           comment,
           acknowledged,
+          requestAccess,
           captchaToken: captcha || null,
           answers: need.questions.map((question) => ({ questionId: question.id, choiceIds: answers[question.id] ?? [] })),
         });
@@ -145,6 +147,10 @@ export function VolunteerSignup({
       <Field label="Comment" htmlFor="guest-comment" hint="Optional.">
         <Textarea id="guest-comment" value={comment} onChange={(event) => setComment(event.target.value)} />
       </Field>
+      <label className="flex items-start gap-2 text-sm">
+        <Checkbox checked={requestAccess} onCheckedChange={(checked) => setRequestAccess(checked === true)} />
+        <span>Also request an account so I can log hours in VolunTime.</span>
+      </label>
       <label className="flex items-start gap-2 text-sm">
         <Checkbox checked={acknowledged} onCheckedChange={(checked) => setAcknowledged(checked === true)} required />
         <span>

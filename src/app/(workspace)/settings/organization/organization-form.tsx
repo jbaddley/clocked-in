@@ -76,6 +76,9 @@ function OrganizationFields() {
           <Field label={`${copy.taskCategory} label`} htmlFor="labelTaskCategory">
             <Input id="labelTaskCategory" name="labelTaskCategory" required defaultValue={labels.taskCategory} className="h-9" />
           </Field>
+          <Field label="Public openings slug" htmlFor="publicSlug" hint="Share /openings/{slug} on your website.">
+            <Input id="publicSlug" name="publicSlug" defaultValue={organization.publicSlug ?? ""} className="h-9" />
+          </Field>
           <FeedbackNotifyField defaultIds={organization.preferences.feedbackNotifyUserIds ?? []} />
           <div className="flex items-end justify-between gap-3 sm:col-span-2">
             <FormMessage result={result} />

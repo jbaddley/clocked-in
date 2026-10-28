@@ -1,9 +1,3 @@
-import { authenticate } from "@/lib/api/access";
-import { importDepartments, parseImportRows } from "@/lib/api/features/imports";
-import { withGuids } from "@/lib/api/guid";
-import { readBody } from "@/lib/api/json";
-
-export const POST = withGuids<{ id: string }>(async (request, { id }) => {
-  const access = await authenticate(request);
-  return importDepartments(access, id, parseImportRows(await readBody(request)));
-});
+export function POST() {
+  return Response.json({ code: "not_found", message: "Not found." }, { status: 404 });
+}

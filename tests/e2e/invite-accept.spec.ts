@@ -22,6 +22,8 @@ test("admin invite is accepted and the person appears on People", async ({ page,
   await loginAsAdmin(page);
   await page.goto("/settings/members");
   await expect(page.getByText("Invite someone")).toBeVisible();
+  await page.locator("#invite-first").fill("E2e");
+  await page.locator("#invite-last").fill("Invitee");
   await page.locator("#invite-email").fill(email);
   await page.getByRole("button", { name: "Send invite" }).click();
   await expect(page.getByText(email)).toBeVisible();

@@ -10,6 +10,10 @@ import FeedbackReceivedEmail, { feedbackReceived } from "./feedback-received";
 import InvitationEmail, { invitation } from "./invitation";
 import PasswordResetEmail, { passwordReset } from "./password-reset";
 import VolunteerMessageEmail, { volunteerMessage } from "./volunteer-message";
+import AccessRequestReceivedEmail, { accessRequestReceived } from "./access-request-received";
+import AccessRequestDecidedEmail, { accessRequestDecided } from "./access-request-decided";
+import NeedSubmittedEmail, { needSubmitted } from "./need-submitted";
+import NeedDecidedEmail, { needDecided } from "./need-decided";
 
 const codeLine = /Use this code to (?:reset your VolunTime password|accept the invite):\s*\{\{code\}\}/;
 
@@ -32,7 +36,9 @@ const templates = [
     element: createElement(InvitationEmail, {
       targetKind: "{{targetKind}}",
       targetName: "{{targetName}}",
+      organizationName: "{{organizationName}}",
       roleName: "{{roleName}}",
+      username: "{{username}}",
       code: "{{code}}",
       url: "{{url}}",
     }),
@@ -60,6 +66,37 @@ const templates = [
   {
     ...volunteerMessage,
     element: createElement(VolunteerMessageEmail, { body: "{{body}}", needName: "{{needName}}" }),
+  },
+  {
+    ...accessRequestReceived,
+    element: createElement(AccessRequestReceivedEmail, {
+      organizationName: "{{organizationName}}",
+      requesterEmail: "{{requesterEmail}}",
+    }),
+  },
+  {
+    ...accessRequestDecided,
+    element: createElement(AccessRequestDecidedEmail, {
+      organizationName: "{{organizationName}}",
+      decision: "{{decision}}",
+      name: "{{name}}",
+    }),
+  },
+  {
+    ...needSubmitted,
+    element: createElement(NeedSubmittedEmail, {
+      organizationName: "{{organizationName}}",
+      needName: "{{needName}}",
+      managerName: "{{managerName}}",
+    }),
+  },
+  {
+    ...needDecided,
+    element: createElement(NeedDecidedEmail, {
+      organizationName: "{{organizationName}}",
+      needName: "{{needName}}",
+      decision: "{{decision}}",
+    }),
   },
   {
     ...feedbackCompleted,

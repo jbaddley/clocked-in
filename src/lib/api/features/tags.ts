@@ -5,8 +5,8 @@ import { list, page } from "@/lib/api/json";
 import { NameRequest } from "@/lib/api/features/organizations";
 import { prisma } from "@/lib/prisma";
 
-function tagJson(tag: { id: string; organizationId: string; name: string }) {
-  return { id: tag.id, organizationId: tag.organizationId, name: tag.name };
+function tagJson(tag: { id: string; organizationId: string; name: string; isArchived?: boolean }) {
+  return { id: tag.id, organizationId: tag.organizationId, name: tag.name, isArchived: tag.isArchived ?? false };
 }
 
 async function managed(access: Access, tagId: string) {
@@ -23,7 +23,7 @@ export async function listTags(access: Access, organizationId: string, params: U
   const paging = page(params);
   await access.requireOrganization(organizationId, false);
   const tags = await prisma.tag.findMany({
-    where: { organizationId },
+    where: { organizationId, ...(params.get("includeArchived") === "true" ? {} : { isArchived: false }) },
     orderBy: { name: "asc" },
     skip: paging.offset,
     take: paging.limit,
@@ -36,9 +36,19 @@ export async function createTag(access: Access, organizationId: string, request:
   return tagJson(await guard(prisma.tag.create({ data: { organizationId, name: request.name } })));
 }
 
-export async function updateTag(access: Access, tagId: string, request: NameRequest) {
+export async function updateTag(access: Access, tagId: string, request: NameRequest & { isArchived?: boolean }) {
   await managed(access, tagId);
-  return tagJson(await guard(prisma.tag.update({ where: { id: tagId }, data: { name: request.name } })));
+  return tagJson(
+    await guard(
+      prisma.tag.update({
+        where: { id: tagId },
+        data: {
+          ...(request.name ? { name: request.name } : {}),
+          ...(request.isArchived === undefined ? {} : { isArchived: request.isArchived }),
+        },
+      }),
+    ),
+  );
 }
 
 export async function deleteTag(access: Access, tagId: string) {

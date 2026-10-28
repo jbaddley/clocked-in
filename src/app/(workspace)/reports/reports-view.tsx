@@ -31,8 +31,15 @@ const fallbackTabs: { id: ReportTemplateId; label: string }[] = [
 export function ReportsView() {
   const copy = useLabels();
   const { organization, isAdmin } = useWorkspace();
-  const range = rangeFromSearch(useSearchParams());
-  const { data: report, isFetching, isPending } = useReport(range);
+  const search = useSearchParams();
+  const range = rangeFromSearch(search);
+  const filter = {
+    ...range,
+    userId: search.get("userId") ?? undefined,
+    departmentId: search.get("departmentId") ?? undefined,
+    taskCategoryId: search.get("taskCategoryId") ?? undefined,
+  };
+  const { data: report, isFetching, isPending } = useReport(filter);
   const templates = useQuery({ ...reportTemplatesQuery(organization?.id ?? ""), enabled: Boolean(organization) });
   const savedTabs = (templates.data ?? []).filter((item) => item.key);
   const loading = isPending || (Boolean(organization) && templates.isPending);
