@@ -43,14 +43,22 @@ public sealed record AcceptedInvitationDto(
     MembershipDto? OrganizationMembership,
     MembershipDto? DepartmentMembership);
 
-public sealed record CreateInvitationRequest(string Email, RoleCode Role)
+public sealed record CreateInvitationRequest(
+    string Email,
+    RoleCode Role,
+    string FirstName = "Volunteer",
+    string LastName = "",
+    string? Username = null)
 {
     public static async ValueTask<CreateInvitationRequest?> BindAsync(HttpContext context)
     {
         var body = await Body.Read(context);
         return new CreateInvitationRequest(
             Fields.NormalizeEmail(Fields.RequiredString(body, "email")),
-            Fields.NormalizeRole(Fields.RequiredString(body, "role")));
+            Fields.NormalizeRole(Fields.RequiredString(body, "role")),
+            Fields.Has(body, "firstName") ? Fields.PersonName(Fields.RequiredString(body, "firstName"), "firstName") : "Volunteer",
+            Fields.Has(body, "lastName") ? Fields.PersonName(Fields.RequiredString(body, "lastName"), "lastName") : "",
+            Fields.Has(body, "username") ? Fields.NormalizeUsername(Fields.RequiredString(body, "username")) : null);
     }
 }
 
@@ -223,6 +231,7 @@ public sealed class InvitationsService(
         var code = await Codes.AllocateNumericCode(
             (hash, ct) => db.Invitations.AnyAsync(item => item.CodeHash == hash, ct),
             cancellationToken);
+        var username = request.Username ?? await ReserveUsername(request.FirstName, request.LastName, cancellationToken);
         var invitation = new Invitation
         {
             Id = Guid.NewGuid(),
@@ -234,6 +243,9 @@ public sealed class InvitationsService(
             InvitedByUserId = access.ActorUserId,
             ExpiresAt = now.Add(Codes.InviteLifetime),
             CreatedAt = now,
+            FirstName = request.FirstName,
+            LastName = request.LastName,
+            Username = username,
         };
         db.Invitations.Add(invitation);
         await db.SaveOrThrowAsync(cancellationToken);
@@ -247,7 +259,11 @@ public sealed class InvitationsService(
                 {
                     ["targetKind"] = target.Kind,
                     ["targetName"] = target.Name,
+                    ["organizationName"] = target.Name,
                     ["roleName"] = invitation.Role.Name,
+                    ["username"] = username,
+                    ["firstName"] = request.FirstName,
+                    ["lastName"] = request.LastName,
                     ["code"] = code,
                     ["url"] = emailOptions.Value.Link($"/accept?code={Uri.EscapeDataString(code)}"),
                 },
@@ -261,6 +277,47 @@ public sealed class InvitationsService(
         }
 
         return InvitationDto.From(invitation);
+    }
+
+    private async Task<string> ReserveUsername(string firstName, string lastName, CancellationToken cancellationToken)
+    {
+        var initial = firstName.Trim().Length > 0 ? char.ToLowerInvariant(firstName.Trim()[0]) : 'u';
+        if (initial is < 'a' or > 'z' && initial is < '0' or > '9')
+        {
+            initial = 'u';
+        }
+
+        var last = new string(lastName.ToLowerInvariant().Where(char.IsLetterOrDigit).ToArray());
+        if (string.IsNullOrEmpty(last))
+        {
+            last = "user";
+        }
+
+        var baseName = $"{initial}{last}";
+        if (baseName.Length < 3)
+        {
+            baseName = $"{baseName}user";
+        }
+
+        if (baseName.Length > 50)
+        {
+            baseName = baseName[..50];
+        }
+
+        for (var attempt = 0; attempt < 1000; attempt += 1)
+        {
+            var username = attempt == 0 ? baseName : $"{baseName[..Math.Min(48, baseName.Length)]}{attempt}";
+            var taken = await db.Users.AnyAsync(user => user.Username == username, cancellationToken)
+                || await db.Invitations.AnyAsync(
+                    item => item.Username == username && item.AcceptedAt == null && item.RevokedAt == null,
+                    cancellationToken);
+            if (!taken)
+            {
+                return username;
+            }
+        }
+
+        throw ApiException.Validation("username is already in use.");
     }
 
     private async Task<ListResponse<InvitationDto>> List(

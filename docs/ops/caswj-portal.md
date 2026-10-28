@@ -37,6 +37,24 @@ ClockedIn.Api and secrets should live in a **CASWJ Azure tenant**, or stay share
 - `portal.wjarts.org` → the CASWJ Vercel project.
 - Later: `wjarts.org/portal` only if the portal host can reverse-proxy that path without Next `basePath`.
 
+## Ownership checklist
+
+This is ops, not app code. Waves 0–4 of the product do not wait on it.
+
+- [ ] CASWJ-owned Vercel project (Jason as collaborator)
+- [ ] Custom domain `portal.wjarts.org` on that project
+- [ ] `PUBLIC_SIGNUP=false`
+- [ ] `DEFAULT_ORGANIZATION_ID` = CASWJ organization UUID
+- [ ] `PORTAL_NAME` set (`CASWJ` or `West Jordan Arts`)
+- [ ] `APP_URL=https://portal.wjarts.org`
+- [ ] Preview env from `.env.staging`, Production from `.env.production`
+- [ ] Shared/staging seed is `npm run db:seed:caswj:anon`
+- [ ] Named workbook only on a CASWJ machine with `SEED_ALLOW_REAL_NAMES=1`
+- [ ] Postgres in a CASWJ tenant (or written shared-access agreement)
+- [ ] ClockedIn.Api + Key Vault in a CASWJ Azure tenant (or written shared-access)
+- [ ] Who can rotate `JWT_SIGNING_KEY`, `API_KEY_PEPPER`, `DATABASE_URL`, and Resend
+- [ ] Do **not** set Next.js `basePath=/portal`
+
 ## Production seed
 
 CASWJ staff run the **named** workbook import on the CASWJ-owned database (`SEED_ALLOW_REAL_NAMES=1` on that machine). Do not commit real names and do not auto-seed them from CI. Staging uses `npm run db:seed:caswj:anon`.

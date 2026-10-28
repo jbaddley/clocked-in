@@ -53,10 +53,24 @@ public sealed class EntryRules(ClockedInDbContext db, Access access, Connections
     public async Task AssertCollectiveWrite(Guid organizationId, Guid? departmentId, CancellationToken cancellationToken)
     {
         await AssertPlacement(organizationId, departmentId, cancellationToken);
-        if (access.IsSuperAdmin
-            || access.CanWrite(organizationId)
-            || await access.IsOrgAdmin(organizationId, cancellationToken)
-            || (departmentId is Guid id && await access.IsDepartmentAdmin(id, cancellationToken)))
+        if (access.IsSuperAdmin || access.CanWrite(organizationId))
+        {
+            return;
+        }
+
+        if (departmentId is null)
+        {
+            if (await access.Can(organizationId, "log_event_totals", cancellationToken))
+            {
+                return;
+            }
+
+            throw ApiException.Forbidden();
+        }
+
+        if (await access.Can(organizationId, "log_group_sessions", departmentId, cancellationToken)
+            || await access.Can(organizationId, "log_event_totals", departmentId, cancellationToken)
+            || await access.IsDepartmentAdmin(departmentId.Value, cancellationToken))
         {
             return;
         }

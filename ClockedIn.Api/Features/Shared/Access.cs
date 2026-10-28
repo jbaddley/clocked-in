@@ -10,6 +10,7 @@ public sealed class Access(ClockedInDbContext db, CurrentUser current)
 {
     private Dictionary<Guid, CallerOrganization>? _organizations;
     private List<CallerDepartment>? _departments;
+    private Dictionary<Guid, HashSet<string>>? _permissions;
 
     public bool IsApiKey => current.IsApiKey;
 
@@ -85,6 +86,24 @@ public sealed class Access(ClockedInDbContext db, CurrentUser current)
         return organization;
     }
 
+    public async Task<Organization> RequirePermission(Guid organizationId, string permission, CancellationToken cancellationToken) =>
+        await RequirePermission(organizationId, permission, null, cancellationToken);
+
+    public async Task<Organization> RequirePermission(
+        Guid organizationId,
+        string permission,
+        Guid? departmentId,
+        CancellationToken cancellationToken)
+    {
+        var organization = await RequireOrganization(organizationId, false, cancellationToken);
+        if (!await Can(organizationId, permission, departmentId, cancellationToken))
+        {
+            throw ApiException.Forbidden();
+        }
+
+        return organization;
+    }
+
     public async Task<Department> RequireDepartment(Guid departmentId, CancellationToken cancellationToken)
     {
         var department = await db.Departments.FirstOrDefaultAsync(item => item.Id == departmentId, cancellationToken)
@@ -107,7 +126,10 @@ public sealed class Access(ClockedInDbContext db, CurrentUser current)
         return department;
     }
 
-    public async Task<bool> Can(Guid organizationId, string permission, CancellationToken cancellationToken)
+    public async Task<bool> Can(Guid organizationId, string permission, CancellationToken cancellationToken) =>
+        await Can(organizationId, permission, null, cancellationToken);
+
+    public async Task<bool> Can(Guid organizationId, string permission, Guid? departmentId, CancellationToken cancellationToken)
     {
         if (IsSuperAdmin)
         {
@@ -116,25 +138,82 @@ public sealed class Access(ClockedInDbContext db, CurrentUser current)
 
         if (current.ApiKey is { } key)
         {
-            return key.OrganizationId == organizationId && (key.IsAdmin || permission is "view_reports" or "export_reports" or "log_own_time");
+            if (!key.IsPlatform && key.OrganizationId != organizationId)
+            {
+                return false;
+            }
+
+            return Permissions.ForApiKey(key.IsAdmin, key.CanWrite).Contains(permission);
         }
 
-        if (permission is "manage_organization" or "manage_roles" or "manage_members" or "approve_access_requests" or "approve_needs")
+        var granted = await PermissionsFor(organizationId, cancellationToken);
+        if (!granted.Contains(permission))
         {
-            return await IsOrgAdmin(organizationId, cancellationToken);
+            return false;
         }
 
-        if (await IsOrgAdmin(organizationId, cancellationToken))
+        if (departmentId is Guid id && Permissions.GroupManager.Contains(permission))
         {
-            return true;
+            var memberships = await Organizations(cancellationToken);
+            if (memberships.TryGetValue(organizationId, out var membership) && !membership.IsAdmin)
+            {
+                return await IsDepartmentAdmin(id, cancellationToken);
+            }
         }
 
-        if (permission is "log_member_time" or "log_group_sessions" or "log_event_totals" or "create_needs" or "create_projects" or "invite_members" or "view_reports" or "export_reports")
+        return true;
+    }
+
+    public async Task<HashSet<string>> PermissionsFor(Guid organizationId, CancellationToken cancellationToken)
+    {
+        _permissions ??= [];
+        if (_permissions.TryGetValue(organizationId, out var cached))
         {
-            return (await AdminDepartmentIds(organizationId, cancellationToken)).Count > 0;
+            return cached;
         }
 
-        return permission is "log_own_time";
+        if (IsSuperAdmin)
+        {
+            return _permissions[organizationId] = [..Permissions.All];
+        }
+
+        if (current.ApiKey is { } key)
+        {
+            return _permissions[organizationId] = [..Permissions.ForApiKey(key.IsAdmin, key.CanWrite)];
+        }
+
+        var memberships = await Organizations(cancellationToken);
+        if (!memberships.TryGetValue(organizationId, out var membership) || !membership.IsActive)
+        {
+            return _permissions[organizationId] = [];
+        }
+
+        var granted = Permissions.DefaultForCode(membership.Code).ToHashSet();
+        if (membership.RoleId is Guid roleId)
+        {
+            var rows = await db.RolePermissions.AsNoTracking()
+                .Where(item => item.RoleId == roleId && item.Allowed)
+                .Select(item => item.Permission)
+                .ToListAsync(cancellationToken);
+            if (rows.Count > 0)
+            {
+                granted.Clear();
+                foreach (var permission in rows.Where(Permissions.IsKnown))
+                {
+                    granted.Add(permission);
+                }
+            }
+        }
+
+        if ((await AdminDepartmentIds(organizationId, cancellationToken)).Count > 0)
+        {
+            foreach (var permission in Permissions.GroupManager)
+            {
+                granted.Add(permission);
+            }
+        }
+
+        return _permissions[organizationId] = granted;
     }
 
     public async Task<bool> IsOrgAdmin(Guid organizationId, CancellationToken cancellationToken)
@@ -183,6 +262,28 @@ public sealed class Access(ClockedInDbContext db, CurrentUser current)
     public async Task<List<Guid>> DepartmentIds(CancellationToken cancellationToken) =>
         (await Departments(cancellationToken)).Select(item => item.DepartmentId).ToList();
 
+    public async Task<string> RoleScope(Guid organizationId, CancellationToken cancellationToken)
+    {
+        var memberships = await Organizations(cancellationToken);
+        return memberships.TryGetValue(organizationId, out var membership)
+            ? membership.Scope
+            : Permissions.DefaultScopeForCode(null);
+    }
+
+    public async Task<List<Guid>> AssignedDepartmentIds(Guid organizationId, CancellationToken cancellationToken)
+    {
+        var memberships = await Organizations(cancellationToken);
+        if (!memberships.TryGetValue(organizationId, out var membership) || !membership.IsActive)
+        {
+            return [];
+        }
+
+        return (await Departments(cancellationToken))
+            .Where(item => item.OrganizationId == organizationId)
+            .Select(item => item.DepartmentId)
+            .ToList();
+    }
+
     public async Task<List<Guid>> AdminDepartmentIds(Guid organizationId, CancellationToken cancellationToken)
     {
         var memberships = await Organizations(cancellationToken);
@@ -195,6 +296,33 @@ public sealed class Access(ClockedInDbContext db, CurrentUser current)
             .Where(item => item.OrganizationId == organizationId && item.IsAdmin)
             .Select(item => item.DepartmentId)
             .ToList();
+    }
+
+    public async Task<CallerVisibility> Visibility(Guid organizationId, CancellationToken cancellationToken)
+    {
+        if (IsSuperAdmin || IsApiKey || await IsOrgAdmin(organizationId, cancellationToken))
+        {
+            return CallerVisibility.All;
+        }
+
+        var scope = await RoleScope(organizationId, cancellationToken);
+        if (scope == "assigned_groups")
+        {
+            return CallerVisibility.Departments(await AssignedDepartmentIds(organizationId, cancellationToken));
+        }
+
+        var adminDepartments = await AdminDepartmentIds(organizationId, cancellationToken);
+        if (adminDepartments.Count > 0)
+        {
+            return CallerVisibility.Departments(adminDepartments);
+        }
+
+        if (scope == "self" || await IsOrgVolunteer(organizationId, cancellationToken))
+        {
+            return CallerVisibility.Self;
+        }
+
+        return CallerVisibility.All;
     }
 
     public async Task<List<Guid>> SharedOrganizationIds(Guid otherUserId, CancellationToken cancellationToken)
@@ -218,23 +346,39 @@ public sealed class Access(ClockedInDbContext db, CurrentUser current)
             if (key.IsPlatform)
             {
                 return _organizations = await db.Organizations.AsNoTracking()
-                    .ToDictionaryAsync(organization => organization.Id, _ => new CallerOrganization(true, key.IsAdmin, false), cancellationToken);
+                    .ToDictionaryAsync(
+                        organization => organization.Id,
+                        _ => new CallerOrganization(true, key.IsAdmin, false, null, key.IsAdmin ? "ADMIN" : "MEMBER", "organization"),
+                        cancellationToken);
             }
 
             return _organizations = new Dictionary<Guid, CallerOrganization>
             {
-                [key.OrganizationId!.Value] = new(true, key.IsAdmin, false),
+                [key.OrganizationId!.Value] = new(true, key.IsAdmin, false, null, key.IsAdmin ? "ADMIN" : "MEMBER", "organization"),
             };
         }
 
         return _organizations = await db.OrganizationMemberships.AsNoTracking()
             .Where(membership => membership.UserId == Caller.Id)
+            .Select(membership => new
+            {
+                membership.OrganizationId,
+                membership.IsActive,
+                membership.RoleId,
+                membership.Role.Code,
+                membership.Role.Scope,
+            })
             .ToDictionaryAsync(
                 membership => membership.OrganizationId,
                 membership => new CallerOrganization(
                     membership.IsActive,
-                    membership.RoleId == Role.AdminId,
-                    membership.RoleId == Role.VolunteerId),
+                    membership.RoleId == Role.AdminId || membership.Code == "ADMIN",
+                    membership.RoleId == Role.VolunteerId || membership.Code == "VOLUNTEER",
+                    membership.RoleId,
+                    membership.Code,
+                    string.IsNullOrWhiteSpace(membership.Scope)
+                        ? Permissions.DefaultScopeForCode(membership.Code)
+                        : membership.Scope),
                 cancellationToken);
     }
 
@@ -264,7 +408,28 @@ public sealed class Access(ClockedInDbContext db, CurrentUser current)
             .ToListAsync(cancellationToken);
     }
 
-    private sealed record CallerOrganization(bool IsActive, bool IsAdmin, bool IsVolunteer);
+    private sealed record CallerOrganization(
+        bool IsActive,
+        bool IsAdmin,
+        bool IsVolunteer,
+        Guid? RoleId,
+        string Code,
+        string Scope);
 
     private sealed record CallerDepartment(Guid DepartmentId, Guid OrganizationId, bool IsAdmin);
+}
+
+public readonly record struct CallerVisibility(string Kind, IReadOnlyList<Guid> DepartmentIds)
+{
+    public static CallerVisibility All => new("all", []);
+
+    public static CallerVisibility Self => new("self", []);
+
+    public static CallerVisibility Departments(IReadOnlyList<Guid> departmentIds) => new("departments", departmentIds);
+
+    public bool IsAll => Kind == "all";
+
+    public bool IsSelf => Kind == "self";
+
+    public bool IsDepartments => Kind == "departments";
 }

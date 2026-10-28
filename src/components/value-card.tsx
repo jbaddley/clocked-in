@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { DynamicIcon, type IconName } from "lucide-react/dynamic";
 import { cn } from "cn";
 import { Card } from "@/components/ui/card";
@@ -36,6 +37,7 @@ export function ValueCard({
   pattern,
   icon,
   className,
+  href = "/entries",
 }: {
   title: string;
   description?: string;
@@ -44,18 +46,21 @@ export function ValueCard({
   pattern: string;
   icon?: string | null;
   className?: string;
+  href?: string;
 }) {
   const style = tones[color];
   return (
-    <Card className={cn("h-full w-full flex-row items-center gap-4 px-4", className)}>
-      <div className={cn("flex size-11 shrink-0 items-center justify-center rounded-xl", style.badge)}>
-        {icon ? <DynamicIcon name={icon as IconName} className="size-5" /> : null}
-      </div>
-      <div className="min-w-0">
-        <p className={cn("truncate text-xs font-medium tracking-wide uppercase", style.text)}>{title}</p>
-        <p className="truncate text-2xl font-semibold text-foreground tabular-nums">{displayValue(value, pattern)}</p>
-        {description ? <p className={cn("truncate text-xs", style.text)}>{description}</p> : null}
-      </div>
-    </Card>
+    <Link href={href} className={cn("block h-full w-full", className)}>
+      <Card className="h-full w-full flex-row items-center gap-4 px-4">
+        <div className={cn("flex size-11 shrink-0 items-center justify-center rounded-xl", style.badge)}>
+          {icon ? <DynamicIcon name={icon as IconName} className="size-5" /> : null}
+        </div>
+        <div className="min-w-0">
+          <p className={cn("truncate text-xs font-medium tracking-wide uppercase", style.text)}>{title}</p>
+          <p className="truncate text-2xl font-semibold text-foreground tabular-nums">{displayValue(value, pattern)}</p>
+          {description ? <p className={cn("truncate text-xs", style.text)}>{description}</p> : null}
+        </div>
+      </Card>
+    </Link>
   );
 }

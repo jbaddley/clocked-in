@@ -31,8 +31,8 @@ export function EntitySelect({
   searchable?: boolean;
   className?: string;
 }) {
-  const { isAdmin } = useWorkspace();
-  const canCreate = Boolean(onCreate) && isAdmin;
+  const { isAdmin, permissions } = useWorkspace();
+  const canCreate = Boolean(onCreate) && (isAdmin || permissions.includes("create_projects"));
 
   return (
     <Field

@@ -6,9 +6,7 @@ if (!connectionString) {
   throw new Error("DATABASE_URL is required.");
 }
 
-const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
-
-async function main() {
+export async function archiveCaswjClockifyDuplicates(prisma: PrismaClient) {
   const organizationName = process.env.CASWJ_ORG_NAME?.trim() || "Cultural Arts Society of West Jordan";
   const organization = await prisma.organization.findFirst({
     where: { name: { equals: organizationName, mode: "insensitive" } },
@@ -36,11 +34,14 @@ async function main() {
   );
 }
 
-main()
-  .catch((error) => {
-    console.error(error);
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
+  archiveCaswjClockifyDuplicates(prisma)
+    .catch((error) => {
+      console.error(error);
+      process.exitCode = 1;
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
+}

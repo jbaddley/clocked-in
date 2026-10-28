@@ -79,8 +79,22 @@ public sealed class TimeEntriesService(ClockedInDbContext db, Access access, Ent
         var placement = request.Placement;
         await rules.AssertCanWriteUserEntry(userId, placement.OrganizationId, placement.DepartmentId, cancellationToken);
         await rules.AssertLogTarget(userId, placement.OrganizationId, placement.DepartmentId, cancellationToken);
-        await rules.AssertProject(userId, placement.OrganizationId, placement.DepartmentId, placement.ProjectId, cancellationToken);
-        await rules.AssertTaskCategory(placement.OrganizationId, placement.TaskCategoryId, cancellationToken);
+        if (placement.ProjectId is Guid projectId)
+        {
+            await rules.AssertProject(userId, placement.OrganizationId, placement.DepartmentId, projectId, cancellationToken);
+        }
+        else if (request is CreateTimeEntryRequest create && create.Mode != TimeEntryMode.Punch)
+        {
+            throw ApiException.Validation("projectId is required.");
+        }
+        if (placement.TaskCategoryId is Guid taskCategoryId)
+        {
+            await rules.AssertTaskCategory(placement.OrganizationId, taskCategoryId, cancellationToken);
+        }
+        else if (request is CreateTimeEntryRequest missingCategory && missingCategory.Mode != TimeEntryMode.Punch)
+        {
+            throw ApiException.Validation("taskCategoryId is required.");
+        }
         var tags = await rules.Tags(placement.OrganizationId, placement.TagIds, cancellationToken);
         var (hourlyRateId, hourlyRate) = await rules.ResolveHourlyRate(userId, placement.OrganizationId, request.HourlyRateId, cancellationToken);
         await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
@@ -124,12 +138,27 @@ public sealed class TimeEntriesService(ClockedInDbContext db, Access access, Ent
         var existing = await Owned(entryId, true, cancellationToken);
         var organizationId = request.OrganizationId.Or(existing.OrganizationId);
         var departmentId = request.DepartmentId.Or(existing.DepartmentId);
-        var projectId = request.ProjectId.Or(existing.ProjectId);
-        var taskCategoryId = request.TaskCategoryId.Or(existing.TaskCategoryId);
+        var projectId = request.ProjectId.HasValue ? request.ProjectId.Value : existing.ProjectId;
+        var taskCategoryId = request.TaskCategoryId.HasValue ? request.TaskCategoryId.Value : existing.TaskCategoryId;
         await rules.AssertCanWriteUserEntry(existing.UserId, organizationId, departmentId, cancellationToken);
         await rules.AssertLogTarget(existing.UserId, organizationId, departmentId, cancellationToken);
-        await rules.AssertProject(existing.UserId, organizationId, departmentId, projectId, cancellationToken);
-        await rules.AssertTaskCategory(organizationId, taskCategoryId, cancellationToken);
+        if (projectId is Guid updateProjectId)
+        {
+            await rules.AssertProject(existing.UserId, organizationId, departmentId, updateProjectId, cancellationToken);
+        }
+        else if (existing.Mode != TimeEntryMode.Punch)
+        {
+            throw ApiException.Validation("projectId is required.");
+        }
+
+        if (taskCategoryId is Guid updateCategoryId)
+        {
+            await rules.AssertTaskCategory(organizationId, updateCategoryId, cancellationToken);
+        }
+        else if (existing.Mode != TimeEntryMode.Punch)
+        {
+            throw ApiException.Validation("taskCategoryId is required.");
+        }
         var tags = request.TagIds.HasValue ? await rules.Tags(organizationId, request.TagIds.Value, cancellationToken) : null;
         if (organizationId != existing.OrganizationId && tags is null && existing.Tags.Any(tag => tag.OrganizationId != organizationId))
         {
@@ -234,8 +263,14 @@ public sealed class TimeEntriesService(ClockedInDbContext db, Access access, Ent
         var placement = request.Placement;
         await rules.AssertCanWriteUserEntry(userId, placement.OrganizationId, placement.DepartmentId, cancellationToken);
         await rules.AssertLogTarget(userId, placement.OrganizationId, placement.DepartmentId, cancellationToken);
-        await rules.AssertProject(userId, placement.OrganizationId, placement.DepartmentId, placement.ProjectId, cancellationToken);
-        await rules.AssertTaskCategory(placement.OrganizationId, placement.TaskCategoryId, cancellationToken);
+        if (placement.ProjectId is Guid projectId)
+        {
+            await rules.AssertProject(userId, placement.OrganizationId, placement.DepartmentId, projectId, cancellationToken);
+        }
+        if (placement.TaskCategoryId is Guid taskCategoryId)
+        {
+            await rules.AssertTaskCategory(placement.OrganizationId, taskCategoryId, cancellationToken);
+        }
         var tags = await rules.Tags(placement.OrganizationId, placement.TagIds, cancellationToken);
         var (hourlyRateId, hourlyRate) = await rules.ResolveHourlyRate(userId, placement.OrganizationId, request.HourlyRateId, cancellationToken);
         var startedAt = time.UtcNowToSecond();
@@ -268,7 +303,18 @@ public sealed class TimeEntriesService(ClockedInDbContext db, Access access, Ent
             throw ApiException.Conflict("No open punch.");
         }
 
-        await rules.AssertCanWriteUserEntry(userId, open.OrganizationId, open.DepartmentId, cancellationToken);
+        var departmentId = request.DepartmentId.HasValue ? request.DepartmentId.Value : open.DepartmentId;
+        var projectId = request.ProjectId.HasValue ? request.ProjectId.Value : open.ProjectId;
+        var taskCategoryId = request.TaskCategoryId.HasValue ? request.TaskCategoryId.Value : open.TaskCategoryId;
+        await rules.AssertCanWriteUserEntry(userId, open.OrganizationId, departmentId, cancellationToken);
+        if (projectId is Guid clockOutProjectId)
+        {
+            await rules.AssertProject(userId, open.OrganizationId, departmentId, clockOutProjectId, cancellationToken);
+        }
+        if (taskCategoryId is Guid clockOutCategoryId)
+        {
+            await rules.AssertTaskCategory(open.OrganizationId, clockOutCategoryId, cancellationToken);
+        }
 
         var endedAt = time.UtcNowToSecond();
         if (endedAt <= startedAt)
@@ -287,6 +333,9 @@ public sealed class TimeEntriesService(ClockedInDbContext db, Access access, Ent
         open.EndedAt = endedAt;
         open.DurationMinutes = durationMinutes;
         open.InKindValue = Fields.InKindFromMinutes(durationMinutes, open.HourlyRate);
+        open.DepartmentId = departmentId;
+        open.ProjectId = projectId;
+        open.TaskCategoryId = taskCategoryId;
         open.Description = request.Description.Or(open.Description);
         if (request.TagIds.HasValue)
         {

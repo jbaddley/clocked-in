@@ -25,6 +25,7 @@ import {
   orgName,
   slug,
 } from "./caswj-workbook";
+import { archiveCaswjClockifyDuplicates } from "./archive-caswj-clockify-duplicates";
 
 const envFiles = { local: ".env", staging: ".env.staging", production: ".env.production" } as const;
 const appEnv = process.env.APP_ENV === "production" || process.env.APP_ENV === "staging" ? process.env.APP_ENV : "local";
@@ -82,10 +83,10 @@ async function main() {
     throw new Error("SEED_SUPERADMIN_PASSWORD is required.");
   }
 
-  const anon = process.env.SEED_ANON === "1";
-  if (!anon && !namedSeedAllowed()) {
-    console.warn(`Named CASWJ seed is local-only. Set SEED_ALLOW_REAL_NAMES=1 to import real names into ${appEnv}.`);
-    return;
+  const named = namedSeedAllowed() && process.env.SEED_ANON !== "1";
+  const anon = !named;
+  if (anon && process.env.SEED_ANON !== "1") {
+    console.warn(`Named CASWJ seed is local-only. Using the anonymized workbook for ${appEnv}. Set SEED_ALLOW_REAL_NAMES=1 to import real names.`);
   }
 
   const { categories, projects, people, logRows } = anon
@@ -489,6 +490,8 @@ async function main() {
 
       created += 1;
     }
+
+    await archiveCaswjClockifyDuplicates(db);
 
     const totals = await db.userTimeEntry.aggregate({
       where: { organizationId: organization.id, sourceRef: { startsWith: sourceRefPrefix } },

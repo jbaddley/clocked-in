@@ -142,10 +142,27 @@ public sealed class CollectiveService(ClockedInDbContext db, Access access, Entr
         var organizationIds = !access.IsSuperAdmin && organizationId is null
             ? await access.ActiveOrganizationIds(cancellationToken)
             : null;
+        List<Guid>? scopedDepartments = null;
+        Guid? recordedByUserId = null;
+        if (organizationId is Guid scopedOrganization && departmentId is null)
+        {
+            var visibility = await access.Visibility(scopedOrganization, cancellationToken);
+            if (visibility.IsDepartments)
+            {
+                scopedDepartments = visibility.DepartmentIds.ToList();
+            }
+            else if (visibility.IsSelf)
+            {
+                recordedByUserId = access.ActorUserId;
+            }
+        }
+
         var entries = await db.CollectiveTimeEntries.AsNoTracking().Include(entry => entry.Tags)
             .Where(entry => organizationId == null || entry.OrganizationId == organizationId)
             .Where(entry => organizationIds == null || organizationIds.Contains(entry.OrganizationId))
             .Where(entry => departmentId == null || entry.DepartmentId == departmentId)
+            .Where(entry => scopedDepartments == null || (entry.DepartmentId != null && scopedDepartments.Contains(entry.DepartmentId.Value)))
+            .Where(entry => recordedByUserId == null || entry.RecordedByUserId == recordedByUserId)
             .OrderByDescending(entry => entry.StartedAt)
             .Skip(page.Offset)
             .Take(page.Limit)

@@ -36,8 +36,8 @@ export function isCsharpApiPath(pathname: string, request?: NextRequest) {
     return false;
   }
 
-  // Custom roles, access requests, view CSV, and Need approval stay on Next until C# has the same rules.
-  if (/^\/organizations\/[^/]+\/(roles|access-requests)(\/|$)/.test(pathname)) {
+  // View CSV, unclassified counts, and Need approval stay on Next until C# has the same rules.
+  if (/^\/organizations\/[^/]+\/unclassified-count$/.test(pathname)) {
     return false;
   }
   if (/^\/organizations\/[^/]+\/view\.csv$/.test(pathname)) {

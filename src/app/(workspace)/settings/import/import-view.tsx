@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { CheckIcon } from "lucide-react";
 import { importPeopleAction, importProjectsAction } from "@/app/actions/imports";
-import { peopleRowMatch } from "@/lib/import/people-review";
+import { defaultReviewAction, peopleRowMatch, type ReviewAction } from "@/lib/import/people-review";
 import { usernameFromName } from "@/lib/import/username";
 import { useMembers } from "@/hooks/use-members";
 import { SelectField } from "@/components/select-field";
@@ -44,6 +44,7 @@ export function ImportView() {
   const copy = useLabels();
   const [entity, setEntity] = useState<Exclude<ImportEntity, "departments">>("people");
   const [emailUsers, setEmailUsers] = useState(false);
+  const [reviewActions, setReviewActions] = useState<Record<string, ReviewAction>>({});
   const { members } = useMembers();
   const [hasHeaders, setHasHeaders] = useState(true);
   const [rows, setRows] = useState<string[][] | null>(null);
@@ -247,7 +248,12 @@ export function ImportView() {
           </div>
         ) : null}
         {entity === "people" && rows && missing.length === 0 && data.length > 0 ? (
-          <PeopleReview rows={applyMapping(data, assignments)} members={members} />
+          <PeopleReview
+            rows={applyMapping(data, assignments)}
+            members={members}
+            actions={reviewActions}
+            onAction={(key, action) => setReviewActions((current) => ({ ...current, [key]: action }))}
+          />
         ) : null}
         {rows && missing.length > 0 && data.length > 0 && !tooMany ? (
           <p className="text-sm text-muted-foreground">{requiredMessage(missing)}</p>
@@ -263,7 +269,19 @@ export function ImportView() {
         <Button
           type="button"
           disabled={!canImport}
-          onClick={() => importRows.mutate(applyMapping(data, assignments))}
+          onClick={() => {
+            const mapped = applyMapping(data, assignments);
+            importRows.mutate(
+              mapped.map((row, index) => {
+                const match = peopleRowMatch(
+                  row,
+                  members.map((member) => member.user),
+                );
+                const key = `${row.email}-${index}`;
+                return { ...row, _action: reviewActions[key] ?? defaultReviewAction(match) };
+              }),
+            );
+          }}
         >
           {importRows.isPending ? "Importing…" : "Import"}
         </Button>
@@ -369,15 +387,19 @@ function ImportSummary({ result }: { result: ImportResult }) {
 function PeopleReview({
   rows,
   members,
+  actions,
+  onAction,
 }: {
   rows: Record<string, string>[];
   members: { user: { email: string; firstName: string | null; lastName: string | null } }[];
+  actions: Record<string, ReviewAction>;
+  onAction: (key: string, action: ReviewAction) => void;
 }) {
   return (
     <div className="flex flex-col gap-2">
       <p className="text-sm font-medium">Review before import</p>
       <p className="text-xs text-muted-foreground">
-        Exact email matches will be skipped. Same name with a different email is flagged as a near match.
+        Exact email matches will be skipped unless you merge. Near matches default to Skip.
       </p>
       <Table>
         <TableHeader>
@@ -387,21 +409,40 @@ function PeopleReview({
             <TableHead>Email</TableHead>
             <TableHead>Group</TableHead>
             <TableHead>Match</TableHead>
+            <TableHead>Action</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {rows.map((row, index) => {
             const firstName = row.firstName ?? "";
             const lastName = row.lastName ?? "";
+            const match = peopleRowMatch(
+              row,
+              members.map((member) => member.user),
+            );
+            const key = `${row.email}-${index}`;
+            const action = actions[key] ?? defaultReviewAction(match);
             return (
-              <TableRow key={`${row.email}-${index}`}>
+              <TableRow key={key}>
                 <TableCell>
                   {firstName} {lastName}
                 </TableCell>
                 <TableCell>{row.username || usernameFromName(firstName, lastName)}</TableCell>
                 <TableCell>{row.email}</TableCell>
                 <TableCell>{row.primaryDepartment || "—"}</TableCell>
-                <TableCell>{peopleRowMatch(row, members.map((member) => member.user))}</TableCell>
+                <TableCell>{match}</TableCell>
+                <TableCell>
+                  <SelectField
+                    value={action}
+                    onValueChange={(value) => onAction(key, value as ReviewAction)}
+                    options={[
+                      { value: "import", label: "Import" },
+                      { value: "skip", label: "Skip" },
+                      { value: "merge", label: "Merge" },
+                    ]}
+                    className="h-8"
+                  />
+                </TableCell>
               </TableRow>
             );
           })}

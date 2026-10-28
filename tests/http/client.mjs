@@ -283,6 +283,7 @@ export function assertMembership(membership, { organizationId, departmentId, rol
     "isActive",
     "primaryDepartmentId",
     "departmentIds",
+    "managedDepartmentIds",
     "orgUserTitle",
     "orgUserDescription",
     "user",

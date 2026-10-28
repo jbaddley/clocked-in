@@ -13,7 +13,10 @@ import { MarkdownEditor } from "@/components/markdown-editor";
 import { Textarea } from "@/components/ui/textarea";
 import { requestAccessAction } from "@/app/actions/access-requests";
 import { useActionMutation } from "@/hooks/use-action-mutation";
+import { useLookups } from "@/hooks/use-lookups";
 import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
+import { Checkbox } from "@/components/ui/checkbox";
+import { SelectField } from "@/components/select-field";
 import { ProfileNav, type ProfileSection } from "./profile-nav";
 
 const selectClass =
@@ -322,8 +325,17 @@ function PasswordForm({ onStatus }: { onStatus: (status: SaveStatus) => void }) 
 function RequestAccessCard() {
   const organization = useOrganization();
   const { isAdmin, isCoordinator } = useWorkspace();
+  const { lookups } = useLookups();
   const [message, setMessage] = useState("");
-  const request = useActionMutation(() => requestAccessAction(organization.id, { message, requestedRole: "ADMIN" }));
+  const [requestedRole, setRequestedRole] = useState("GROUP_MANAGER");
+  const [departmentIds, setDepartmentIds] = useState<string[]>([]);
+  const request = useActionMutation(() =>
+    requestAccessAction(organization.id, {
+      message,
+      requestedRole,
+      requestedDepartmentIds: requestedRole === "GROUP_MANAGER" ? departmentIds : [],
+    }),
+  );
   if (isAdmin || isCoordinator) return null;
   return (
     <Card className="mt-6">
@@ -332,6 +344,35 @@ function RequestAccessCard() {
         <CardDescription>Ask an admin for group manager or admin access.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
+        <Field label="Access">
+          <SelectField
+            value={requestedRole}
+            onValueChange={setRequestedRole}
+            options={[
+              { value: "GROUP_MANAGER", label: "Group manager" },
+              { value: "ADMIN", label: "Admin" },
+            ]}
+            className="h-9"
+          />
+        </Field>
+        {requestedRole === "GROUP_MANAGER" && lookups.departments.length > 0 ? (
+          <div className="grid gap-2">
+            <p className="text-sm font-medium">Groups</p>
+            {lookups.departments.map((department) => (
+              <label key={department.id} className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={departmentIds.includes(department.id)}
+                  onCheckedChange={(next) => {
+                    setDepartmentIds((current) =>
+                      next === true ? [...current, department.id] : current.filter((id) => id !== department.id),
+                    );
+                  }}
+                />
+                {department.name}
+              </label>
+            ))}
+          </div>
+        ) : null}
         <Textarea value={message} onChange={(event) => setMessage(event.target.value)} placeholder="Why do you need more access?" />
         <SubmitButton pending={request.isPending} onClick={() => request.mutate()}>
           Send request

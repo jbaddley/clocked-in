@@ -40,8 +40,8 @@ export const keys = {
   invitations: (organizationId: string) => ["org", organizationId, "invitations"] as const,
   departmentInvitations: (departmentId: string) => ["department", departmentId, "invitations"] as const,
   apiKeys: (organizationId: string) => ["org", organizationId, "api-keys"] as const,
-  entries: (organizationId: string, userId: string, range: DateRange) =>
-    ["org", organizationId, "entries", userId, range.from ?? "", range.to ?? ""] as const,
+  entries: (organizationId: string, userId: string, range: DateRange, unclassified = false) =>
+    ["org", organizationId, "entries", userId, range.from ?? "", range.to ?? "", unclassified] as const,
   organizationEntries: (organizationId: string) => ["org", organizationId, "recent-entries"] as const,
   groupSessions: (organizationId: string) => ["org", organizationId, "group-sessions"] as const,
   report: (organizationId: string, filter: ReportFilters) => ["org", organizationId, "report", filter] as const,
@@ -123,13 +123,13 @@ export function organizationEntriesQuery(organizationId: string) {
   });
 }
 
-export function entriesQuery(organizationId: string, userId: string, range: DateRange) {
+export function entriesQuery(organizationId: string, userId: string, range: DateRange, unclassified = false) {
   return infiniteQueryOptions({
-    queryKey: keys.entries(organizationId, userId, range),
+    queryKey: keys.entries(organizationId, userId, range, unclassified),
     initialPageParam: 0,
     queryFn: ({ pageParam, signal }) =>
       fetchJson<Paged<TimeEntry>>(
-        `/users/${userId}/time-entries${query({ organizationId, ...range, offset: pageParam, limit: entriesPageSize })}`,
+        `/users/${userId}/time-entries${query({ organizationId, ...range, offset: pageParam, limit: entriesPageSize, unclassified: unclassified ? "1" : undefined })}`,
         signal,
       ),
     getNextPageParam: (last) => (last.items.length < last.limit ? undefined : last.offset + last.limit),

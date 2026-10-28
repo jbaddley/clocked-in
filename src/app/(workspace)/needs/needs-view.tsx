@@ -34,7 +34,7 @@ function dates(need: VolunteerNeed) {
 export function NeedsView() {
   const router = useRouter();
   const organization = useOrganization();
-  const { isAdmin, isCoordinator, permissions } = useWorkspace();
+  const { isAdmin, isCoordinator, permissions, groupDepartments } = useWorkspace();
   const { names } = useLookups();
   useClientRedirect(!(isAdmin || isCoordinator || permissions.includes("create_needs")), "/dashboard");
   const { data, isPending } = useQuery(needsQuery(organization.id));
@@ -53,6 +53,9 @@ export function NeedsView() {
   const rows = useMemo(() => {
     const needle = search.trim().toLowerCase();
     const filtered = (data?.items ?? []).filter((need) => {
+      if (!isAdmin && groupDepartments !== "all" && need.departmentId && !groupDepartments.includes(need.departmentId)) {
+        return false;
+      }
       if (type !== "all" && need.type !== type) return false;
       if (visibility === "public" && !need.allowPublic) return false;
       if (visibility === "private" && need.allowPublic) return false;
@@ -66,9 +69,9 @@ export function NeedsView() {
       const b = sortKey === "countVetted" ? String(right.countVetted).padStart(6, "0") : (right[sortKey] ?? "");
       return a.localeCompare(b) * (sortDir === "asc" ? 1 : -1);
     });
-  }, [data?.items, names.department, names.project, search, sortDir, sortKey, type, visibility]);
+  }, [data?.items, groupDepartments, isAdmin, names.department, names.project, search, sortDir, sortKey, type, visibility]);
 
-  if (!isAdmin) return <PageSkeleton rows={8} />;
+  if (isPending) return <PageSkeleton rows={8} />;
 
   const columns: Column<VolunteerNeed>[] = [
     {

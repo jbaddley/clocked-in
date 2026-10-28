@@ -12,6 +12,7 @@ import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
 import { savedReportDataQuery } from "@/lib/queries";
 import { dashboardLayout } from "@/lib/report-layout";
 import { useSavedReports } from "@/app/(workspace)/reports/report-switcher";
+import { UnclassifiedBanner } from "@/components/unclassified-banner";
 
 export function DashboardView() {
   const organization = useOrganization();
@@ -33,6 +34,7 @@ export function DashboardView() {
 
   return (
     <div className="flex flex-col gap-6">
+      <UnclassifiedBanner />
       {isAdmin ? (
         <PageHeader
           actions={

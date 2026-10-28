@@ -259,16 +259,16 @@ model UserTimeEntry {
   enteredByUserId String             @default(dbgenerated("'00000000-0000-0000-0000-000000000000'::uuid")) @db.Uuid
   hourlyRate      Decimal            @default(0.0) @db.Decimal(10, 2)
   inKindValue     Decimal?           @db.Decimal(12, 2)
-  projectId       String             @default(dbgenerated("'00000000-0000-0000-0000-000000000000'::uuid")) @db.Uuid
-  taskCategoryId  String             @default(dbgenerated("'00000000-0000-0000-0000-000000000000'::uuid")) @db.Uuid
+  projectId       String?            @db.Uuid
+  taskCategoryId  String?            @db.Uuid
   /// Unique when set. Idempotent import key.
   sourceRef       String?            @unique(map: "IX_UserTimeEntry_sourceRef")
   hourlyRateId    String?            @db.Uuid
   department      Department?        @relation(fields: [departmentId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "FK_UserTimeEntry_Department_departmentId")
   rate            HourlyRate?        @relation(fields: [hourlyRateId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "FK_UserTimeEntry_HourlyRate_hourlyRateId")
   organization    Organization       @relation(fields: [organizationId], references: [id], onUpdate: NoAction, map: "FK_UserTimeEntry_Organization_organizationId")
-  project         Project            @relation(fields: [projectId], references: [id], onUpdate: NoAction, map: "FK_UserTimeEntry_Project_projectId")
-  taskCategory    TaskCategory       @relation(fields: [taskCategoryId], references: [id], onUpdate: NoAction, map: "FK_UserTimeEntry_TaskCategory_taskCategoryId")
+  project         Project?           @relation(fields: [projectId], references: [id], onUpdate: NoAction, map: "FK_UserTimeEntry_Project_projectId")
+  taskCategory    TaskCategory?      @relation(fields: [taskCategoryId], references: [id], onUpdate: NoAction, map: "FK_UserTimeEntry_TaskCategory_taskCategoryId")
   enteredBy       User               @relation("UserTimeEntryEnteredBy", fields: [enteredByUserId], references: [id], onUpdate: NoAction, map: "FK_UserTimeEntry_User_enteredByUserId")
   user            User               @relation("UserTimeEntryHoursFor", fields: [userId], references: [id], onUpdate: NoAction, map: "FK_UserTimeEntry_User_userId")
   tags            UserTimeEntryTag[]

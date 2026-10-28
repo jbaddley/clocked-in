@@ -156,6 +156,13 @@ export async function listCollective(access: Access, params: URLSearchParams) {
 
   if (departmentId !== undefined) {
     where.departmentId = departmentId;
+  } else if (organizationId !== undefined) {
+    const visibility = await access.visibility(organizationId);
+    if (visibility.kind === "departments") {
+      where.departmentId = { in: visibility.departmentIds };
+    } else if (visibility.kind === "self") {
+      where.recordedByUserId = access.actorUserId;
+    }
   }
 
   const entries = await prisma.collectiveTimeEntry.findMany({

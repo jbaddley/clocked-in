@@ -42,9 +42,47 @@ import {
   resolveHourlyRate,
   tags as tagIdsFor,
 } from "@/lib/api/features/entry-rules";
+import { sendEmail } from "@/lib/api/mail";
+import { appUrl } from "@/lib/api/security";
 import { prisma } from "@/lib/prisma";
 
 type Mode = "Punch" | "Duration" | "Total";
+
+export function unclassifiedWhere(): Prisma.UserTimeEntryWhereInput {
+  return { projectId: null, taskCategoryId: null, departmentId: null, endedAt: { not: null } };
+}
+
+async function unclassifiedIdFilter(organizationId?: string, userId?: string): Promise<Prisma.UserTimeEntryWhereInput> {
+  const rows = organizationId
+    ? userId
+      ? await prisma.$queryRaw<{ id: string }[]>`
+          SELECT id FROM "UserTimeEntry"
+          WHERE "organizationId" = ${organizationId}::uuid
+            AND "userId" = ${userId}::uuid
+            AND "projectId" IS NULL AND "taskCategoryId" IS NULL AND "departmentId" IS NULL
+            AND "endedAt" IS NOT NULL`
+      : await prisma.$queryRaw<{ id: string }[]>`
+          SELECT id FROM "UserTimeEntry"
+          WHERE "organizationId" = ${organizationId}::uuid
+            AND "projectId" IS NULL AND "taskCategoryId" IS NULL AND "departmentId" IS NULL
+            AND "endedAt" IS NOT NULL`
+    : userId
+      ? await prisma.$queryRaw<{ id: string }[]>`
+          SELECT id FROM "UserTimeEntry"
+          WHERE "userId" = ${userId}::uuid
+            AND "projectId" IS NULL AND "taskCategoryId" IS NULL AND "departmentId" IS NULL
+            AND "endedAt" IS NOT NULL`
+      : await prisma.$queryRaw<{ id: string }[]>`
+          SELECT id FROM "UserTimeEntry"
+          WHERE "projectId" IS NULL AND "taskCategoryId" IS NULL AND "departmentId" IS NULL
+            AND "endedAt" IS NOT NULL`;
+  const ids = rows.map((row) => row.id);
+  return { id: { in: ids.length > 0 ? ids : ["00000000-0000-0000-0000-000000000000"] } };
+}
+
+export function isUnclassified(entry: { projectId: string | null; taskCategoryId: string | null; departmentId: string | null }) {
+  return !entry.projectId && !entry.taskCategoryId && !entry.departmentId;
+}
 
 const entryInclude = { tags: { select: { tagId: true, tag: { select: { organizationId: true } } } } } as const;
 type EntryRow = Prisma.UserTimeEntryGetPayload<{ include: typeof entryInclude }>;
@@ -192,18 +230,18 @@ function parsePunchFields(body: Body): PunchFields {
 export type EntryPlacement = {
   organizationId: string;
   departmentId: string | null;
-  projectId: string;
-  taskCategoryId: string;
+  projectId: string | null;
+  taskCategoryId: string | null;
   description: string | null;
   tagIds: string[];
   sourceRef: string | null;
 };
 
-function parsePlacement(body: Body): EntryPlacement {
+function parsePlacement(body: Body, required: boolean): EntryPlacement {
   const organizationId = requireUuid(body, "organizationId");
   const departmentId = optionalUuid(body, "departmentId");
-  const projectId = requireUuid(body, "projectId");
-  const taskCategoryId = requireUuid(body, "taskCategoryId");
+  const projectId = required ? requireUuid(body, "projectId") : optionalUuid(body, "projectId");
+  const taskCategoryId = required ? requireUuid(body, "taskCategoryId") : optionalUuid(body, "taskCategoryId");
   const entryDescription = optionalDescription(body);
   const tagIds = ids(body, "tagIds", true);
   return {
@@ -236,7 +274,7 @@ function parseCreate(body: Body, fixedMode: Mode | null): CreateTimeEntryRequest
     mode = value;
   }
 
-  const placement = parsePlacement(body);
+  const placement = parsePlacement(body, mode !== "Punch");
   const hourlyRateId = has(body, "hourlyRateId") ? optionalUuid(body, "hourlyRateId") : null;
   if (mode === "Punch") {
     return { mode, placement, punch: parsePunchFields(body), times: null, hourlyRateId };
@@ -332,18 +370,28 @@ export function parseLogTotal(body: Body) {
 
 export function parseClockIn(body: Body) {
   return {
-    placement: parsePlacement(body),
+    placement: parsePlacement(body, false),
     hourlyRateId: has(body, "hourlyRateId") ? optionalUuid(body, "hourlyRateId") : null,
     userId: has(body, "userId") ? optionalUuid(body, "userId") : null,
   };
 }
 
-export type ClockOutRequest = { description: Optional<string | null>; tagIds: Optional<string[]>; userId: string | null };
+export type ClockOutRequest = {
+  description: Optional<string | null>;
+  tagIds: Optional<string[]>;
+  projectId: Optional<string | null>;
+  taskCategoryId: Optional<string | null>;
+  departmentId: Optional<string | null>;
+  userId: string | null;
+};
 
 export function parseClockOut(body: Body): ClockOutRequest {
   return {
     description: optional(body, "description", (b, k) => description(optionalString(b, k))),
     tagIds: optional(body, "tagIds", (b, k) => ids(b, k, false)),
+    projectId: optional(body, "projectId", optionalUuid),
+    taskCategoryId: optional(body, "taskCategoryId", optionalUuid),
+    departmentId: optional(body, "departmentId", optionalUuid),
     userId: has(body, "userId") ? optionalUuid(body, "userId") : null,
   };
 }
@@ -474,8 +522,12 @@ async function timeEditingAllowed(organizationId: string) {
 async function assertPlacementRules(access: Access, userId: string, placement: EntryPlacement) {
   await assertCanWriteUserEntry(access, userId, placement.organizationId, placement.departmentId);
   await assertLogTarget(access, userId, placement.organizationId, placement.departmentId);
-  await assertProject(access, userId, placement.organizationId, placement.departmentId, placement.projectId);
-  await assertTaskCategory(placement.organizationId, placement.taskCategoryId);
+  if (placement.projectId) {
+    await assertProject(access, userId, placement.organizationId, placement.departmentId, placement.projectId);
+  }
+  if (placement.taskCategoryId) {
+    await assertTaskCategory(placement.organizationId, placement.taskCategoryId);
+  }
   return tagIdsFor(placement.organizationId, placement.tagIds);
 }
 
@@ -578,6 +630,10 @@ export async function listTimeEntries(access: Access, userId: string, params: UR
     and.push({ occurredOn: { lte: to } });
   }
 
+  if (params.get("unclassified") === "1") {
+    and.push(await unclassifiedIdFilter(organizationId, userId));
+  }
+
   const entries = await prisma.userTimeEntry.findMany({
     where: and.length > 0 ? { ...where, AND: and } : where,
     include: entryInclude,
@@ -595,6 +651,19 @@ export async function listOrganizationTimeEntries(access: Access, organizationId
   const from = queryDate(params, "from");
   const to = queryDate(params, "to");
   const and: Prisma.UserTimeEntryWhereInput[] = [];
+  const visibility = await access.visibility(organizationId);
+  if (visibility.kind === "self") {
+    and.push({ userId: access.actorUserId });
+  } else if (visibility.kind === "departments") {
+    if (departmentId !== undefined && !visibility.departmentIds.includes(departmentId)) {
+      forbidden();
+    }
+    if (departmentId === undefined) {
+      and.push({
+        OR: [{ departmentId: { in: visibility.departmentIds } }, { userId: access.actorUserId }],
+      });
+    }
+  }
   if (departmentId !== undefined) {
     and.push({ departmentId });
   }
@@ -603,6 +672,9 @@ export async function listOrganizationTimeEntries(access: Access, organizationId
   }
   if (to !== undefined) {
     and.push({ occurredOn: { lte: to } });
+  }
+  if (params.get("unclassified") === "1") {
+    and.push(await unclassifiedIdFilter(organizationId));
   }
 
   const entries = await prisma.userTimeEntry.findMany({
@@ -700,8 +772,11 @@ export async function updateTimeEntry(access: Access, entryId: string, request: 
   const taskCategoryId = or(request.taskCategoryId, existing.taskCategoryId);
   await assertCanWriteUserEntry(access, existing.userId, organizationId, departmentId);
   await assertLogTarget(access, existing.userId, organizationId, departmentId);
-  await assertProject(access, existing.userId, organizationId, departmentId, projectId);
-  await assertTaskCategory(organizationId, taskCategoryId);
+  if (existing.mode !== "Punch" && (!projectId || !taskCategoryId)) {
+    validation("projectId and taskCategoryId are required.");
+  }
+  if (projectId) await assertProject(access, existing.userId, organizationId, departmentId, projectId);
+  if (taskCategoryId) await assertTaskCategory(organizationId, taskCategoryId);
   const tagIds = request.tagIds.set ? await tagIdsFor(organizationId, request.tagIds.value) : null;
   let hourlyRate = Number(existing.hourlyRate);
   let hourlyRateId = existing.hourlyRateId;
@@ -836,7 +911,12 @@ export async function clockOut(access: Access, request: ClockOutRequest) {
       conflict("No open punch.");
     }
 
-    await assertCanWriteUserEntry(access, userId, open.organizationId, open.departmentId);
+    const departmentId = request.departmentId.set ? request.departmentId.value : open.departmentId;
+    const projectId = request.projectId.set ? request.projectId.value : open.projectId;
+    const taskCategoryId = request.taskCategoryId.set ? request.taskCategoryId.value : open.taskCategoryId;
+    await assertCanWriteUserEntry(access, userId, open.organizationId, departmentId);
+    if (projectId) await assertProject(access, userId, open.organizationId, departmentId, projectId);
+    if (taskCategoryId) await assertTaskCategory(open.organizationId, taskCategoryId);
 
     const startedAt = open.startedAt;
     let endedAt = utcNow();
@@ -859,10 +939,41 @@ export async function clockOut(access: Access, request: ClockOutRequest) {
         durationMinutes,
         inKindValue: inKindFromMinutes(durationMinutes, Number(open.hourlyRate)),
         description: or(request.description, open.description),
+        departmentId,
+        projectId,
+        taskCategoryId,
         tags: tagIds === null ? undefined : { deleteMany: {}, create: tagIds.map((tagId) => ({ tagId })) },
       },
       include: entryInclude,
     });
   });
-  return timeEntryJson(entry);
+  const json = timeEntryJson(entry);
+  if (isUnclassified(json)) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, profile: { select: { firstName: true } } },
+    });
+    if (user?.email) {
+      await sendEmail(user.email, "unclassified-entry", {
+        name: user.profile?.firstName || "there",
+        url: appUrl("/entries?unclassified=1"),
+      }).catch(() => undefined);
+    }
+  }
+  return json;
+}
+
+export async function countUnclassified(access: Access, organizationId: string) {
+  await access.requireOrganization(organizationId, false);
+  const visibility = await access.visibility(organizationId);
+  const filter = await unclassifiedIdFilter(
+    organizationId,
+    visibility.kind === "self" ? access.actorUserId : undefined,
+  );
+  if (visibility.kind === "departments") {
+    return prisma.userTimeEntry.count({
+      where: { organizationId, departmentId: { in: visibility.departmentIds }, ...filter },
+    });
+  }
+  return prisma.userTimeEntry.count({ where: { organizationId, ...filter } });
 }

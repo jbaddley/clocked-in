@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { peopleRowMatch } from "../src/lib/import/people-review.ts";
+import { defaultReviewAction, peopleRowMatch } from "../src/lib/import/people-review.ts";
 import { usernameFromName } from "../src/lib/import/username.ts";
 import {
   adminPermissions,
@@ -47,5 +47,8 @@ describe("people import review", () => {
     assert.equal(peopleRowMatch({ firstName: "Ada", lastName: "Lovelace", email: "ada@example.com" }, members), "Existing email");
     assert.equal(peopleRowMatch({ firstName: "Ada", lastName: "Lovelace", email: "new@example.com" }, members), "Near match");
     assert.equal(peopleRowMatch({ firstName: "Grace", lastName: "Hopper", email: "grace@example.com" }, members), "New");
+    assert.equal(defaultReviewAction("New"), "import");
+    assert.equal(defaultReviewAction("Near match"), "skip");
+    assert.equal(defaultReviewAction("Existing email"), "skip");
   });
 });

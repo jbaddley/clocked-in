@@ -1118,7 +1118,7 @@ namespace ClockedIn.Api.Data.Migrations
                         {
                             Id = new Guid("11111111-1111-4111-8111-111111111111"),
                             Code = "MEMBER",
-                            Name = "Member"
+                            Name = "Staff"
                         },
                         new
                         {
@@ -1602,7 +1602,7 @@ namespace ClockedIn.Api.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("organizationId");
 
-                    b.Property<Guid>("ProjectId")
+                    b.Property<Guid?>("ProjectId")
                         .HasColumnType("uuid")
                         .HasColumnName("projectId");
 
@@ -1614,7 +1614,7 @@ namespace ClockedIn.Api.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("startedAt");
 
-                    b.Property<Guid>("TaskCategoryId")
+                    b.Property<Guid?>("TaskCategoryId")
                         .HasColumnType("uuid")
                         .HasColumnName("taskCategoryId");
 

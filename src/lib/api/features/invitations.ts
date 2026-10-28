@@ -66,16 +66,28 @@ function inviteUrl(code: string) {
   return appUrl(`/accept?code=${encodeURIComponent(code)}`);
 }
 
+async function usernameTaken(username: string) {
+  return Boolean(
+    (await prisma.user.findUnique({ where: { username }, select: { id: true } })) ||
+      (await prisma.invitation.findFirst({ where: { username, acceptedAt: null, revokedAt: null }, select: { id: true } })),
+  );
+}
+
 async function reserveUsername(firstName: string, lastName: string) {
+  const preview = await previewUsername(firstName, lastName);
+  if (!preview.username) validation("username is already in use.");
+  return preview.username;
+}
+
+export async function previewUsername(firstName: string, lastName: string) {
   const base = usernameFromName(firstName, lastName);
   for (let attempt = 0; attempt < 1000; attempt += 1) {
     const username = attempt === 0 ? base : `${base.slice(0, 48)}${attempt}`;
-    const taken =
-      (await prisma.user.findUnique({ where: { username }, select: { id: true } })) ||
-      (await prisma.invitation.findFirst({ where: { username, acceptedAt: null, revokedAt: null }, select: { id: true } }));
-    if (!taken) return username;
+    if (!(await usernameTaken(username))) {
+      return { username, base, collided: attempt > 0 };
+    }
   }
-  validation("username is already in use.");
+  return { username: "", base, collided: true };
 }
 
 function mailedCode() {

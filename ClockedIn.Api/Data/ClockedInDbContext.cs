@@ -97,7 +97,7 @@ public class ClockedInDbContext(DbContextOptions<ClockedInDbContext> options, Ti
                 .HasForeignKey(role => role.OrganizationId)
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasData(
-                new Role { Id = Role.MemberId, Code = "MEMBER", Name = "Member", IsSystem = true },
+                new Role { Id = Role.MemberId, Code = "MEMBER", Name = "Staff", IsSystem = true },
                 new Role { Id = Role.VolunteerId, Code = "VOLUNTEER", Name = "Volunteer", IsSystem = true, Scope = "self" },
                 new Role { Id = Role.AdminId, Code = "ADMIN", Name = "Admin", IsSystem = true });
         });

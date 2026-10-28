@@ -1,5 +1,7 @@
 # Original goals assessment
 
+> Superseded for current status on 27 October 2026. Use [`voluntime-audit.md`](voluntime-audit.md).
+
 **Date:** 21 October 2026  
 **Sources:** `docs/base/Volunteer_Hours_Tracker_Project_Brief (1).pdf` (15 October 2026, Dillon Workman), the CASWJ brand files in `docs/base/`, the 2026 Volunteer Hours workbook, `docs/schema/domain.md`, `docs/api/http.md`, the Next.js and `ClockedIn.Api` implementations, and the HTTP / Playwright suites.
 

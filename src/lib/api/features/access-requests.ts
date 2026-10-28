@@ -46,7 +46,11 @@ function requestJson(row: {
     email: row.user?.email ?? row.guest?.email ?? "",
     name,
     requestedRoleId: row.requestedRoleId,
-    requestedRole: row.requestedRole ? { code: row.requestedRole.code, name: row.requestedRole.name } : null,
+    requestedRole: row.requestedRole
+      ? { code: row.requestedRole.code, name: row.requestedRole.name }
+      : asStringArray(row.requestedDepartmentIds).length > 0
+        ? { code: "GROUP_MANAGER", name: "Group manager" }
+        : null,
     requestedDepartmentIds: asStringArray(row.requestedDepartmentIds),
     message: row.message,
     status: row.status,
@@ -66,7 +70,7 @@ const requestInclude = {
 export function parseCreateAccessRequest(body: Body) {
   return {
     message: has(body, "message") ? requireString(body, "message").trim().slice(0, 2000) : null,
-    requestedRole: has(body, "requestedRole") ? requireString(body, "requestedRole") : "ADMIN",
+    requestedRole: has(body, "requestedRole") ? requireString(body, "requestedRole") : "GROUP_MANAGER",
     requestedDepartmentIds: asStringArray(body.requestedDepartmentIds),
     email: has(body, "email") ? normalizeEmail(requireString(body, "email")) : null,
     name: has(body, "name") ? requireString(body, "name").trim() : null,
@@ -96,7 +100,8 @@ export async function createAccessRequest(
 ) {
   await access.requireOrganization(organizationId, false);
   const organization = await prisma.organization.findUniqueOrThrow({ where: { id: organizationId }, select: { name: true } });
-  const role = await resolveRole(request.requestedRole, organizationId);
+  const role =
+    request.requestedRole === "GROUP_MANAGER" ? null : await resolveRole(request.requestedRole, organizationId);
   const existing = await prisma.accessRequest.findFirst({
     where: { organizationId, userId: access.actorUserId, status: "pending" },
   });
@@ -193,16 +198,23 @@ export async function decideAccessRequest(
 
 async function approve(
   access: Access,
-  row: { userId: string | null; organizationId: string; requestedRoleId: string | null; requestedDepartmentIds: unknown },
+  row: {
+    userId: string | null;
+    organizationId: string;
+    requestedRoleId: string | null;
+    requestedDepartmentIds: unknown;
+    requestedRole?: { code: string; name: string } | null;
+  },
 ) {
   if (!row.userId) {
     return;
   }
-  const roleIdValue = row.requestedRoleId ?? (await roleId("ADMIN"));
-  await prisma.organizationMembership.updateMany({
-    where: { userId: row.userId, organizationId: row.organizationId },
-    data: { roleId: roleIdValue },
-  });
+  if (row.requestedRoleId) {
+    await prisma.organizationMembership.updateMany({
+      where: { userId: row.userId, organizationId: row.organizationId },
+      data: { roleId: row.requestedRoleId },
+    });
+  }
   const departmentIds = asStringArray(row.requestedDepartmentIds);
   const adminRole = await roleId("ADMIN");
   for (const departmentId of departmentIds) {
