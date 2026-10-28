@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>VolunTime Feedback for Jason — resolved</title>
+    <style>
+      @page {
+        size: letter;
+        margin: 0.7in 0.75in 0.8in;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        color: #111;
+        background: #fff;
+        font: 11.5pt/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      }
+
+      h1 {
+        margin: 0 0 0.35rem;
+        font-size: 22pt;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+
+      h2 {
+        margin: 1.35rem 0 0.4rem;
+        font-size: 14pt;
+        font-weight: 700;
+      }
+
+      p {
+        margin: 0 0 0.7rem;
+      }
+
+      ul {
+        margin: 0.2rem 0 0.7rem;
+        padding-left: 1.2rem;
+      }
+
+      li {
+        margin: 0 0 0.45rem;
+      }
+
+      li > ul {
+        margin-top: 0.35rem;
+      }
+
+      strong {
+        font-weight: 650;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 0.5rem 0 0.75rem;
+        font-size: 10pt;
+        page-break-inside: avoid;
+      }
+
+      th,
+      td {
+        border: 1px solid #d4d4d4;
+        padding: 0.4rem 0.5rem;
+        vertical-align: top;
+        text-align: left;
+      }
+
+      th {
+        background: #f3f3f3;
+        font-weight: 650;
+      }
+
+      .meta {
+        color: #666;
+        margin-bottom: 1rem;
+        font-size: 10.5pt;
+      }
+
+      .banner {
+        margin: 0 0 1.1rem;
+        padding: 0.65rem 0.8rem;
+        border: 1px solid #c9d4e3;
+        background: #f4f7fb;
+        font-size: 10.5pt;
+        page-break-inside: avoid;
+      }
+
+      .banner strong {
+        display: block;
+        margin-bottom: 0.2rem;
+      }
+
+      .resolution {
+        margin: 0.4rem 0 0.85rem;
+        padding: 0.5rem 0.7rem 0.55rem;
+        border-left: 3px solid #1b3a5f;
+        background: #f6f8fb;
+        font-size: 10.5pt;
+        page-break-inside: avoid;
+      }
+
+      .resolution.partial {
+        border-left-color: #b45309;
+        background: #fff8f0;
+      }
+
+      .resolution.open {
+        border-left-color: #9f1239;
+        background: #fff5f7;
+      }
+
+      .resolution.ask {
+        border-left-color: #6d28d9;
+        background: #f8f5ff;
+      }
+
+      .badge {
+        display: inline-block;
+        margin-right: 0.35rem;
+        padding: 0.05rem 0.4rem;
+        border-radius: 999px;
+        background: #1b3a5f;
+        color: #fff;
+        font-size: 8pt;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        vertical-align: 1px;
+      }
+
+      .partial .badge {
+        background: #b45309;
+      }
+
+      .open .badge {
+        background: #9f1239;
+      }
+
+      .ask .badge {
+        background: #6d28d9;
+      }
+
+      .checks {
+        list-style: none;
+        padding-left: 0;
+      }
+
+      .checks li {
+        margin-bottom: 0.9rem;
+      }
+
+      .check {
+        font-weight: 700;
+      }
+
+      .footer-note {
+        margin-top: 1.4rem;
+        padding-top: 0.7rem;
+        border-top: 1px solid #ddd;
+        color: #555;
+        font-size: 10pt;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>VolunTime Feedback for Jason</h1>
+    <p class="meta">Oct 27, 2026 · Dillon Workman<br />Annotated 28 Oct 2026 · how each request was resolved</p>
+
+    <div class="banner">
+      <strong>This is your original letter, with answers written in.</strong>
+      Your wording is unchanged. After each request is how it stands in the app today. The five questions at the
+      bottom are answered. A short list of remaining decisions is at the end — please tell us which way you want those
+      to go.
+    </div>
+
+    <p>
+      Jason, we really, really love VolunTime, and we're so excited about where it's headed. It already covers what we
+      used Clockify for, and it does things Clockify never could for us: in-kind value built right in, group sessions,
+      and the Needs board. Thank you for the care you've put into it.
+    </p>
+    <p>
+      This is my feedback after reviewing the staging site, grouped by area. Where a request builds on something the
+      app already does, I've noted what's there now so you can see the gap.
+    </p>
+    <p>
+      The last two sections are a few bugs and cleanup items we spotted along the way, plus questions where I'd like
+      your take before you build.
+    </p>
+
+    <h2>Roles and access</h2>
+    <p>We need three levels of access, each able to log time for everyone below it.</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Level</th>
+          <th>Who</th>
+          <th>Can do</th>
+          <th>Closest role today</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Super admin</td>
+          <td>CASWJ staff</td>
+          <td>Manage time for all groups and all volunteers. Run all reports. Submit time for group managers and volunteers.</td>
+          <td>Admin</td>
+        </tr>
+        <tr>
+          <td>Group manager</td>
+          <td>A leader in one or more member groups (Symphony, Youth Theatre, etc.)</td>
+          <td>Manage and submit time for everyone in their group or groups. Log a whole group's effort, or the total volunteer effort for an event.</td>
+          <td>Group coordinator</td>
+        </tr>
+        <tr>
+          <td>Volunteer</td>
+          <td>Everyone else</td>
+          <td>Track their own time and see their own history. Request access to more information when they need it.</td>
+          <td>Volunteer</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="resolution">
+      <span class="badge">Done</span>
+      The three levels are in the product: <strong>Admin</strong> (CASWJ staff), <strong>Group manager</strong> (one or
+      more groups), and <strong>Volunteer</strong>. Each can log time for the people they cover. We did not put
+      “Super admin” on the volunteer-facing screens — that name is reserved for platform ops. In the app this level is
+      <strong>Admin</strong>. “Group coordinator” is now <strong>Group manager</strong>. An extra <strong>Staff</strong>
+      role still exists (reports, including a Staff tab). It is not one of your three levels — see the question at the
+      end.
+    </div>
+
+    <p>What's new compared with the current build:</p>
+    <ul>
+      <li>
+        <strong>Group managers covering several groups.</strong> Please confirm a coordinator can be assigned to more
+        than one group and see combined reports.
+        <div class="resolution">
+          <span class="badge">Done</span>
+          Yes. On People, invite, and access-request, an admin assigns Group manager per group. Someone who leads
+          several groups logs time and runs reports for those groups together. They do not see groups they were not
+          assigned.
+        </div>
+      </li>
+      <li>
+        <strong>Event-level totals.</strong> Group sessions today are tied to a group. We also need to log the total
+        volunteer effort for one event, such as a show night with 40 helpers, without entering each person.
+        <div class="resolution">
+          <span class="badge">Done</span>
+          Log Group Time records a session with a headcount. The group can be “whole organization,” so a show night
+          of 40 helpers does not need 40 named people. Those hours stay off unique-volunteer counts.
+        </div>
+      </li>
+      <li>
+        <strong>Requesting access.</strong> A volunteer should be able to ask for more access from inside the app, and
+        an admin approves or declines it.
+        <div class="resolution">
+          <span class="badge">Done</span>
+          Volunteers request from their profile. Admins see it on People and approve or decline. Emails go out either
+          way.
+        </div>
+      </li>
+      <li>
+        <strong>Custom roles.</strong> It would be great to have a permissions table where admins can adjust what each
+        role can do and create new roles as we need them, instead of a fixed set.
+        <div class="resolution">
+          <span class="badge">Done</span>
+          Settings → Roles. Admins can add a role and tick what it can do.
+        </div>
+      </li>
+    </ul>
+
+    <h2>Inviting and importing people</h2>
+    <p>
+      Right now an invite only asks for an email and a role. We'd like the admin to set up the person's name and
+      username when they send the invite.
+    </p>
+    <ul>
+      <li>
+        <strong>Name fields.</strong> Add first name and last name to the invite form.
+        <div class="resolution"><span class="badge">Done</span> The invite form asks for both.</div>
+      </li>
+      <li>
+        <strong>Automatic username.</strong> Create the username from the first initial plus the last name, so Jane
+        Smith becomes jsmith. If that's taken, tell the admin and add a number at the end (jsmith1, jsmith2). The
+        invite email should then tell the person their username.
+        <div class="resolution">
+          <span class="badge">Done</span>
+          Username is reserved when you invite (jsmith, then jsmith1). The form previews it before send. The invite
+          email includes it.
+        </div>
+      </li>
+      <li>
+        <strong>Invitation subject line.</strong> Something like "CASWJ invited you to join VolunTime," with preview
+        text such as "Log your volunteer hours with the Cultural Arts Society of West Jordan." The wording is open, so
+        feel free to improve it.
+        <div class="resolution">
+          <span class="badge">Done</span>
+          Subject is “{organization} invited you to join VolunTime.” Preview: “Log your volunteer hours with
+          {organization}.” For CASWJ that reads as you described.
+        </div>
+      </li>
+      <li>
+        <strong>Review before sending.</strong> When people are imported, show a list of names, usernames, email
+        addresses and groups so the admin can confirm it before mass invitations go out. Please also make clear
+        whether importing sends invitations automatically.
+        <div class="resolution">
+          <span class="badge">Done</span>
+          Import shows a review list. Copy is explicit: import <strong>creates accounts</strong> and does
+          <strong>not</strong> send invitations unless you check “Email users welcome credentials after import” (off by
+          default). That optional email is a welcome with username and a temporary password, not the CASWJ invite.
+          Existing emails are skipped, or merged if the admin picks merge.
+        </div>
+      </li>
+      <li>
+        <strong>Duplicate check on import.</strong> The Import screen says existing records are skipped, but it doesn't
+        say how a match is found. In that review list, flag rows that match existing people or projects, including
+        near-matches like the same name with a different email, so the admin can skip, merge or import each one.
+        <div class="resolution">
+          <span class="badge">Done</span>
+          Same email, or same name with a different email, is flagged. Each row can be skipped, merged, or imported.
+        </div>
+      </li>
+      <li>
+        <strong>CSV templates.</strong> Add a "Download template" link for the People and Project / Events imports so
+        we know which columns to use.
+        <div class="resolution">
+          <span class="badge">Done</span>
+          “Download template” is on People and on Projects / Events. People headers include Email, First name, and Last
+          name (required), plus optional username, role, group, and the rest of the import fields.
+        </div>
+      </li>
+      <li>
+        <strong>Drop the Groups import.</strong> We'll rarely add groups, so it isn't needed. Adding them one at a time
+        on the Groups screen is fine.
+        <div class="resolution">
+          <span class="badge">Done</span>
+          Import is People and Projects only. Add groups one at a time on the Groups screen. (A script endpoint still
+          exists for developers; volunteers never see it.)
+        </div>
+      </li>
+    </ul>
+
+    <h2>Projects and events</h2>
+    <p>The project dropdowns are already long, and they'll keep growing every season.</p>
+    <ul>
+      <li>
+        <strong>Archive old projects.</strong> An archived project or event stays in reports and past entries but no
+        longer appears in dropdowns. The hourly rates screen already works this way, so the same pattern would fit.
+        <div class="resolution">
+          <span class="badge">Done</span>
+          Archive / unarchive is on Settings → Projects. Archived projects stay in history and reports and drop out of
+          placement dropdowns.
+        </div>
+      </li>
+      <li>
+        <strong>Add a project from any dropdown.</strong> Wherever someone picks a project or event (logging time,
+        group sessions, Needs), add a "+ New project / event" option so they don't have to go to Settings first. It
+        could be limited to admins and group managers.
+        <div class="resolution">
+          <span class="badge">Done</span>
+          “+ New project / event” is on log time, group sessions, and Needs. Admins and group managers with
+          create-projects permission can use it.
+        </div>
+      </li>
+    </ul>
+
+    <h2>Needs</h2>
+    <p>
+      I love publishing Needs. For it to bring in new volunteers, though, people need to see the openings before they
+      have an account.
+    </p>
+    <ul>
+      <li>
+        <strong>A public Needs page.</strong> Anyone can browse the open public needs without logging in, then send a
+        sign-up request from there.
+        <div class="resolution">
+          <span class="badge">Done</span>
+          The public catalog is at <strong>/openings/{organization-slug}</strong>. Anyone can browse published public
+          needs and open a sign-up from there. Logged-in <strong>/needs</strong> stays the management screen, so staff
+          do not share an admin URL on wjarts.org. Each need still has its own sign-up link.
+        </div>
+      </li>
+      <li>
+        <strong>What's there now.</strong> The Add need form already has "Allow a public sign-up link." A link for
+        each need is a good start, but a single page listing all public needs is what we'd share on wjarts.org and
+        social media.
+        <div class="resolution">
+          <span class="badge">Done</span>
+          That listing page is the openings URL above. Share that one link on wjarts.org and social. See the question
+          at the end if you would rather have a shorter public path.
+        </div>
+      </li>
+      <li>
+        <strong>Group managers can post needs.</strong> A group manager can create a need for their own group. It goes
+        to an admin for approval before it's published, and the manager hears back either way.
+        <div class="resolution">
+          <span class="badge">Done</span>
+          Group managers can create a need. Without approval permission it stays pending until an admin Publishes or
+          Rejects. The manager gets an email either way. Logged-in Needs now has a Status column, a Pending review
+          filter, and Publish / Reject on the list. Admins see every need in the organization. Group managers see
+          needs they posted and needs for groups they lead.
+        </div>
+      </li>
+      <li>
+        <strong>Vetting.</strong> The "Require vetting" option and the custom questions already fit this flow well.
+        <div class="resolution"><span class="badge">Done</span> Unchanged. They still sit on the need and on public sign-up.</div>
+      </li>
+    </ul>
+
+    <h2>Classifying time and the dashboard</h2>
+    <p>Grant reports are only as good as how people classify their hours, so a few prompts would help a lot.</p>
+    <ul>
+      <li>
+        <strong>After stopping the timer.</strong> Show a short reminder to check the project, task category and group
+        before saving.
+        <div class="resolution">
+          <span class="badge">Done</span>
+          After Stop: “Check this time before saving.” Project, category, and group are still editable. You can leave
+          them blank and classify later.
+        </div>
+      </li>
+      <li>
+        <strong>Unclassified entries.</strong> An entry with no project, no task category and no group counts as
+        unclassified. Notify people about these entries, asking them to classify the time or delete the entry.
+        <div class="resolution partial">
+          <span class="badge">Partial</span>
+          Blank project, category, <strong>and</strong> group = unclassified. There is an in-app banner that links to
+          those entries, and an email after a timer clock-out. Handwritten duration / total hours can also save with
+          blank placement today; they show in the banner, but they do not send that email (email is clock-out only).
+          We recommend keeping classify-after for the timer, and not letting typed grant hours sit blank if we can
+          help it — see the question at the end.
+        </div>
+      </li>
+      <li>
+        <strong>Tags.</strong> Admins keep managing the tag list so we can add more detailed tracking later. If there
+        are no tags, hide the Tags field from users.
+        <div class="resolution">
+          <span class="badge">Done</span>
+          Volunteers do not see Tags until you add some. Admins still see the field so they can create the first one.
+        </div>
+      </li>
+      <li>
+        <strong>Clickable dashboard cards.</strong> Each card should open the detail behind it. For example, clicking
+        "Your hours" opens your entries, and clicking a category in "Hours by task category" opens the entries in that
+        category.
+        <div class="resolution">
+          <span class="badge">Done</span>
+          Cards, chart slices, and list rows open filtered Entries — person, category, project, group, unclassified,
+          and date range are passed through. Example: Hours by task category → Dancing opens only Dancing entries.
+          Admins can switch the person filter to Everyone.
+        </div>
+      </li>
+    </ul>
+
+    <h2>Reports and exports</h2>
+    <p>
+      Reports has two fixed CSV downloads today, the Volunteer Log and the Summary. We'd like more control over what we
+      export.
+    </p>
+    <ul>
+      <li>
+        <strong>Export what you see.</strong> Download the current report view, or the full log for any date range.
+        <div class="resolution">
+          <span class="badge">Done</span>
+          Reports menu: <strong>Download this view</strong> (CSV of the cards, columns, sorts, and filters on screen),
+          plus Volunteer Log and Summary in grant format. Date range is on the page. <strong>Download PDF</strong> is
+          also in the menu now — it prints the same report view.
+        </div>
+      </li>
+      <li>
+        <strong>Shape it before exporting.</strong> Add or remove columns, add filters and sorts, then export. Saving
+        those settings as a custom report would let us rerun the same export for each grant.
+        <div class="resolution">
+          <span class="badge">Done</span>
+          Create custom report, and Edit report on the standard views. Save the layout, then Download this view or
+          Download PDF.
+        </div>
+      </li>
+    </ul>
+
+    <h2>Other things we noticed</h2>
+    <ul>
+      <li>
+        <strong>Triple-listed groups.</strong> Each member group is a group, a project (Literary Arts Society shows up
+        in the event dropdown), and an "(Org)" tag. Task categories are also repeated as "(Type)" tags. This probably
+        came from the Clockify import. Let's agree on one place for each before launch so reports don't double up.
+        <div class="resolution partial">
+          <span class="badge">Partial</span>
+          A fresh CASWJ seed archives those Clockify leftover projects and “(Org)” / “(Type)” tags, so they drop out
+          of dropdowns and stay out of new entries. If an older staging database was never re-seeded, those rows can
+          still be sitting there. Worth a once-over on the database you will launch.
+        </div>
+      </li>
+    </ul>
+
+    <h2>Open questions</h2>
+    <ul class="checks">
+      <li>
+        <div class="check">☑ Does importing people send invitations automatically?</div>
+        <div class="resolution">
+          <span class="badge">Answer</span>
+          <strong>No.</strong> Import creates the person’s account right away. It does not send an invite unless the
+          admin checks <strong>Email users welcome credentials after import</strong> (off by default). That email is a
+          welcome with username and a temporary password, not the “CASWJ invited you to join VolunTime” invite. If you
+          want someone to accept an invite and pick their own password, use <strong>Invite</strong>, not Import.
+        </div>
+      </li>
+      <li>
+        <div class="check">☑ Can a group coordinator manage more than one group today?</div>
+        <div class="resolution">
+          <span class="badge">Answer</span>
+          <strong>Yes.</strong> An admin can assign someone to several groups and mark Group manager on each one they
+          lead. That person can log time and run reports for those groups together.
+        </div>
+      </li>
+      <li>
+        <div class="check">
+          ☑ Project and task category are required today, so unclassified entries can't happen yet. Should the timer
+          save without them so people can classify their time afterward?
+        </div>
+        <div class="resolution">
+          <span class="badge">Answer</span>
+          <strong>Yes for the timer.</strong> You can start and stop without a project, category, or group. After Stop,
+          the reminder asks you to check those fields and says you can leave them blank and classify later. Blank on
+          all three is unclassified: banner in the app, email after clock-out. For handwritten duration and total
+          hours we still recommend picking a project and category before save — see the remaining question below.
+        </div>
+      </li>
+      <li>
+        <div class="check">
+          ☑ What should we call the levels? In the app, "organization" means CASWJ and "group" means the Symphony,
+          Youth Theatre and so on. Let's match the labels to how volunteers talk.
+        </div>
+        <div class="resolution">
+          <span class="badge">Answer</span>
+          Match how volunteers talk. CASWJ seed already uses these labels:
+          <ul>
+            <li><strong>Organization</strong> — CASWJ</li>
+            <li><strong>Group</strong> — Symphony, Youth Theatre, and the other affiliates (not “department”)</li>
+            <li><strong>Project / Event</strong> and <strong>Task Category</strong> — unchanged</li>
+          </ul>
+          Access levels in the product:
+          <ul>
+            <li><strong>Admin</strong> — CASWJ staff. Your “Super admin.” We do not call this Super admin in the app.</li>
+            <li><strong>Group manager</strong> — a leader of one or more groups</li>
+            <li><strong>Volunteer</strong> — own time and own history; they can request more access</li>
+          </ul>
+          Optional extra: <strong>Staff</strong> (can see reports). Not in your three levels. See the question below.
+        </div>
+      </li>
+      <li>
+        <div class="check">
+          ☑ Is sign-up from a public Need the same as self-signup, or does it create a request an admin approves?
+        </div>
+        <div class="resolution">
+          <span class="badge">Answer</span>
+          <strong>It is not the same as creating a login.</strong> Signing up for a public Need records interest (name,
+          email, optional vetting). A guest can do that without an account. A signed-in volunteer signs up as
+          themselves. The form has a separate checkbox: <strong>Also request an account so I can log hours in
+          VolunTime.</strong> That sends an access request an Admin approves. Until then, the person is a guest on
+          that Need only. Open Create account is a different path, and the CASWJ portal can turn it off so people join
+          by invite or by that Need request.
+        </div>
+      </li>
+    </ul>
+
+    <h2>Still open — please decide</h2>
+    <p>These are the remaining gaps and questions. Nothing here blocks the items you asked for in the letter.</p>
+    <ul>
+      <li>
+        <div class="resolution ask">
+          <span class="badge">Ask</span>
+          <strong>Staff role.</strong> We still have an optional Staff role (reports, including a Staff tab). Keep it
+          visible on the CASWJ portal, or hide it so people only see Admin / Group manager / Volunteer?
+        </div>
+      </li>
+      <li>
+        <div class="resolution ask">
+          <span class="badge">Ask</span>
+          <strong>Handwritten hours.</strong> The timer may save unclassified, with a reminder and an email. Duration /
+          Total can also save blank placement today, with the banner but no email. Should typed grant hours require a
+          project and category before save, or get the same unclassified email as the timer?
+        </div>
+      </li>
+      <li>
+        <div class="resolution ask">
+          <span class="badge">Ask</span>
+          <strong>Public catalog URL.</strong> The share page is <strong>/openings/{organization-slug}</strong>, not a
+          public /needs. Logged-in /needs stays management. Is that the URL you want on wjarts.org and social, or do
+          you want a shorter public path?
+        </div>
+      </li>
+      <li>
+        <div class="resolution open">
+          <span class="badge">Open</span>
+          <strong>Hosting.</strong> The product is built for <strong>portal.wjarts.org</strong> (invite-only portal
+          mode, same codebase). It is not on wjarts.org yet. CASWJ-owned hosting, database, and DNS are still an ops
+          step. When should we cut over?
+        </div>
+      </li>
+      <li>
+        <div class="resolution open">
+          <span class="badge">Open</span>
+          <strong>Official chrome.</strong> Navy and gold are in. Login still says VolunTime unless the portal name is
+          set. Default tab icon is still a clock until CASWJ provides the flame mark and white wordmark.
+        </div>
+      </li>
+      <li>
+        <div class="resolution open">
+          <span class="badge">Open</span>
+          <strong>Paid staff vs volunteer in-kind</strong> is still out of scope (original brief “later,” not this
+          letter). Professional rates exist; there is no “exclude from the grant packet” switch. Say when you want
+          that.
+        </div>
+      </li>
+      <li>
+        <div class="resolution partial">
+          <span class="badge">Note</span>
+          <strong>Clockify leftovers.</strong> Confirm the launch database has no group still appearing as a project
+          and an “(Org)” tag. Fresh seed archives them; an older staging copy may not.
+        </div>
+      </li>
+    </ul>
+
+    <p class="footer-note">
+      Original letter: 27 October 2026, Dillon Workman. Annotated against the current VolunTime app on 28 October
+      2026. This copy does not change the original PDF in docs/base.
+    </p>
+  </body>
+</html>

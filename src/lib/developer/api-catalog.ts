@@ -4,7 +4,7 @@ type JsonSchema = {
   $ref?: string;
   type?: string | string[];
   format?: string;
-  properties?: Record<string, JsonSchema>;
+  properties?: Record<string, JsonSchema | undefined>;
   required?: string[];
   items?: JsonSchema;
   oneOf?: JsonSchema[];
