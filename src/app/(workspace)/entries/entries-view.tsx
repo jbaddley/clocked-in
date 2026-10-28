@@ -29,13 +29,14 @@ export function EntriesView() {
   const search = useSearchParams();
   const range = rangeFromSearch(search);
   const person = search.get("person");
+  const unclassified = search.get("unclassified") === "1";
   const personId = isAdmin && person ? person : viewer.id;
   const queryClient = useQueryClient();
-  const { entries, fetchNextPage, hasNextPage, isFetchingNextPage, isPending } = useEntries(personId, range);
+  const { entries, fetchNextPage, hasNextPage, isFetchingNextPage, isPending } = useEntries(personId, range, unclassified);
   const [pendingEdit, setPendingEdit] = useState<TimeEntry | null>(null);
   const [pendingDelete, setPendingDelete] = useState<TimeEntry | null>(null);
   const { update } = useUrlParams({ from: range.from, to: range.to, person: personId === viewer.id ? undefined : personId });
-  const entriesKey = keys.entries(organization.id, personId, range);
+  const entriesKey = keys.entries(organization.id, personId, range, unclassified);
 
   const remove = useActionMutation((entry: TimeEntry) => deleteEntryAction(entry.id), {
     invalidate: [keys.organization(organization.id)],

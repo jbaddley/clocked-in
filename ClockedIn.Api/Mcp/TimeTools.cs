@@ -59,6 +59,9 @@ public sealed class TimeTools(TimeEntriesService timeEntries, CollectiveService 
             new ClockOutRequest(
                 description is null ? default : new Optional<string?>(description),
                 tagIds is null ? default : new Optional<List<Guid>>(tagIds.ToList()),
+                default,
+                default,
+                default,
                 userId),
             cancellationToken));
 

@@ -11,7 +11,7 @@ export default function InvitationEmail({
   targetKind = "Organization",
   targetName = "Harbor Volunteers",
   organizationName = "Harbor Volunteers",
-  roleName = "Member",
+  roleName = "Staff",
   username = "jsmith",
   code = "482913",
   url = "http://localhost:3025/accept?code=482913",

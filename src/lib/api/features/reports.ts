@@ -224,7 +224,11 @@ async function userRollup(organizationId: string, filter: Filter, rateType: "Vol
       ),
     ),
     byCategory: sorted(
-      bucketsFrom(byCategory, (g) => g.taskCategoryId, (key) => ({ id: key!, label: categories.get(key!) ?? "" })),
+      bucketsFrom(
+        byCategory,
+        (g) => g.taskCategoryId,
+        (key) => (key ? { id: key, label: categories.get(key) ?? "" } : { id: "unclassified", label: "Unclassified" }),
+      ),
     ),
     byPerson: sorted(people.filter((row) => row.label.trim().length > 0)),
     byVolunteer: sorted(
@@ -234,8 +238,9 @@ async function userRollup(organizationId: string, filter: Filter, rateType: "Vol
     ),
     byProject: sorted(
       bucketsFrom(byProject, (g) => g.projectId, (key) => {
-        const project = key ? projects.get(key) : undefined;
-        return { id: key!, label: project?.title ?? "", projectType: project?.projectType };
+        if (!key) return { id: "unclassified", label: "Unclassified" };
+        const project = projects.get(key);
+        return { id: key, label: project?.title ?? "", projectType: project?.projectType };
       }),
     ),
     byMonth: [...months.values()]
@@ -317,21 +322,17 @@ async function collectiveRollup(organizationId: string, filter: Filter) {
 }
 
 async function forCaller(access: Access, organizationId: string, filter: Filter) {
-  if (access.isSuperAdmin || access.isApiKey || (await access.isOrgAdmin(organizationId))) {
+  const visibility = await access.visibility(organizationId);
+  if (visibility.kind === "all") {
     return filter;
   }
 
-  const adminDepartments = await access.adminDepartmentIds(organizationId);
-  if (adminDepartments.length > 0) {
-    if (filter.departmentId && !adminDepartments.includes(filter.departmentId)) {
+  if (visibility.kind === "departments") {
+    if (filter.departmentId && !visibility.departmentIds.includes(filter.departmentId)) {
       forbidden();
     }
 
-    return filter.departmentId ? filter : { ...filter, departmentIds: adminDepartments };
-  }
-
-  if (!(await access.isOrgVolunteer(organizationId))) {
-    return filter;
+    return filter.departmentId ? filter : { ...filter, departmentIds: visibility.departmentIds };
   }
 
   if (filter.userId && filter.userId !== access.actorUserId) {

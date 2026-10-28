@@ -262,13 +262,13 @@ One profile per user. `timezone` is an IANA name and defaults to `UTC`. `display
 
 ### Role
 
-Lookup shared by organization and department memberships. Seed two rows: `MEMBER` and `ADMIN`.
+Lookup shared by organization and department memberships. Seed three system rows: `VOLUNTEER` (Volunteer), `MEMBER` (Staff), and `ADMIN` (Admin). Group manager is not a role row — it is `DepartmentMembership` with `ADMIN`.
 
-| Field | Required | Notes                       |
-| ----- | -------- | --------------------------- |
-| id    | yes      | UUID primary key            |
-| code  | yes      | Unique. `MEMBER` or `ADMIN` |
-| name  | yes      | Display name                |
+| Field | Required | Notes                                              |
+| ----- | -------- | -------------------------------------------------- |
+| id    | yes      | UUID primary key                                   |
+| code  | yes      | Unique. `VOLUNTEER`, `MEMBER`, or `ADMIN`          |
+| name  | yes      | Display name: Volunteer, Staff, or Admin           |
 
 ### Organization
 

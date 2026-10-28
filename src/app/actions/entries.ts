@@ -19,8 +19,8 @@ import { requireAccess } from "@/lib/server/session";
 export type Placement = {
   organizationId: string;
   departmentId: string | null;
-  projectId: string;
-  taskCategoryId: string;
+  projectId: string | null;
+  taskCategoryId: string | null;
   description: string | null;
   tagIds: string[];
 };
@@ -119,7 +119,15 @@ export async function clockInAction(placement: Placement) {
   }, "Timer started.");
 }
 
-export async function clockOutAction(details: { description?: string | null; tagIds?: string[] } = {}) {
+export async function clockOutAction(
+  details: {
+    description?: string | null;
+    tagIds?: string[];
+    projectId?: string | null;
+    taskCategoryId?: string | null;
+    departmentId?: string | null;
+  } = {},
+) {
   return run(async () => {
     const access = await requireAccess();
     return clockOut(access, parseClockOut(body(details)));

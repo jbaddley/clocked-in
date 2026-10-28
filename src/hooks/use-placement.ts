@@ -42,8 +42,8 @@ export function usePlacement(preferred?: PlacementPreference) {
   const placement = (description: string): Placement => ({
     organizationId: organization.id,
     departmentId: departmentId === organizationWide ? null : departmentId,
-    projectId,
-    taskCategoryId,
+    projectId: projectId || null,
+    taskCategoryId: taskCategoryId || null,
     description: description.trim() || null,
     tagIds: choice.tagIds,
   });
@@ -51,6 +51,7 @@ export function usePlacement(preferred?: PlacementPreference) {
   return {
     lookups,
     ready: Boolean(projectId && taskCategoryId),
+    punchReady: true,
     value: { departmentId, projectId, taskCategoryId, tagIds: choice.tagIds },
     set: (patch: Partial<Choice>) =>
       setChoiceByOrg((current) => ({

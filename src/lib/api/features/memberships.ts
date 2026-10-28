@@ -62,6 +62,8 @@ function memberUserJson(user: MemberUser) {
   };
 }
 
+export type DepartmentAssignment = { departmentIds: string[]; managedDepartmentIds: string[] };
+
 export function orgMembershipJson(
   membership: {
     id: string;
@@ -77,8 +79,11 @@ export function orgMembershipJson(
     role: RoleRow;
     user: MemberUser;
   },
-  departmentIds: string[] = [],
+  departments: string[] | DepartmentAssignment = [],
 ) {
+  const assignment = Array.isArray(departments)
+    ? { departmentIds: departments, managedDepartmentIds: [] as string[] }
+    : departments;
   return {
     id: membership.id,
     userId: membership.userId,
@@ -91,7 +96,8 @@ export function orgMembershipJson(
       membership.professionalBillingRate === null ? null : Number(membership.professionalBillingRate),
     isActive: membership.isActive,
     primaryDepartmentId: membership.primaryDepartmentId,
-    departmentIds: [...departmentIds].sort(),
+    departmentIds: [...assignment.departmentIds].sort(),
+    managedDepartmentIds: [...assignment.managedDepartmentIds].sort(),
     orgUserTitle: membership.orgUserTitle,
     orgUserDescription: membership.orgUserDescription,
     user: memberUserJson(membership.user),
@@ -161,6 +167,7 @@ export type CreateOrgMembershipRequest = {
   orgUserDescription: string | null;
   role: RoleCode;
   departmentIds: string[];
+  managedDepartmentIds: string[];
   relationship: MemberRelationship | null;
   emailUser: boolean;
 };
@@ -191,6 +198,7 @@ export function parseCreateOrgMembership(body: Body): CreateOrgMembershipRequest
         : limited(body, "orgUserDescription", 8000, "orgUserDescription must be 8000 characters or fewer."),
     role: normalizeRole(requireString(body, "role")),
     departmentIds: ids(body, "departmentIds", true),
+    managedDepartmentIds: body.managedDepartmentIds === undefined ? [] : ids(body, "managedDepartmentIds", true),
     relationship: body.relationship === undefined ? null : normalizeRelationship(requireString(body, "relationship")),
     emailUser: body.emailUser === undefined ? false : requireBool(body, "emailUser"),
   };
@@ -203,6 +211,7 @@ export type UpdateOrgMembershipRequest = {
   isActive: Optional<boolean>;
   primaryDepartmentId: Optional<string | null>;
   departmentIds: Optional<string[]>;
+  managedDepartmentIds: Optional<string[]>;
   firstName: Optional<string>;
   lastName: Optional<string>;
   displayName: Optional<string | null>;
@@ -228,6 +237,7 @@ export function parseUpdateOrgMembership(body: Body): UpdateOrgMembershipRequest
     isActive: optional(body, "isActive", requireBool),
     primaryDepartmentId: optional(body, "primaryDepartmentId", optionalUuid),
     departmentIds: optional(body, "departmentIds", (b, k) => ids(b, k, false)),
+    managedDepartmentIds: optional(body, "managedDepartmentIds", (b, k) => ids(b, k, false)),
     firstName: optional(body, "firstName", (b, k) => personName(requireString(b, k), k)),
     lastName: optional(body, "lastName", (b, k) => personName(requireString(b, k), k)),
     displayName: optional(body, "displayName", (b, k) => limited(b, k, 100, "displayName is required.")),
@@ -254,6 +264,7 @@ export function parseUpdateOrgMembership(body: Body): UpdateOrgMembershipRequest
     !request.isActive.set &&
     !request.primaryDepartmentId.set &&
     !request.departmentIds.set &&
+    !request.managedDepartmentIds.set &&
     !request.firstName.set &&
     !request.lastName.set &&
     !request.displayName.set &&
@@ -299,7 +310,10 @@ export async function listOrgMemberships(access: Access, organizationId: string,
     organizationId,
     memberships.map((item) => item.userId),
   );
-  return list(memberships.map((item) => orgMembershipJson(item, departmentIds.get(item.userId) ?? [])), paging);
+  return list(
+    memberships.map((item) => orgMembershipJson(item, departmentIds.get(item.userId) ?? { departmentIds: [], managedDepartmentIds: [] })),
+    paging,
+  );
 }
 
 async function assertAnotherAdmin(tx: Prisma.TransactionClient, organizationId: string, exceptMembershipId: string) {
@@ -409,7 +423,7 @@ export async function createOrgMembership(access: Access, organizationId: string
       select: { defaultRateType: true, name: true },
     });
     organizationName = organization.name;
-    await syncDepartments(tx, organizationId, user.id, request.departmentIds);
+    await syncDepartments(tx, organizationId, user.id, request.departmentIds, request.managedDepartmentIds);
     const saved = await tx.organizationMembership.create({
       data: {
         userId: user.id,
@@ -433,7 +447,10 @@ export async function createOrgMembership(access: Access, organizationId: string
       });
     }
 
-    return orgMembershipJson(saved, request.departmentIds);
+    return orgMembershipJson(saved, {
+      departmentIds: request.departmentIds,
+      managedDepartmentIds: request.managedDepartmentIds,
+    });
   });
   if (request.emailUser && createdAccount && request.username && request.password) {
     try {
@@ -479,8 +496,14 @@ export async function updateOrgMembership(
       request.professionalBillingRate,
       membership.professionalBillingRate === null ? null : Number(membership.professionalBillingRate),
     );
-    if (request.departmentIds.set) {
-      await syncDepartments(tx, organizationId, membership.userId, request.departmentIds.value);
+    if (request.departmentIds.set || request.managedDepartmentIds.set) {
+      const nextDepartments = request.departmentIds.set
+        ? request.departmentIds.value
+        : (await departmentIdsByUser(organizationId, [membership.userId], tx)).get(membership.userId)?.departmentIds ?? [];
+      const nextManaged = request.managedDepartmentIds.set
+        ? request.managedDepartmentIds.value
+        : (await departmentIdsByUser(organizationId, [membership.userId], tx)).get(membership.userId)?.managedDepartmentIds ?? [];
+      await syncDepartments(tx, organizationId, membership.userId, nextDepartments, nextManaged);
     }
 
     if (request.primaryDepartmentId.set && request.primaryDepartmentId.value !== null) {
@@ -548,7 +571,7 @@ export async function updateOrgMembership(
       include: membershipInclude,
     });
     const departmentIds = await departmentIdsByUser(organizationId, [saved.userId], tx);
-    return orgMembershipJson(saved, departmentIds.get(saved.userId) ?? []);
+    return orgMembershipJson(saved, departmentIds.get(saved.userId) ?? { departmentIds: [], managedDepartmentIds: [] });
   });
 }
 
@@ -666,17 +689,18 @@ export async function deleteDepartmentMembership(access: Access, departmentId: s
 
 async function departmentIdsByUser(organizationId: string, userIds: string[], db: Prisma.TransactionClient | typeof prisma = prisma) {
   if (userIds.length === 0) {
-    return new Map<string, string[]>();
+    return new Map<string, DepartmentAssignment>();
   }
 
   const rows = await db.departmentMembership.findMany({
     where: { userId: { in: userIds }, department: { organizationId } },
-    select: { userId: true, departmentId: true },
+    select: { userId: true, departmentId: true, role: { select: { code: true } } },
   });
-  const grouped = new Map<string, string[]>();
+  const grouped = new Map<string, DepartmentAssignment>();
   for (const row of rows) {
-    const current = grouped.get(row.userId) ?? [];
-    current.push(row.departmentId);
+    const current = grouped.get(row.userId) ?? { departmentIds: [], managedDepartmentIds: [] };
+    current.departmentIds.push(row.departmentId);
+    if (row.role.code === "ADMIN") current.managedDepartmentIds.push(row.departmentId);
     grouped.set(row.userId, current);
   }
 
@@ -718,8 +742,10 @@ async function syncDepartments(
   organizationId: string,
   userId: string,
   departmentIds: string[],
+  managedDepartmentIds: string[] = [],
 ) {
   const unique = [...new Set(departmentIds)];
+  const managed = new Set(managedDepartmentIds.filter((id) => unique.includes(id)));
   for (const departmentId of unique) {
     await assertDepartment(db, organizationId, departmentId, "departmentIds must belong to this organization.");
   }
@@ -728,14 +754,21 @@ async function syncDepartments(
     where: { userId, department: { organizationId }, departmentId: { notIn: unique } },
   });
   const memberRole = await db.role.findUniqueOrThrow({ where: { code: "MEMBER" }, select: { id: true } });
+  const adminRole = await db.role.findUniqueOrThrow({ where: { code: "ADMIN" }, select: { id: true } });
   const existing = await db.departmentMembership.findMany({
     where: { userId, department: { organizationId } },
-    select: { departmentId: true },
+    select: { id: true, departmentId: true },
   });
-  const keep = new Set(existing.map((item) => item.departmentId));
-  for (const departmentId of unique.filter((id) => !keep.has(id))) {
-    await db.departmentMembership.create({
-      data: { userId, departmentId, roleId: memberRole.id },
-    });
+  const keep = new Map(existing.map((item) => [item.departmentId, item.id]));
+  for (const departmentId of unique) {
+    const roleId = managed.has(departmentId) ? adminRole.id : memberRole.id;
+    const existingId = keep.get(departmentId);
+    if (existingId) {
+      await db.departmentMembership.update({ where: { id: existingId }, data: { roleId } });
+    } else {
+      await db.departmentMembership.create({
+        data: { userId, departmentId, roleId },
+      });
+    }
   }
 }

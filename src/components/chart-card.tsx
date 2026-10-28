@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { MoreVerticalIcon } from "lucide-react";
 import { cn } from "cn";
 import { ChartPlot } from "@/components/charts";
@@ -76,7 +77,11 @@ export function ChartCard({
   return (
     <Card className={cn("h-full min-h-64 w-full", className)}>
       <CardHeader>
-        <CardTitle>{title}</CardTitle>
+        <CardTitle>
+          <Link href="/entries" className="hover:underline">
+            {title}
+          </Link>
+        </CardTitle>
         {description ? <CardDescription>{description}</CardDescription> : null}
         {configurable ? (
         <CardAction>

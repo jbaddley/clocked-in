@@ -26,6 +26,7 @@ export type MemberPatch = {
   isActive?: boolean;
   primaryDepartmentId?: string | null;
   departmentIds?: string[];
+  managedDepartmentIds?: string[];
   firstName?: string;
   lastName?: string;
   displayName?: string | null;
@@ -49,6 +50,7 @@ export type NewPerson = {
   notes?: string | null;
   role: string;
   departmentIds?: string[];
+  managedDepartmentIds?: string[];
   relationship?: string;
   emailUser?: boolean;
 };

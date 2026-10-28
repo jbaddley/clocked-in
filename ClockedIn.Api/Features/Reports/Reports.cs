@@ -436,25 +436,20 @@ public sealed class ReportsService(ClockedInDbContext db, Access access)
 
     private async Task<Filter> ForCaller(Guid organizationId, Filter filter, CancellationToken cancellationToken)
     {
-        if (access.IsSuperAdmin || access.IsApiKey || await access.IsOrgAdmin(organizationId, cancellationToken))
+        var visibility = await access.Visibility(organizationId, cancellationToken);
+        if (visibility.IsAll)
         {
             return filter;
         }
 
-        var adminDepartments = await access.AdminDepartmentIds(organizationId, cancellationToken);
-        if (adminDepartments.Count > 0)
+        if (visibility.IsDepartments)
         {
-            if (filter.DepartmentId is Guid requested && !adminDepartments.Contains(requested))
+            if (filter.DepartmentId is Guid requested && !visibility.DepartmentIds.Contains(requested))
             {
                 throw ApiException.Forbidden();
             }
 
-            return filter.DepartmentId is not null ? filter : filter with { DepartmentIds = adminDepartments };
-        }
-
-        if (!await access.IsOrgVolunteer(organizationId, cancellationToken))
-        {
-            return filter;
+            return filter.DepartmentId is not null ? filter : filter with { DepartmentIds = visibility.DepartmentIds.ToList() };
         }
 
         if (filter.UserId is Guid userId && userId != access.ActorUserId)

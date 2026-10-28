@@ -18,6 +18,7 @@ import { useWorkspace } from "@/hooks/use-workspace";
 import { dayLabel, formatClock, formatMinutes, formatTime } from "@/lib/format";
 import type { DateRange, TimeEntry } from "@/lib/types";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { UnclassifiedBanner } from "@/components/unclassified-banner";
 import { SetupAlert } from "../setup-alert";
 
 export function OwnTimeView({ range }: { range: DateRange }) {
@@ -28,6 +29,7 @@ export function OwnTimeView({ range }: { range: DateRange }) {
 
   return (
     <div className="flex flex-col gap-6">
+      <UnclassifiedBanner />
       {missingProject || missingCategory ? (
         <SetupAlert
           isAdmin={isAdmin}
@@ -52,7 +54,7 @@ function TimerCard() {
   const [description, setDescription] = useState("");
   const [confirming, setConfirming] = useState(false);
   const running = Boolean(punch);
-  const canStart = placement.ready;
+  const canStart = placement.punchReady;
 
   return (
     <Card className="gap-0 py-0">
@@ -102,25 +104,33 @@ function TimerCard() {
           </Button>
         </div>
       </form>
-      {!running ? (
-        <div className="border-t bg-muted/30 p-4">
-          <PlacementFields state={placement} compact />
-        </div>
-      ) : null}
+      <div className="border-t bg-muted/30 p-4">
+        <PlacementFields state={placement} compact />
+      </div>
       <ConfirmDialog
         open={confirming}
         onOpenChange={setConfirming}
         title="Check this time before saving"
-        description="Confirm the project, task category, and group are right, then save."
+        description="Confirm the project, task category, and group are right, then save. You can leave them blank and classify later."
         confirmLabel="Save time"
-        onConfirm={() =>
-          clockOut.mutate(description.trim() ? { description: description.trim() } : {}, {
-            onSuccess: () => {
-              setDescription("");
-              setConfirming(false);
+        onConfirm={() => {
+          const next = placement.placement(description);
+          clockOut.mutate(
+            {
+              description: next.description,
+              tagIds: next.tagIds,
+              projectId: next.projectId,
+              taskCategoryId: next.taskCategoryId,
+              departmentId: next.departmentId,
             },
-          })
-        }
+            {
+              onSuccess: () => {
+                setDescription("");
+                setConfirming(false);
+              },
+            },
+          );
+        }}
       />
     </Card>
   );

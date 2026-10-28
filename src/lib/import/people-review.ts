@@ -1,4 +1,11 @@
 export type ReviewMember = { email: string; firstName: string | null; lastName: string | null };
+export type ReviewAction = "import" | "skip" | "merge";
+export type ReviewMatch = "Existing email" | "Near match" | "New";
+
+export function defaultReviewAction(match: ReviewMatch): ReviewAction {
+  if (match === "New") return "import";
+  return "skip";
+}
 
 export function peopleRowMatch(
   row: { firstName?: string; lastName?: string; email?: string },

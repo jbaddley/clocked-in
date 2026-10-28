@@ -46,14 +46,17 @@ test("rendered templates keep the mailed code lines", () => {
   const invite = fillTemplate(messages.invitation, {
     targetKind: "Organization",
     targetName: "North <Org>",
-    roleName: "Member",
+    organizationName: "North <Org>",
+    roleName: "Staff",
+    username: "norg",
     code: "invite-9",
     url: inviteUrl,
   });
   assert.equal(codeLine.exec(invite.text)?.[1], "invite-9");
   assert.match(invite.html, /North &lt;Org&gt;/);
   assert.match(invite.text, /North <Org>/);
+  assert.match(invite.text, /Your username will be norg/);
   assert.match(invite.text, /https:\/\/clocked\.example\/accept\?code=invite-9/);
   assert.match(invite.html, /https:\/\/clocked\.example\/accept\?code=invite-9/);
-  assert.equal(invite.subject, "You are invited to join the Organization North <Org>");
+  assert.equal(invite.subject, "North <Org> invited you to join VolunTime");
 });

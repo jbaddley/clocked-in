@@ -1,3 +1,4 @@
+using ClockedIn.Api.Features.AccessRequests;
 using ClockedIn.Api.Features.ApiKeys;
 using ClockedIn.Api.Features.Auth;
 using ClockedIn.Api.Features.Collective;
@@ -11,6 +12,7 @@ using ClockedIn.Api.Features.Memberships;
 using ClockedIn.Api.Features.Organizations;
 using ClockedIn.Api.Features.Projects;
 using ClockedIn.Api.Features.Reports;
+using ClockedIn.Api.Features.Roles;
 using ClockedIn.Api.Features.Shared;
 using ClockedIn.Api.Features.Tags;
 using ClockedIn.Api.Features.TaskCategories;
@@ -38,6 +40,8 @@ public static class FeatureRegistration
         services.AddScoped<TaskCategoriesService>();
         services.AddScoped<ProjectsService>();
         services.AddScoped<ImportsService>();
+        services.AddScoped<RolesService>();
+        services.AddScoped<AccessRequestsService>();
         services.AddScoped<InvitationsService>();
         services.AddScoped<TimeEntriesService>();
         services.AddScoped<CollectiveService>();
@@ -68,6 +72,8 @@ public static class FeatureRegistration
         app.MapTaskCategoriesEndpoints();
         app.MapProjectsEndpoints();
         app.MapImportsEndpoints();
+        app.MapRolesEndpoints();
+        app.MapAccessRequestsEndpoints();
         app.MapInvitationsEndpoints();
         app.MapTimeEntriesEndpoints();
         app.MapCollectiveEndpoints();

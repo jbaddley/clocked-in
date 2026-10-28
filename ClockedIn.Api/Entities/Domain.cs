@@ -498,8 +498,8 @@ public class UserTimeEntry
     public Guid EnteredByUserId { get; set; }
     public Guid OrganizationId { get; set; }
     public Guid? DepartmentId { get; set; }
-    public Guid ProjectId { get; set; }
-    public Guid TaskCategoryId { get; set; }
+    public Guid? ProjectId { get; set; }
+    public Guid? TaskCategoryId { get; set; }
     public Guid? HourlyRateId { get; set; }
     public TimeEntryMode Mode { get; set; }
     public DateTime? StartedAt { get; set; }
@@ -516,8 +516,8 @@ public class UserTimeEntry
     public User EnteredBy { get; set; } = null!;
     public Organization Organization { get; set; } = null!;
     public Department? Department { get; set; }
-    public Project Project { get; set; } = null!;
-    public TaskCategory TaskCategory { get; set; } = null!;
+    public Project? Project { get; set; }
+    public TaskCategory? TaskCategory { get; set; }
     public HourlyRate? Rate { get; set; }
     public ICollection<Tag> Tags { get; set; } = [];
 }

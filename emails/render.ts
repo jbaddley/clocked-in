@@ -14,6 +14,7 @@ import AccessRequestReceivedEmail, { accessRequestReceived } from "./access-requ
 import AccessRequestDecidedEmail, { accessRequestDecided } from "./access-request-decided";
 import NeedSubmittedEmail, { needSubmitted } from "./need-submitted";
 import NeedDecidedEmail, { needDecided } from "./need-decided";
+import UnclassifiedEntryEmail, { unclassifiedEntry } from "./unclassified-entry";
 
 const codeLine = /Use this code to (?:reset your VolunTime password|accept the invite):\s*\{\{code\}\}/;
 
@@ -96,6 +97,13 @@ const templates = [
       organizationName: "{{organizationName}}",
       needName: "{{needName}}",
       decision: "{{decision}}",
+    }),
+  },
+  {
+    ...unclassifiedEntry,
+    element: createElement(UnclassifiedEntryEmail, {
+      name: "{{name}}",
+      url: "{{url}}",
     }),
   },
   {

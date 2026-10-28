@@ -14,7 +14,6 @@ export const permissions = [
   "design_reports",
   "create_needs",
   "approve_needs",
-  "publish_needs",
   "create_projects",
   "archive_projects",
   "manage_lists",
@@ -61,7 +60,6 @@ export const permissionGroups: { label: string; items: { key: Permission; label:
     items: [
       { key: "create_needs", label: "Create needs" },
       { key: "approve_needs", label: "Approve needs" },
-      { key: "publish_needs", label: "Publish needs" },
       { key: "create_projects", label: "Create projects and events" },
       { key: "archive_projects", label: "Archive projects and events" },
       { key: "manage_lists", label: "Manage groups, categories, and tags" },

@@ -31,10 +31,10 @@ export function ReportActions({ range, reportId }: { range: DateRange; reportId?
           Download this view
         </DropdownMenuItem>
         <DropdownMenuItem render={<a href={csvUrl(organization.id, range)} download="volunteer-log.csv" />}>
-          Download log
+          Download Volunteer Log (grant format)
         </DropdownMenuItem>
         <DropdownMenuItem render={<a href={summaryCsvUrl(organization.id, range)} download="summary.csv" />}>
-          Download report
+          Download Summary (grant format)
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

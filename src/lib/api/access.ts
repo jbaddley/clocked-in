@@ -15,15 +15,17 @@ import { readAccessSubject } from "@/lib/api/security";
 import {
   apiKeyPermissions,
   defaultPermissionsForCode,
+  defaultScopeForCode,
   groupManagerPermissions,
   type Permission,
+  type RoleScope,
 } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 export const accountInclude = { profile: true } as const;
 export type Account = Prisma.UserGetPayload<{ include: typeof accountInclude }>;
 
-type CallerOrganization = { isActive: boolean; role: RoleCode | null; roleId: string | null };
+type CallerOrganization = { isActive: boolean; role: RoleCode | null; roleId: string | null; scope: RoleScope };
 type CallerDepartment = { departmentId: string; organizationId: string; isAdmin: boolean };
 
 export class Access {
@@ -258,6 +260,46 @@ export class Access {
     return (await this.organizationMemberships()).get(department.organizationId)?.isActive === true;
   }
 
+  async roleScope(organizationId: string): Promise<RoleScope> {
+    const membership = (await this.organizationMemberships()).get(organizationId);
+    return membership?.scope ?? defaultScopeForCode(membership?.role);
+  }
+
+  async assignedDepartmentIds(organizationId: string) {
+    const membership = (await this.organizationMemberships()).get(organizationId);
+    if (!membership?.isActive) {
+      return [];
+    }
+
+    return (await this.departmentMemberships())
+      .filter((item) => item.organizationId === organizationId)
+      .map((item) => item.departmentId);
+  }
+
+  async visibility(organizationId: string): Promise<
+    { kind: "all" } | { kind: "departments"; departmentIds: string[] } | { kind: "self" }
+  > {
+    if (this.isSuperAdmin || this.isApiKey || (await this.isOrgAdmin(organizationId))) {
+      return { kind: "all" };
+    }
+
+    const scope = await this.roleScope(organizationId);
+    if (scope === "assigned_groups") {
+      return { kind: "departments", departmentIds: await this.assignedDepartmentIds(organizationId) };
+    }
+
+    const adminDepartments = await this.adminDepartmentIds(organizationId);
+    if (adminDepartments.length > 0) {
+      return { kind: "departments", departmentIds: adminDepartments };
+    }
+
+    if (scope === "self" || (await this.isOrgVolunteer(organizationId))) {
+      return { kind: "self" };
+    }
+
+    return { kind: "all" };
+  }
+
   async adminDepartmentIds(organizationId: string) {
     const membership = (await this.organizationMemberships()).get(organizationId);
     if (!membership?.isActive) {
@@ -299,7 +341,7 @@ export class Access {
 
     if (this.apiKey) {
       this.organizations = new Map([
-        [this.apiKey.organizationId, { isActive: true, role: this.apiKey.isAdmin ? "ADMIN" : "MEMBER", roleId: null }],
+        [this.apiKey.organizationId, { isActive: true, role: this.apiKey.isAdmin ? "ADMIN" : "MEMBER", roleId: null, scope: "organization" }],
       ]);
       return this.organizations;
     }
@@ -308,7 +350,7 @@ export class Access {
       (
         await prisma.organizationMembership.findMany({
           where: { userId: this.caller.id },
-          select: { organizationId: true, isActive: true, roleId: true, role: { select: { code: true } } },
+          select: { organizationId: true, isActive: true, roleId: true, role: { select: { code: true, scope: true } } },
         })
       ).map((membership) => [
         membership.organizationId,
@@ -316,6 +358,7 @@ export class Access {
           isActive: membership.isActive,
           roleId: membership.roleId,
           role: membership.role.code || null,
+          scope: membership.role.scope || defaultScopeForCode(membership.role.code),
         },
       ]),
     );

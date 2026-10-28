@@ -10,8 +10,8 @@ public sealed record TimeEntryDto(
     Guid EnteredByUserId,
     Guid OrganizationId,
     Guid? DepartmentId,
-    Guid ProjectId,
-    Guid TaskCategoryId,
+    Guid? ProjectId,
+    Guid? TaskCategoryId,
     Guid? HourlyRateId,
     string Mode,
     DateTime? StartedAt,
@@ -169,18 +169,18 @@ public sealed record PunchFields(DateTime? StartedAt, DateTime? EndedAt, Optiona
 public sealed record EntryPlacement(
     Guid OrganizationId,
     Guid? DepartmentId,
-    Guid ProjectId,
-    Guid TaskCategoryId,
+    Guid? ProjectId,
+    Guid? TaskCategoryId,
     string? Description,
     List<Guid> TagIds,
     string? SourceRef)
 {
-    public static EntryPlacement Parse(JsonObject body)
+    public static EntryPlacement Parse(JsonObject body, bool required = true)
     {
         var organizationId = Fields.RequiredGuid(body, "organizationId");
         var departmentId = Fields.OptionalGuid(body, "departmentId");
-        var projectId = Fields.RequiredGuid(body, "projectId");
-        var taskCategoryId = Fields.RequiredGuid(body, "taskCategoryId");
+        var projectId = required ? Fields.RequiredGuid(body, "projectId") : Fields.OptionalGuid(body, "projectId");
+        var taskCategoryId = required ? Fields.RequiredGuid(body, "taskCategoryId") : Fields.OptionalGuid(body, "taskCategoryId");
         var description = Fields.OptionalDescription(body);
         var tagIds = Fields.Ids(body, "tagIds", optional: true);
         return new EntryPlacement(organizationId, departmentId, projectId, taskCategoryId, description, tagIds, Fields.SourceRef(body));
@@ -200,7 +200,7 @@ public sealed record CreateTimeEntryRequest(TimeEntryMode Mode, EntryPlacement P
             "Total" => TimeEntryMode.Total,
             _ => throw ApiException.Validation("mode must be Punch, Duration, or Total."),
         };
-        var placement = EntryPlacement.Parse(body);
+        var placement = EntryPlacement.Parse(body, mode != TimeEntryMode.Punch);
         var hourlyRateId = Fields.Has(body, "hourlyRateId") ? Fields.OptionalGuid(body, "hourlyRateId") : null;
         return mode switch
         {
@@ -230,11 +230,17 @@ public sealed record ClockInRequest(EntryPlacement Placement, Guid? HourlyRateId
         var body = await Body.Read(context);
         var hourlyRateId = Fields.Has(body, "hourlyRateId") ? Fields.OptionalGuid(body, "hourlyRateId") : null;
         var userId = Fields.Has(body, "userId") ? Fields.OptionalGuid(body, "userId") : null;
-        return new ClockInRequest(EntryPlacement.Parse(body), hourlyRateId, userId);
+        return new ClockInRequest(EntryPlacement.Parse(body, required: false), hourlyRateId, userId);
     }
 }
 
-public sealed record ClockOutRequest(Optional<string?> Description, Optional<List<Guid>> TagIds, Guid? UserId)
+public sealed record ClockOutRequest(
+    Optional<string?> Description,
+    Optional<List<Guid>> TagIds,
+    Optional<Guid?> ProjectId,
+    Optional<Guid?> TaskCategoryId,
+    Optional<Guid?> DepartmentId,
+    Guid? UserId)
 {
     public static async ValueTask<ClockOutRequest?> BindAsync(HttpContext context)
     {
@@ -242,6 +248,9 @@ public sealed record ClockOutRequest(Optional<string?> Description, Optional<Lis
         return new ClockOutRequest(
             Optional.Read(body, "description", (b, k) => Fields.Description(Fields.OptionalString(b, k))),
             Optional.Read(body, "tagIds", (b, k) => Fields.Ids(b, k, optional: false)),
+            Optional.Read(body, "projectId", Fields.OptionalGuid),
+            Optional.Read(body, "taskCategoryId", Fields.OptionalGuid),
+            Optional.Read(body, "departmentId", Fields.OptionalGuid),
             Fields.Has(body, "userId") ? Fields.OptionalGuid(body, "userId") : null);
     }
 }

@@ -16,7 +16,16 @@ export function useClock() {
     invalidate,
     onSuccess: (entry) => queryClient.setQueryData(keys.openPunch(viewer.id), entry ?? null),
   });
-  const clockOut = useActionMutation<{ description?: string | null; tagIds?: string[] }, TimeEntry>(clockOutAction, {
+  const clockOut = useActionMutation<
+    {
+      description?: string | null;
+      tagIds?: string[];
+      projectId?: string | null;
+      taskCategoryId?: string | null;
+      departmentId?: string | null;
+    },
+    TimeEntry
+  >(clockOutAction, {
     invalidate,
     onSuccess: () => queryClient.setQueryData(keys.openPunch(viewer.id), null),
   });

@@ -228,7 +228,49 @@ export async function importPeople(access: Access, organizationId: string, rows:
     const outcome = await transaction(async (tx) => {
       await lockOrganization(tx, organizationId);
       const email = normalizeEmail(requiredText(row, "email"));
-      if (seenEmails.has(email) || (await tx.user.findUnique({ where: { email }, select: { id: true } }))) {
+      const action = String(row._action ?? "").toLowerCase();
+      const existing = await tx.user.findUnique({
+        where: { email },
+        include: { profile: true, organizationMemberships: { where: { organizationId }, select: { id: true } } },
+      });
+      if (action === "skip" || (action !== "merge" && (seenEmails.has(email) || existing))) {
+        return { kind: "skip", email } as const;
+      }
+      if (action === "merge") {
+        const firstName = personName(requiredText(row, "firstName"), "firstName");
+        const lastName = personName(requiredText(row, "lastName"), "lastName");
+        const match =
+          existing ??
+          (await tx.user.findFirst({
+            where: {
+              profile: { firstName, lastName },
+              organizationMemberships: { some: { organizationId } },
+            },
+            include: { profile: true, organizationMemberships: { where: { organizationId }, select: { id: true } } },
+          }));
+        if (!match) {
+          return { kind: "skip", email } as const;
+        }
+        if (match.profile) {
+          await tx.userProfile.update({
+            where: { userId: match.id },
+            data: { firstName, lastName },
+          });
+        }
+        if (match.organizationMemberships.length === 0) {
+          const volunteerRole = roleIds.get("VOLUNTEER");
+          if (volunteerRole) {
+            await tx.organizationMembership.create({
+              data: {
+                userId: match.id,
+                organizationId,
+                roleId: volunteerRole,
+                rateType: organization.defaultRateType,
+                isActive: true,
+              },
+            });
+          }
+        }
         return { kind: "skip", email } as const;
       }
 

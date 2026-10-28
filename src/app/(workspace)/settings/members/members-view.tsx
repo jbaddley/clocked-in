@@ -84,7 +84,7 @@ function useOrgRoleOptions() {
   if (items.length === 0) return fallbackRoles;
   return items.map((role) => ({
     value: role.code,
-    label: role.code === "MEMBER" ? "Staff" : role.name,
+    label: role.name,
   }));
 }
 
@@ -609,17 +609,34 @@ function PersonActions({
   );
 }
 
+function useUsernamePreview(firstName: string, lastName: string) {
+  return useQuery({
+    queryKey: ["username-preview", firstName, lastName],
+    queryFn: ({ signal }) =>
+      fetchJson<{ username: string; base: string; collided: boolean }>(
+        `/usernames/preview?firstName=${encodeURIComponent(firstName)}&lastName=${encodeURIComponent(lastName)}`,
+        signal,
+      ),
+    enabled: firstName.trim().length > 0 && lastName.trim().length > 0,
+  });
+}
+
 function InviteForm() {
   const organization = useOrganization();
   const { isAdmin, isCoordinator, groupDepartments } = useWorkspace();
   const { lookups } = useLookups();
   const coordinated = lookups.departments.filter((department) => groupDepartments.includes(department.id));
   const roleOptions = useOrgRoleOptions();
+  const coordinatorRoles = [
+    { value: "VOLUNTEER", label: "Volunteer" },
+    { value: "ADMIN", label: "Group manager" },
+  ];
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [role, setRole] = useState("VOLUNTEER");
   const [departmentId, setDepartmentId] = useState(coordinated[0]?.id ?? "");
+  const usernamePreview = useUsernamePreview(firstName, lastName);
   const { invitations } = useInvitations();
   const invalidate = [
     keys.invitations(organization.id),
@@ -692,8 +709,20 @@ function InviteForm() {
             </Field>
           ) : null}
           <Field label="Role">
-            <SelectField value={role} onValueChange={setRole} options={roleOptions} className="h-9" />
+            <SelectField
+              value={role}
+              onValueChange={setRole}
+              options={isCoordinator ? coordinatorRoles : roleOptions}
+              className="h-9"
+            />
           </Field>
+          {usernamePreview.data?.username ? (
+            <p className="text-xs text-muted-foreground sm:col-span-3">
+              {usernamePreview.data.collided
+                ? `${usernamePreview.data.base} is taken. Will use ${usernamePreview.data.username}.`
+                : `Username will be ${usernamePreview.data.username}.`}
+            </p>
+          ) : null}
           <SubmitButton pending={invite.isPending} className="h-9 sm:col-start-3 sm:mt-6 sm:justify-self-end">
             Send invite
           </SubmitButton>
@@ -720,13 +749,21 @@ function InviteForm() {
 
 function AccessRequestsCard() {
   const organization = useOrganization();
+  const { lookups } = useLookups();
   const { data } = useQuery({
     queryKey: ["org", organization.id, "access-requests"],
     queryFn: ({ signal }) =>
-      fetchJson<Paged<{ id: string; name: string; email: string; status: string; message: string | null }>>(
-        `/organizations/${organization.id}/access-requests?limit=50`,
-        signal,
-      ),
+      fetchJson<
+        Paged<{
+          id: string;
+          name: string;
+          email: string;
+          status: string;
+          message: string | null;
+          requestedRole: { code: string; name: string } | null;
+          requestedDepartmentIds: string[];
+        }>
+      >(`/organizations/${organization.id}/access-requests?limit=50`, signal),
   });
   const decide = useActionMutation(
     ({ id, status }: { id: string; status: "approved" | "declined" }) => decideAccessRequestAction(organization.id, id, status),
@@ -746,7 +783,17 @@ function AccessRequestsCard() {
             <li key={item.id} className="flex flex-wrap items-center gap-3 px-3 py-2">
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">{item.name}</p>
-                <p className="text-xs text-muted-foreground">{item.email}{item.message ? ` · ${item.message}` : ""}</p>
+                <p className="text-xs text-muted-foreground">
+                  {item.email}
+                  {item.requestedRole ? ` · ${item.requestedRole.name}` : ""}
+                  {item.requestedDepartmentIds.length
+                    ? ` · ${item.requestedDepartmentIds
+                        .map((id) => lookups.departments.find((department) => department.id === id)?.name)
+                        .filter(Boolean)
+                        .join(", ")}`
+                    : ""}
+                  {item.message ? ` · ${item.message}` : ""}
+                </p>
               </div>
               <Button type="button" size="sm" onClick={() => decide.mutate({ id: item.id, status: "approved" })}>
                 Approve
@@ -836,7 +883,7 @@ function AddPersonForm({ onCancel, onSaved }: { onCancel: () => void; onSaved: (
   const organization = useOrganization();
   const roleOptions = useOrgRoleOptions();
   const [role, setRole] = useState("VOLUNTEER");
-  const [departmentIds, setDepartmentIds] = useState<string[]>([]);
+  const [groups, setGroups] = useState<GroupAssignment[]>([]);
   const [emailUser, setEmailUser] = useState(true);
   const create = useActionMutation((input: NewPerson) => createPersonAction(organization.id, input), {
     invalidate: [keys.members(organization.id)],
@@ -858,7 +905,8 @@ function AddPersonForm({ onCancel, onSaved }: { onCancel: () => void; onSaved: (
           firstName: String(data.get("firstName") ?? ""),
           lastName: String(data.get("lastName") ?? ""),
           role,
-          departmentIds,
+          departmentIds: groups.map((group) => group.departmentId),
+          managedDepartmentIds: groups.filter((group) => group.manager).map((group) => group.departmentId),
           emailUser,
         });
       }}
@@ -897,7 +945,7 @@ function AddPersonForm({ onCancel, onSaved }: { onCancel: () => void; onSaved: (
           <SelectField value={role} onValueChange={setRole} options={roleOptions} className="h-9" />
         </Field>
       </div>
-      <DepartmentChecks value={departmentIds} onChange={setDepartmentIds} />
+      <DepartmentChecks value={groups} onChange={setGroups} />
       <FormMessage result={create.error ? { ok: false, error: create.error.message } : null} />
       <DialogActions form="add-person-form">
         <Button type="button" variant="outline" onClick={onCancel}>
@@ -921,7 +969,12 @@ function EditPersonForm({
   const organization = useOrganization();
   const roleOptions = useOrgRoleOptions();
   const [role, setRole] = useState(member.role.code);
-  const [departmentIds, setDepartmentIds] = useState(member.departmentIds ?? []);
+  const [groups, setGroups] = useState<GroupAssignment[]>(
+    (member.departmentIds ?? []).map((departmentId) => ({
+      departmentId,
+      manager: (member.managedDepartmentIds ?? []).includes(departmentId),
+    })),
+  );
   const [profile, setProfile] = useState({
     email: member.user.email,
     firstName: member.user.firstName ?? "",
@@ -978,7 +1031,8 @@ function EditPersonForm({
         event.preventDefault();
         save.mutate({
           role,
-          departmentIds,
+          departmentIds: groups.map((group) => group.departmentId),
+          managedDepartmentIds: groups.filter((group) => group.manager).map((group) => group.departmentId),
           email: profile.email,
           firstName: profile.firstName,
           lastName: profile.lastName,
@@ -999,7 +1053,7 @@ function EditPersonForm({
           <Field label="Role">
             <SelectField value={role} onValueChange={setRole} options={roleOptions} className="h-9" />
           </Field>
-          <DepartmentChecks value={departmentIds} onChange={setDepartmentIds} />
+          <DepartmentChecks value={groups} onChange={setGroups} />
         </TabsContent>
         <TabsContent value="profile" className="mt-4 grid gap-4 sm:grid-cols-2">
           <Field label="Email" htmlFor="edit-email" className="sm:col-span-2" hint="Invite and password codes go to this address.">
@@ -1085,7 +1139,15 @@ function EditPersonForm({
   );
 }
 
-function DepartmentChecks({ value, onChange }: { value: string[]; onChange: (value: string[]) => void }) {
+type GroupAssignment = { departmentId: string; manager: boolean };
+
+function DepartmentChecks({
+  value,
+  onChange,
+}: {
+  value: GroupAssignment[];
+  onChange: (value: GroupAssignment[]) => void;
+}) {
   const { lookups } = useLookups();
   const copy = useLabels();
   if (lookups.departments.length === 0) {
@@ -1094,20 +1156,39 @@ function DepartmentChecks({ value, onChange }: { value: string[]; onChange: (val
 
   return (
     <Field label={copy.departments}>
-      <ul className="grid gap-2 sm:grid-cols-2">
+      <ul className="grid gap-3">
         {lookups.departments.map((department) => {
-          const checked = value.includes(department.id);
+          const assignment = value.find((item) => item.departmentId === department.id);
           return (
-            <li key={department.id}>
+            <li key={department.id} className="flex flex-wrap items-center gap-x-4 gap-y-1">
               <label className="flex items-center gap-2 text-sm">
                 <Checkbox
-                  checked={checked}
+                  checked={Boolean(assignment)}
                   onCheckedChange={(next) => {
-                    onChange(next === true ? [...value, department.id] : value.filter((id) => id !== department.id));
+                    onChange(
+                      next === true
+                        ? [...value, { departmentId: department.id, manager: false }]
+                        : value.filter((item) => item.departmentId !== department.id),
+                    );
                   }}
                 />
                 {department.name}
               </label>
+              {assignment ? (
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Checkbox
+                    checked={assignment.manager}
+                    onCheckedChange={(next) => {
+                      onChange(
+                        value.map((item) =>
+                          item.departmentId === department.id ? { ...item, manager: next === true } : item,
+                        ),
+                      );
+                    }}
+                  />
+                  Group manager
+                </label>
+              ) : null}
             </li>
           );
         })}

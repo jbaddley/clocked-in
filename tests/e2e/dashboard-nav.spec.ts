@@ -1,5 +1,5 @@
 /**
- * Dashboard cards navigate to filtered reports. Local named seed only.
+ * Dashboard cards open the entries behind them.
  */
 import { expect, test } from "@playwright/test";
 import { createOrgPerson, deleteMembershipByEmail, loginAs } from "./helpers";
@@ -17,10 +17,10 @@ test.afterAll(async ({ request }) => {
   await deleteMembershipByEmail(request, person.email);
 });
 
-test("your hours card opens reports for that person", async ({ page, request }) => {
-  const created = await createOrgPerson(request, person);
+test("volunteer hours card opens entries", async ({ page, request }) => {
+  await createOrgPerson(request, person);
   await loginAs(page, person.username, person.password);
   await page.goto("/dashboard");
-  await page.getByText("Your hours").click();
-  await expect(page).toHaveURL(new RegExp(`/reports\\?userId=${created.membership.userId}`));
+  await page.getByRole("link", { name: /volunteer hours/i }).first().click();
+  await expect(page).toHaveURL(/\/entries/);
 });

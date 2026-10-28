@@ -143,19 +143,64 @@
 
 .brand-rule {
   height: 3px;
-  background-image: var(--brand-accent-image, linear-gradient(90deg, var(--highlight), var(--accent)));
+  background-image: var(
+    --brand-accent-image,
+    linear-gradient(90deg, #ec4899 0%, #eab308 52%, #14b8a6 100%)
+  );
   background-size: cover;
   background-position: center;
 }
 
+.brand-mesh {
+  background-image:
+    radial-gradient(ellipse 70% 60% at 12% 18%, #ec4899 0%, transparent 70%),
+    radial-gradient(ellipse 55% 50% at 82% 20%, #eab308 0%, transparent 65%),
+    radial-gradient(ellipse 60% 55% at 72% 82%, #14b8a6 0%, transparent 70%),
+    radial-gradient(ellipse 45% 40% at 22% 78%, #f472b6 0%, transparent 65%);
+}
+
 .brand-hero,
 .brand-hero-white {
+  position: relative;
   background-color: var(--surface, var(--background));
 }
 
+.brand-hero-white::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.3;
+  pointer-events: none;
+  background-image:
+    radial-gradient(ellipse 70% 60% at 12% 18%, #ec4899 0%, transparent 70%),
+    radial-gradient(ellipse 55% 50% at 82% 20%, #eab308 0%, transparent 65%),
+    radial-gradient(ellipse 60% 55% at 72% 82%, #14b8a6 0%, transparent 70%),
+    radial-gradient(ellipse 45% 40% at 22% 78%, #f472b6 0%, transparent 65%);
+}
+
 .brand-hero-navy {
+  position: relative;
   background-color: var(--primary);
   color: var(--primary-foreground);
+}
+
+.brand-hero-navy::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.45;
+  pointer-events: none;
+  background-image:
+    radial-gradient(ellipse 70% 60% at 12% 18%, #ec4899 0%, transparent 70%),
+    radial-gradient(ellipse 55% 50% at 82% 20%, #eab308 0%, transparent 65%),
+    radial-gradient(ellipse 60% 55% at 72% 82%, #14b8a6 0%, transparent 70%),
+    radial-gradient(ellipse 45% 40% at 22% 78%, #f472b6 0%, transparent 65%);
+}
+
+.brand-hero-navy > *,
+.brand-hero-white > * {
+  position: relative;
+  z-index: 1;
 }
 
 /* Highlight is an accent, not body text, so only the warning icon takes it. */
