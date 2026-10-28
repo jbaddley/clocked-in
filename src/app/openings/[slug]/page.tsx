@@ -1,12 +1,30 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
+import { Suspense } from "react";
+import { ApiError } from "@/lib/api/errors";
 import { listPublicNeeds } from "@/lib/api/features/volunteer-needs";
 
 export const metadata: Metadata = { title: "Open volunteer needs" };
 
-export default async function PublicOpeningsPage({ params }: PageProps<"/openings/[slug]">) {
+export default function PublicOpeningsPage({ params }: PageProps<"/openings/[slug]">) {
+  return (
+    <Suspense fallback={<PublicOpeningsSkeleton />}>
+      <PublicOpenings params={params} />
+    </Suspense>
+  );
+}
+
+async function PublicOpenings({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const catalog = await listPublicNeeds(slug);
+  let catalog: Awaited<ReturnType<typeof listPublicNeeds>>;
+  try {
+    catalog = await listPublicNeeds(slug);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) notFound();
+    throw error;
+  }
+
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-10">
       <div>
@@ -32,6 +50,19 @@ export default async function PublicOpeningsPage({ params }: PageProps<"/opening
           ))}
         </ul>
       )}
+    </main>
+  );
+}
+
+function PublicOpeningsSkeleton() {
+  return (
+    <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-10">
+      <div className="animate-pulse">
+        <div className="h-4 w-36 rounded bg-muted" />
+        <div className="mt-3 h-9 w-64 max-w-full rounded bg-muted" />
+        <div className="mt-3 h-4 w-80 max-w-full rounded bg-muted" />
+      </div>
+      <div className="h-28 animate-pulse rounded-xl bg-muted" />
     </main>
   );
 }
