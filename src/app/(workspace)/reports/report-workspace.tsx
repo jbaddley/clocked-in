@@ -27,7 +27,8 @@ import {
   standardReports,
   viewerSlug,
 } from "@/lib/report-slug";
-import { listedSavedReports, ReportMenu } from "./report-menu";
+import { ReportMenu } from "./report-menu";
+import { listedSavedReports } from "./report-switcher";
 import { ReportFilters, reportFiltersFromSearch } from "./report-filters";
 
 type ResolvedReport = {
