@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   canonicalStandardSlug,
+  designerLookupById,
+  designerWaiting,
   isReportId,
   isReportViewerPath,
   isStandardSlug,
@@ -59,4 +61,32 @@ test("viewer paths exclude designer and reserved routes", () => {
   assert.equal(viewerSlug("/reports/summary"), "summary");
   assert.equal(isReportId("11111111-1111-4111-8111-111111111101"), true);
   assert.equal(isReportId("summary"), false);
+});
+
+test("designer lookup by id is only for UUID slugs missing from the list", () => {
+  const id = "11111111-1111-4111-8111-111111111101";
+  assert.equal(designerLookupById("amazing-report", false), false);
+  assert.equal(designerLookupById("amazing-report", true), false);
+  assert.equal(designerLookupById(id, true), false);
+  assert.equal(designerLookupById(id, false), true);
+  assert.equal(designerLookupById(undefined, false), false);
+});
+
+test("designer waits for the list or an enabled UUID lookup, not a disabled query", () => {
+  assert.equal(
+    designerWaiting({ listPending: true, foundInList: false, lookupEnabled: false, lookupPending: true }),
+    true,
+  );
+  assert.equal(
+    designerWaiting({ listPending: false, foundInList: true, lookupEnabled: false, lookupPending: true }),
+    false,
+  );
+  assert.equal(
+    designerWaiting({ listPending: false, foundInList: false, lookupEnabled: true, lookupPending: true }),
+    true,
+  );
+  assert.equal(
+    designerWaiting({ listPending: false, foundInList: false, lookupEnabled: true, lookupPending: false }),
+    false,
+  );
 });

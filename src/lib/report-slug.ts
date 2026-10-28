@@ -29,6 +29,24 @@ export function isReportId(value: string) {
   return reportIdPattern.test(value);
 }
 
+export function designerLookupById(slug: string | undefined, foundInList: boolean) {
+  return Boolean(slug && isReportId(slug) && !foundInList);
+}
+
+export function designerWaiting({
+  listPending,
+  foundInList,
+  lookupEnabled,
+  lookupPending,
+}: {
+  listPending: boolean;
+  foundInList: boolean;
+  lookupEnabled: boolean;
+  lookupPending: boolean;
+}) {
+  return (listPending && !foundInList) || (lookupEnabled && lookupPending);
+}
+
 export function isStandardSlug(slug: string): slug is StandardReportSlug {
   return standardReports.some((item) => item.slug === slug);
 }

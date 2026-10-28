@@ -11,7 +11,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { PageHeader } from "@/components/page-header";
 import { ReportGrid } from "@/components/report-grid";
 import { SelectField, type Option } from "@/components/select-field";
-import { StatsSkeleton } from "@/components/skeletons";
+import { DesignerSkeleton } from "@/components/skeletons";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -73,7 +73,14 @@ import {
   type ValueColor,
 } from "@/lib/report-layout";
 import { scalarAccessors, seriesAccessors } from "@/lib/report-path";
-import { isReportId, reportPath, slugForSavedReport, standardSlugForKey } from "@/lib/report-slug";
+import {
+  designerLookupById,
+  designerWaiting,
+  isReportId,
+  reportPath,
+  slugForSavedReport,
+  standardSlugForKey,
+} from "@/lib/report-slug";
 import { cn } from "cn";
 
 const designerPreferencesKey = "clocked-in.report-designer";
@@ -962,9 +969,10 @@ export function ReportDesigner({ reportSlug, dashboard = false }: { reportSlug?:
   const listed = reports.find(
     (item) => item.id === reportSlug || slugForSavedReport(item.name) === reportSlug,
   );
+  const lookupById = designerLookupById(reportSlug, Boolean(listed));
   const existing = useQuery({
     ...savedReportQuery(organization.id, reportSlug ?? ""),
-    enabled: Boolean(reportSlug && isReportId(reportSlug) && !listed && !isPending),
+    enabled: lookupById && !isPending,
   });
   const report = listed ?? existing.data ?? null;
 
@@ -975,7 +983,7 @@ export function ReportDesigner({ reportSlug, dashboard = false }: { reportSlug?:
   }, [report, reportSlug, router]);
 
   if (dashboard) {
-    if (isPending) return <StatsSkeleton />;
+    if (isPending) return <DesignerSkeleton />;
     const saved = reports.find((item) => item.isDashboard);
     if (saved) return <ArrangeCanvas key={saved.id} mode="report" report={saved} dashboard />;
     return (
@@ -999,7 +1007,16 @@ export function ReportDesigner({ reportSlug, dashboard = false }: { reportSlug?:
   }
 
   if (!reportSlug) return <ReportSetup />;
-  if ((isPending && !listed) || existing.isPending) return <StatsSkeleton />;
+  if (
+    designerWaiting({
+      listPending: isPending,
+      foundInList: Boolean(listed),
+      lookupEnabled: lookupById,
+      lookupPending: existing.isPending,
+    })
+  ) {
+    return <DesignerSkeleton />;
+  }
   if (!report) {
     return <p className="text-sm text-muted-foreground">That report is not available.</p>;
   }
@@ -1011,7 +1028,7 @@ export function TemplateDesigner({ templateId }: { templateId: string }) {
   const organization = useOrganization();
   const existing = useQuery(reportTemplateQuery(organization.id, templateId));
 
-  if (existing.isPending) return <StatsSkeleton />;
+  if (existing.isPending) return <DesignerSkeleton />;
   if (existing.isError || !existing.data) {
     return <p className="text-sm text-muted-foreground">That template is not available.</p>;
   }
