@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeftIcon, ChartColumnIcon, CircleHelpIcon, HashIcon, InboxIcon, ListIcon, XIcon, ZoomInIcon, ZoomOutIcon } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Field } from "@/components/field";
 import { IconPickerDialog, iconLabel } from "@/components/icon-picker-dialog";
@@ -61,6 +61,8 @@ import {
   listSortDirs,
   listSortKeys,
   builtinTemplateIds,
+  filtersFromSearch,
+  reportLayoutAutosave,
   reportTemplate,
   reportTemplateIds,
   reportTemplateLabel,
@@ -202,19 +204,27 @@ function useTemplateChoices() {
 
 function ReportSetup() {
   const router = useRouter();
+  const search = useSearchParams();
   const { organization, choices } = useTemplateChoices();
   const [name, setName] = useState("");
   const [isDefault, setIsDefault] = useState(false);
   const [startFrom, setStartFrom] = useState("blank");
   const [error, setError] = useState<string | null>(null);
+  const startHint = search.get("startFrom");
+  const matchedStart = choices.find((item) => item.id === startFrom || item.id === startHint || item.key === startHint);
+
+  useEffect(() => {
+    if (matchedStart && matchedStart.id !== startFrom) setStartFrom(matchedStart.id);
+  }, [matchedStart, startFrom]);
+
   const save = useMutation({
     mutationFn: async () => {
-      const chosen = choices.find((item) => item.id === startFrom);
+      const chosen = choices.find((item) => item.id === startFrom) ?? matchedStart;
       const result = await createReportAction(organization.id, {
         name,
         isDefault,
         layout: chosen?.layout ?? emptyLayout(),
-        filters: {},
+        filters: filtersFromSearch(search),
       });
       if (!result.ok || !result.data) {
         throw new Error(result.ok ? "The report could not be saved." : result.error);
@@ -354,17 +364,14 @@ function ArrangeCanvas({
             name: report?.name || "Dashboard",
             isDashboard: dashboard,
             layout: nextLayout,
-            filters: {},
+            ...(dashboard ? {} : { filters: report?.filters ?? {} }),
           });
           if (!result.ok || !result.data) throw new Error(result.ok ? "The report could not be saved." : result.error);
           reportIdRef.current = result.data.id;
           await queryClient.invalidateQueries({ queryKey: keys.savedReports(organization.id) });
           await queryClient.invalidateQueries({ queryKey: keys.savedReport(organization.id, result.data.id) });
         } else {
-          const result = await updateReportAction(organization.id, reportIdRef.current, {
-            layout: nextLayout,
-            filters: {},
-          });
+          const result = await updateReportAction(organization.id, reportIdRef.current, reportLayoutAutosave(nextLayout));
           if (!result.ok) throw new Error(result.error);
           await queryClient.invalidateQueries({ queryKey: keys.savedReports(organization.id) });
           await queryClient.invalidateQueries({ queryKey: keys.savedReport(organization.id, reportIdRef.current) });

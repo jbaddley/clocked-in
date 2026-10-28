@@ -63,6 +63,13 @@ export function reportPath(slug: string, search?: URLSearchParams | string | nul
   return query ? `/reports/${slug}?${query}` : `/reports/${slug}`;
 }
 
+export function newReportPath(search?: URLSearchParams | string | null, startFrom?: string | null) {
+  const params = new URLSearchParams(typeof search === "string" ? search : (search?.toString() ?? ""));
+  if (startFrom) params.set("startFrom", startFrom);
+  const query = params.toString();
+  return query ? `/reports/new?${query}` : "/reports/new";
+}
+
 export function lastReportStorageKey(organizationId: string) {
   return `clocked-in.last-report:${organizationId}`;
 }

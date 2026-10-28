@@ -2,11 +2,13 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { PageHeader } from "@/components/page-header";
 import { ReportGrid } from "@/components/report-grid";
 import { CardSkeleton, StatsSkeleton } from "@/components/skeletons";
 import { useLabels } from "@/hooks/use-labels";
+import { useLookups } from "@/hooks/use-lookups";
+import { useMembers } from "@/hooks/use-members";
 import { useReport } from "@/hooks/use-report";
 import { useSavedReports } from "@/hooks/use-saved-reports";
 import { useOrganization } from "@/hooks/use-workspace";
@@ -14,7 +16,8 @@ import type { ReportTemplate } from "@/lib/api/features/report-templates";
 import type { SavedReport } from "@/lib/api/features/saved-reports";
 import type { EntityLabels } from "@/lib/labels";
 import { reportTemplatesQuery } from "@/lib/queries";
-import { builtinTemplateIds, reportTemplate, type ReportCard } from "@/lib/report-layout";
+import { personLabel, reportFilterSummary } from "@/lib/report-filter-summary";
+import { builtinTemplateIds, filtersQuery, reportTemplate, type ReportCard } from "@/lib/report-layout";
 import {
   canonicalStandardSlug,
   isReportId,
@@ -29,8 +32,11 @@ import { ReportFilters, reportFiltersFromSearch } from "./report-filters";
 
 type ResolvedReport = {
   slug: string;
+  title: string;
   cards: ReportCard[];
   editHref: string | null;
+  saved: SavedReport | null;
+  templateKey: string | null;
 };
 
 function readLastSlug(organizationId: string) {
@@ -70,14 +76,20 @@ function resolveStandard(
   if (saved) {
     return {
       slug,
+      title: spec.label,
       cards: saved.layout.cards,
       editHref: `/reports/templates/${saved.id}/design`,
+      saved: null,
+      templateKey: spec.key,
     };
   }
   return {
     slug,
+    title: spec.label,
     cards: reportTemplate(spec.key, copy).cards,
     editHref: `/reports/templates/${builtinTemplateIds[spec.key]}/design`,
+    saved: null,
+    templateKey: spec.key,
   };
 }
 
@@ -86,8 +98,11 @@ function resolveCustom(slug: string, reports: SavedReport[]): ResolvedReport | n
   if (!report) return null;
   return {
     slug: slugForSavedReport(report.name),
+    title: report.name,
     cards: report.layout.cards,
     editHref: `/reports/${slugForSavedReport(report.name)}/design`,
+    saved: report,
+    templateKey: null,
   };
 }
 
@@ -97,16 +112,18 @@ export function ReportWorkspace() {
   const search = useSearchParams();
   const organization = useOrganization();
   const copy = useLabels();
+  const { names } = useLookups();
+  const { members } = useMembers();
   const slug = viewerSlug(pathname ?? "");
-  const filters = reportFiltersFromSearch(search);
+  const urlFilters = reportFiltersFromSearch(search);
   const { reports, isPending: reportsPending } = useSavedReports();
   const listed = useMemo(() => listedSavedReports(reports), [reports]);
   const templates = useQuery({
     ...reportTemplatesQuery(organization.id),
     enabled: Boolean(organization.id),
   });
-  const { data: report, isFetching, isPending } = useReport(filters);
   const query = search.toString();
+  const appliedFiltersFor = useRef<string | null>(null);
 
   const canonical = slug ? canonicalStandardSlug(slug) : null;
   const uuidReport = slug && isReportId(slug) ? reports.find((item) => item.id === slug) : null;
@@ -114,6 +131,16 @@ export function ReportWorkspace() {
     if (!slug) return null;
     return resolveStandard(slug, templates.data ?? [], copy) ?? resolveCustom(slug, listed);
   }, [copy, listed, slug, templates.data]);
+
+  const useStored = Boolean(resolved?.saved) && appliedFiltersFor.current !== resolved?.slug;
+  const filters = useStored && resolved?.saved ? resolved.saved.filters : urlFilters;
+  const { data: report, isFetching, isPending } = useReport(filters);
+
+  const personNames = useMemo(
+    () => new Map(members.map((member) => [member.userId, personLabel(member.user)])),
+    [members],
+  );
+  const filterSummary = reportFilterSummary(filters, { ...names, person: personNames }, copy);
 
   useEffect(() => {
     if (!organization.id) return;
@@ -139,6 +166,18 @@ export function ReportWorkspace() {
       return;
     }
 
+    if (resolved?.saved) {
+      if (appliedFiltersFor.current !== resolved.slug) {
+        appliedFiltersFor.current = resolved.slug;
+        const next = filtersQuery(resolved.saved.filters);
+        if (next !== query) {
+          router.replace(reportPath(resolved.slug, next), { scroll: false });
+        }
+      }
+    } else {
+      appliedFiltersFor.current = null;
+    }
+
     if (resolved) {
       writeLastSlug(organization.id, resolved.slug);
     }
@@ -160,10 +199,14 @@ export function ReportWorkspace() {
               {isFetching ? <span className="text-xs text-muted-foreground">Updating…</span> : null}
               <ReportMenu
                 active={resolved?.slug ?? null}
+                title={resolved?.title ?? "Report"}
                 filters={filters}
+                filterSummary={filterSummary}
                 editHref={resolved?.editHref}
                 cards={resolved?.cards ?? []}
                 data={report}
+                saved={resolved?.saved ?? null}
+                templateKey={resolved?.templateKey ?? null}
               />
             </div>
           </div>

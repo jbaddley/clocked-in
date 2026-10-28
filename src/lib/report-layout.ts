@@ -361,7 +361,45 @@ export function normalizeLayout(value: unknown): ReportLayout {
   return { version: 1, cards };
 }
 
-const filterKeys = ["departmentId", "taskCategoryId", "projectId", "userId", "from", "to"] as const;
+export const reportFilterKeys = ["departmentId", "taskCategoryId", "projectId", "userId", "from", "to"] as const;
+
+const dateOnly = /^\d{4}-\d{2}-\d{2}$/;
+
+export function filtersQuery(filters: ReportFilters) {
+  const params = new URLSearchParams();
+  for (const key of reportFilterKeys) {
+    const value = filters[key];
+    if (value) params.set(key, value);
+  }
+  return params.toString();
+}
+
+export function filtersEqual(left: ReportFilters, right: ReportFilters) {
+  return reportFilterKeys.every((key) => (left[key] ?? "") === (right[key] ?? ""));
+}
+
+/** Layout-only PATCH body so designer autosave does not wipe stored filters. */
+export function reportLayoutAutosave(layout: ReportLayout) {
+  return { layout };
+}
+
+export function filtersFromSearch(search: { get: (key: string) => string | null }): ReportFilters {
+  const filters: ReportFilters = {};
+  for (const key of reportFilterKeys) {
+    const value = search.get(key);
+    if (!value) continue;
+    if (key === "from" || key === "to") {
+      if (dateOnly.test(value)) filters[key] = value;
+      continue;
+    }
+    if (uuid.test(value)) filters[key] = value;
+  }
+  return filters;
+}
+
+export function cardsInReadingOrder<T extends Box>(cards: T[]) {
+  return [...cards].sort((left, right) => left.row - right.row || left.column - right.column);
+}
 
 export function normalizeFilters(value: unknown): ReportFilters {
   if (value === undefined) {
@@ -370,7 +408,7 @@ export function normalizeFilters(value: unknown): ReportFilters {
 
   const source = asObject(value, "filters");
   const filters: ReportFilters = {};
-  for (const key of filterKeys) {
+  for (const key of reportFilterKeys) {
     const field = take(source, key);
     if (!field.has || field.value === null) {
       continue;

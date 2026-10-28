@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { MoreVerticalIcon } from "lucide-react";
 import { cn } from "cn";
 import { ChartPlot } from "@/components/charts";
@@ -69,6 +70,7 @@ export function ChartCard({
   onChartTypeChange?: (chartType: ChartType) => void;
   onPaletteChange?: (palette: PaletteType) => void;
 }) {
+  const router = useRouter();
   const { theme } = useOrganization();
   const [chartTypeState, setChartType] = useState(chartTypeProp);
   const [paletteState, setPalette] = useState<PaletteType>(() => defaultPalette(chartTypeProp, paletteProp));
@@ -154,6 +156,7 @@ export function ChartCard({
             valueKey={valueKey}
             pattern={pattern ?? patternFor(format)}
             rowHref={rowHref}
+            navigate={(href) => router.push(href)}
           />
         ) : (
           <p className="text-sm text-muted-foreground">{empty}</p>

@@ -205,6 +205,19 @@ describe("saved reports", suite, () => {
     assert.equal(cleared.json.user.hours, 1.5);
   });
 
+  test("a layout patch without filters keeps stored filters", async () => {
+    const updated = await callApi(`/organizations/${ctx.org.id}/reports/${ctx.report.id}`, {
+      method: "PATCH",
+      token: ctx.admin.accessToken,
+      body: { layout: layout([valueCard()]) },
+    });
+    assertStatus(updated, 200);
+    assert.equal(updated.json.layout.cards.length, 1);
+    assert.equal(updated.json.filters.departmentId, ctx.department.id);
+    assert.equal(updated.json.filters.from, "2026-11-01");
+    assert.equal(updated.json.filters.to, "2026-11-30");
+  });
+
   test("an admin can rename and delete a design", async () => {
     const renamed = label("Renamed");
     const updated = await callApi(`/organizations/${ctx.org.id}/reports/${ctx.second.id}`, {
