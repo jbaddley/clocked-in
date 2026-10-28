@@ -50,7 +50,7 @@ const viewCopy: Record<string, RegExp | string> = {
   "/settings/theme": /Chart palettes stay/,
   "/settings/brand": "Square mark for the browser tab",
   "/settings/email-templates": /Every email .* sends/,
-  "/profile": "About you",
+  "/profile": "Name, contact, and sign-in are saved together.",
   "/accept": "Accept an invite",
 };
 
