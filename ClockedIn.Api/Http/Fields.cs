@@ -433,6 +433,30 @@ public static class Fields
         return id;
     }
 
+    public static IReadOnlyList<Guid>? QueryGuids(string? text, string key)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return null;
+        }
+
+        var ids = new List<Guid>();
+        foreach (var part in text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (!Guid.TryParse(part, out var id))
+            {
+                throw ApiException.Validation($"{key} must be an id.");
+            }
+
+            if (!ids.Contains(id))
+            {
+                ids.Add(id);
+            }
+        }
+
+        return ids.Count == 0 ? null : ids;
+    }
+
     public static DateOnly? QueryDate(string? text, string key)
     {
         if (string.IsNullOrEmpty(text))

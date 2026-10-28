@@ -19,14 +19,22 @@ function monthRange(id: string) {
   };
 }
 
+/** The entries list filters on one id per field; multi-id report filters stay off the link. */
+function single(ids: string[] | undefined) {
+  return ids?.length === 1 ? ids[0] : undefined;
+}
+
 export function entriesSearch(filter: EntriesHrefFilter) {
   const params = new URLSearchParams();
-  if (filter.from) params.set("from", filter.from);
-  if (filter.to) params.set("to", filter.to);
-  if (filter.userId) params.set("person", filter.userId);
-  if (filter.projectId) params.set("projectId", filter.projectId);
-  if (filter.taskCategoryId) params.set("taskCategoryId", filter.taskCategoryId);
-  if (filter.departmentId) params.set("departmentId", filter.departmentId);
+  const set = (key: string, value: string | undefined) => {
+    if (value) params.set(key, value);
+  };
+  set("from", filter.from);
+  set("to", filter.to);
+  set("person", single(filter.userId));
+  set("projectId", single(filter.projectId));
+  set("taskCategoryId", single(filter.taskCategoryId));
+  set("departmentId", single(filter.departmentId));
   if (filter.unclassified) params.set("unclassified", "1");
   if (filter.everyone) params.set("everyone", "1");
   const text = params.toString();
@@ -60,13 +68,13 @@ export function entriesHrefFromAccessor(
     if (rowId === "unclassified") {
       filter.unclassified = true;
     } else if (dimension === "byCategory") {
-      filter.taskCategoryId = rowId;
+      filter.taskCategoryId = [rowId];
     } else if (dimension === "byProject") {
-      filter.projectId = rowId;
+      filter.projectId = [rowId];
     } else if (dimension === "byDepartment" && rowId !== "organization") {
-      filter.departmentId = rowId;
+      filter.departmentId = [rowId];
     } else if (dimension === "byPerson" || dimension === "byVolunteer") {
-      filter.userId = rowId;
+      filter.userId = [rowId];
       filter.everyone = false;
     } else if (dimension === "byMonth") {
       const month = monthRange(rowId);

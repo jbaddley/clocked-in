@@ -5,9 +5,15 @@ import { entriesHref, entriesHrefFromAccessor } from "../src/lib/entries-href.ts
 test("entriesHref writes known query keys", () => {
   assert.equal(entriesHref(), "/entries");
   assert.equal(
-    entriesHref({ from: "2026-10-01", taskCategoryId: "11111111-1111-4111-8111-111111111111", everyone: true }),
+    entriesHref({ from: "2026-10-01", taskCategoryId: ["11111111-1111-4111-8111-111111111111"], everyone: true }),
     "/entries?from=2026-10-01&taskCategoryId=11111111-1111-4111-8111-111111111111&everyone=1",
   );
+});
+
+test("entriesHref keeps single-id report filters and drops multi-id ones", () => {
+  const a = "11111111-1111-4111-8111-111111111111";
+  const b = "22222222-2222-4222-8222-222222222222";
+  assert.equal(entriesHref({ projectId: [a], userId: [a, b] }), `/entries?projectId=${a}`);
 });
 
 test("value cards open organization entries", () => {

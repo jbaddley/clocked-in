@@ -214,6 +214,45 @@ describe("reports", suite, () => {
     assert.match(response.text, /Label,Hours,In-kind/);
     assert.match(response.text, new RegExp(escapeRegExp(ctx.project.title)));
   });
+
+  test("comma-separated department ids return the union", async () => {
+    const first = await createJson(ctx.admin.accessToken, `/organizations/${ctx.org.id}/departments`, {
+      name: label("Union department A"),
+    });
+    const second = await createJson(ctx.admin.accessToken, `/organizations/${ctx.org.id}/departments`, {
+      name: label("Union department B"),
+    });
+    for (const [department, minutes] of [
+      [first, 60],
+      [second, 30],
+    ]) {
+      await createJson(ctx.admin.accessToken, "/time/duration", {
+        organizationId: ctx.org.id,
+        userId: ctx.member.user.id,
+        departmentId: department.id,
+        projectId: ctx.project.id,
+        taskCategoryId: ctx.category.id,
+        durationMinutes: minutes,
+        occurredOn: "2027-03-02",
+      });
+    }
+    const hours = async (departmentId) => {
+      const response = await callApi(`/organizations/${ctx.org.id}/report`, {
+        token: ctx.admin.accessToken,
+        query: { from: "2027-03-01", to: "2027-03-31", departmentId },
+      });
+      assert.equal(response.status, 200, response.text);
+      return response.json.user.hours;
+    };
+    assert.equal(await hours(first.id), 1);
+    assert.equal(await hours(second.id), 0.5);
+    assert.equal(await hours(`${first.id},${second.id}`), 1.5);
+    const invalid = await callApi(`/organizations/${ctx.org.id}/report`, {
+      token: ctx.admin.accessToken,
+      query: { departmentId: `${first.id},nope` },
+    });
+    assertError(invalid, 400, "validation_error", "departmentId must be an id.");
+  });
 });
 
 function escapeRegExp(value) {

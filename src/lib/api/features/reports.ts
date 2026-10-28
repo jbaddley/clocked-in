@@ -1,30 +1,33 @@
 import { Prisma } from "@/generated/prisma/client";
 import { Access } from "@/lib/api/access";
 import { forbidden } from "@/lib/api/errors";
-import { asDateOnly, cents, hoursFromMinutes, queryDate, queryUuid } from "@/lib/api/json";
+import { asDateOnly, cents, hoursFromMinutes, queryDate, queryUuids } from "@/lib/api/json";
 import { labels } from "@/lib/labels";
 import { readPreferences } from "@/lib/api/features/organizations";
 import { prisma } from "@/lib/prisma";
 
 type Filter = {
-  departmentId?: string;
   departmentIds?: string[];
-  taskCategoryId?: string;
-  projectId?: string;
-  userId?: string;
+  taskCategoryIds?: string[];
+  projectIds?: string[];
+  userIds?: string[];
   from?: Date;
   to?: Date;
 };
 
 function parseFilter(params: URLSearchParams): Filter {
   return {
-    departmentId: queryUuid(params, "departmentId"),
-    taskCategoryId: queryUuid(params, "taskCategoryId"),
-    projectId: queryUuid(params, "projectId"),
-    userId: queryUuid(params, "userId"),
+    departmentIds: queryUuids(params, "departmentId"),
+    taskCategoryIds: queryUuids(params, "taskCategoryId"),
+    projectIds: queryUuids(params, "projectId"),
+    userIds: queryUuids(params, "userId"),
     from: queryDate(params, "from"),
     to: queryDate(params, "to"),
   };
+}
+
+function idsWhere(ids: string[] | undefined) {
+  return ids ? { in: ids } : undefined;
 }
 
 type Person = {
@@ -83,18 +86,6 @@ function sorted(rows: BucketRow[]) {
     .sort((a, b) => b.hours - a.hours || ordinal(a.label, b.label) || ordinal(a.id, b.id));
 }
 
-function departmentWhere(filter: Filter): string | { in: string[] } | undefined {
-  if (filter.departmentId) {
-    return filter.departmentId;
-  }
-
-  if (filter.departmentIds) {
-    return { in: filter.departmentIds };
-  }
-
-  return undefined;
-}
-
 function userWhere(
   organizationId: string,
   filter: Filter,
@@ -102,10 +93,10 @@ function userWhere(
 ): Prisma.UserTimeEntryWhereInput {
   return {
     organizationId,
-    departmentId: departmentWhere(filter),
-    taskCategoryId: filter.taskCategoryId,
-    projectId: filter.projectId,
-    userId: filter.userId,
+    departmentId: idsWhere(filter.departmentIds),
+    taskCategoryId: idsWhere(filter.taskCategoryIds),
+    projectId: idsWhere(filter.projectIds),
+    userId: idsWhere(filter.userIds),
     occurredOn: filter.from || filter.to ? { gte: filter.from, lte: filter.to } : undefined,
     ...(rateType === "Professional"
       ? { rate: { type: "Professional" } }
@@ -261,9 +252,9 @@ async function collectiveRollup(organizationId: string, filter: Filter) {
   const entries = await prisma.collectiveTimeEntry.findMany({
     where: {
       organizationId,
-      departmentId: departmentWhere(filter),
-      taskCategoryId: filter.taskCategoryId,
-      projectId: filter.projectId,
+      departmentId: idsWhere(filter.departmentIds),
+      taskCategoryId: idsWhere(filter.taskCategoryIds),
+      projectId: idsWhere(filter.projectIds),
       OR: [{ hourlyRateId: null }, { rate: { type: "Volunteer" } }],
       startedAt: filter.from || to ? { gte: filter.from, lt: to } : undefined,
     },
@@ -328,18 +319,22 @@ async function forCaller(access: Access, organizationId: string, filter: Filter)
   }
 
   if (visibility.kind === "departments") {
-    if (filter.departmentId && !visibility.departmentIds.includes(filter.departmentId)) {
-      forbidden();
+    if (filter.departmentIds) {
+      if (filter.departmentIds.some((id) => !visibility.departmentIds.includes(id))) {
+        forbidden();
+      }
+
+      return filter;
     }
 
-    return filter.departmentId ? filter : { ...filter, departmentIds: visibility.departmentIds };
+    return { ...filter, departmentIds: visibility.departmentIds };
   }
 
-  if (filter.userId && filter.userId !== access.actorUserId) {
+  if (filter.userIds?.some((id) => id !== access.actorUserId)) {
     forbidden();
   }
 
-  return { ...filter, userId: access.actorUserId };
+  return { ...filter, userIds: [access.actorUserId] };
 }
 
 export async function report(access: Access, organizationId: string, params: URLSearchParams) {

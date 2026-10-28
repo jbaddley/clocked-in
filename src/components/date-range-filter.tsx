@@ -1,9 +1,9 @@
 "use client";
 
 import { cn } from "cn";
-import { CalendarRangeIcon, Loader2Icon } from "lucide-react";
+import { Loader2Icon } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { SelectField } from "@/components/select-field";
 import { Input } from "@/components/ui/input";
 import { formatDate, toDateOnly } from "@/lib/format";
@@ -116,27 +116,29 @@ export function DateRangeFilter({
     });
   };
   const pending = onChange ? false : url.pending;
-  const preset = presetFor(range);
+  const [customChosen, setCustomChosen] = useState(false);
+  const preset = customChosen ? "custom" : presetFor(range);
   const fields = (
     <>
       <div className={cn("flex min-w-0 items-center gap-2", stacked && "@min-[32rem]:w-40")}>
-        {pending ? (
-          <Loader2Icon className="size-4 shrink-0 animate-spin text-muted-foreground" />
-        ) : (
-          <CalendarRangeIcon className="size-4 shrink-0 text-muted-foreground" />
-        )}
+        {pending ? <Loader2Icon className="size-4 shrink-0 animate-spin text-muted-foreground" /> : null}
         <SelectField
           aria-label="Date range"
           className={cn("w-full", !stacked && "sm:w-40")}
           value={preset}
           onValueChange={(value) => {
-            if (value === "custom") return;
+            if (value === "custom") {
+              setCustomChosen(true);
+              return;
+            }
+            setCustomChosen(false);
             const next = rangeFor(value as Preset);
             update({ from: next.from, to: next.to });
           }}
           options={(Object.keys(presets) as Preset[]).map((key) => ({ value: key, label: presets[key] }))}
         />
       </div>
+      {preset === "custom" ? (
       <div className={cn("grid min-w-0 grid-cols-2 gap-2", stacked && "@min-[32rem]:w-fit")}>
         <Input
           type="date"
@@ -155,6 +157,7 @@ export function DateRangeFilter({
           className={cn(stacked ? "@min-[32rem]:w-38" : "sm:w-38")}
         />
       </div>
+      ) : null}
     </>
   );
 

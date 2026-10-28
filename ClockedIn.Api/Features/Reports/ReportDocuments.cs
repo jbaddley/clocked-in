@@ -72,10 +72,10 @@ public static partial class ReportDocuments
         }
 
         var source = Object(value, "filters");
-        string? departmentId = OptionalId(source, "departmentId");
-        string? taskCategoryId = OptionalId(source, "taskCategoryId");
-        string? projectId = OptionalId(source, "projectId");
-        string? userId = OptionalId(source, "userId");
+        var departmentIds = OptionalIds(source, "departmentId");
+        var taskCategoryIds = OptionalIds(source, "taskCategoryId");
+        var projectIds = OptionalIds(source, "projectId");
+        var userIds = OptionalIds(source, "userId");
         string? from = OptionalDate(source, "from");
         string? to = OptionalDate(source, "to");
         Leftover(source, "filters");
@@ -84,11 +84,11 @@ public static partial class ReportDocuments
             throw ApiException.Validation("from must be on or before to.");
         }
 
-        var filters = new Dictionary<string, string>();
-        Add(filters, "departmentId", departmentId);
-        Add(filters, "taskCategoryId", taskCategoryId);
-        Add(filters, "projectId", projectId);
-        Add(filters, "userId", userId);
+        var filters = new Dictionary<string, object>();
+        Add(filters, "departmentId", departmentIds);
+        Add(filters, "taskCategoryId", taskCategoryIds);
+        Add(filters, "projectId", projectIds);
+        Add(filters, "userId", userIds);
         Add(filters, "from", from);
         Add(filters, "to", to);
         return JsonSerializer.Serialize(filters, Json);
@@ -115,15 +115,18 @@ public static partial class ReportDocuments
         using var document = JsonDocument.Parse(json);
         var root = document.RootElement;
         return new StoredReportFilters(
-            OptionalText(root, "departmentId"),
-            OptionalText(root, "taskCategoryId"),
-            OptionalText(root, "projectId"),
-            OptionalText(root, "userId"),
+            OptionalIdText(root, "departmentId"),
+            OptionalIdText(root, "taskCategoryId"),
+            OptionalIdText(root, "projectId"),
+            OptionalIdText(root, "userId"),
             OptionalText(root, "from"),
             OptionalText(root, "to"));
     }
 
     public static JsonElement Element(string json) => JsonDocument.Parse(json).RootElement.Clone();
+
+    /// <summary>Stored filters in the current shape; older rows hold a single id string.</summary>
+    public static JsonElement StoredFilters(string json) => Element(Filters(Element(json)));
 
     private static object Card(JsonElement value, int index, List<(string Id, int Column, int Row, int Columns, int Rows)> boxes)
     {
@@ -489,7 +492,7 @@ public static partial class ReportDocuments
         return id.ToString("D");
     }
 
-    private static string? OptionalId(Dictionary<string, object?> source, string key)
+    private static List<string>? OptionalIds(Dictionary<string, object?> source, string key)
     {
         if (!source.ContainsKey(key))
         {
@@ -497,7 +500,15 @@ public static partial class ReportDocuments
         }
 
         var value = Take(source, key);
-        return value is null ? null : Id(value, key);
+        IEnumerable<object?> parts = value switch
+        {
+            null => [],
+            string text => text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+            JsonElement { ValueKind: JsonValueKind.Array } array => array.EnumerateArray().Select(Box),
+            _ => throw ApiException.Validation($"{key} must be an id or a list of ids."),
+        };
+        var ids = parts.Select(part => Id(part, key)).Distinct().ToList();
+        return ids.Count == 0 ? null : ids;
     }
 
     private static string? OptionalDate(Dictionary<string, object?> source, string key)
@@ -528,7 +539,22 @@ public static partial class ReportDocuments
             ? value.GetString()
             : null;
 
-    private static void Add(Dictionary<string, string> filters, string key, string? value)
+    private static string? OptionalIdText(JsonElement root, string key)
+    {
+        if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty(key, out var value))
+        {
+            return null;
+        }
+
+        return value.ValueKind switch
+        {
+            JsonValueKind.String => value.GetString(),
+            JsonValueKind.Array => string.Join(",", value.EnumerateArray().Where(item => item.ValueKind == JsonValueKind.String).Select(item => item.GetString())),
+            _ => null,
+        };
+    }
+
+    private static void Add(Dictionary<string, object> filters, string key, object? value)
     {
         if (value is not null)
         {

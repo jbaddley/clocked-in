@@ -241,9 +241,10 @@ export async function savedReportData(access: Access, organizationId: string, re
 
   const stored = readFilters(row.filters);
   const query = new URLSearchParams();
-  const set = (key: keyof ReportFilters, value: string | undefined) => {
-    if (value) {
-      query.set(key, value);
+  const set = (key: keyof ReportFilters, value: string | string[] | undefined) => {
+    const text = Array.isArray(value) ? value.join(",") : value;
+    if (text) {
+      query.set(key, text);
     }
   };
   set("departmentId", stored.departmentId);

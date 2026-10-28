@@ -106,7 +106,7 @@ describe("saved reports", suite, () => {
     assert.equal(created.layout.cards[1].kind, "chart");
     assert.equal(created.layout.cards[2].kind, "list");
     assert.deepEqual(created.layout.cards[2].visibleColumns, ["name", "hours", "share", "inKind"]);
-    assert.equal(created.filters.departmentId, ctx.department.id);
+    assert.deepEqual(created.filters.departmentId, [ctx.department.id]);
     assertInstant(created.createdAt);
     assertInstant(created.updatedAt);
     ctx.report = created;
@@ -213,7 +213,7 @@ describe("saved reports", suite, () => {
     });
     assertStatus(updated, 200);
     assert.equal(updated.json.layout.cards.length, 1);
-    assert.equal(updated.json.filters.departmentId, ctx.department.id);
+    assert.deepEqual(updated.json.filters.departmentId, [ctx.department.id]);
     assert.equal(updated.json.filters.from, "2026-11-01");
     assert.equal(updated.json.filters.to, "2026-11-30");
   });

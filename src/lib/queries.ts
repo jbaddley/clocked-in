@@ -30,10 +30,11 @@ export type EntriesListFilter = DateRange & {
   everyone?: boolean;
 };
 
-function query(values: Record<string, string | number | undefined>) {
+function query(values: Record<string, string | number | string[] | undefined>) {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(values)) {
-    if (value !== undefined && value !== "") params.set(key, String(value));
+    const text = Array.isArray(value) ? value.join(",") : value;
+    if (text !== undefined && text !== "") params.set(key, String(text));
   }
 
   const text = params.toString();

@@ -251,15 +251,14 @@ public sealed class ReportsService(ClockedInDbContext db, Access access)
     private IQueryable<UserTimeEntry> UserEntries(Guid organizationId, Filter filter, RateType? rateType = null) =>
         db.UserTimeEntries.AsNoTracking()
             .Where(entry => entry.OrganizationId == organizationId)
-            .Where(entry => filter.DepartmentId == null || entry.DepartmentId == filter.DepartmentId)
             .Where(entry => filter.DepartmentIds == null || (entry.DepartmentId != null && filter.DepartmentIds.Contains(entry.DepartmentId.Value)))
             .Where(entry =>
                 rateType == null
                 || (rateType == RateType.Volunteer && (entry.Rate == null || entry.Rate.Type == RateType.Volunteer))
                 || (entry.Rate != null && entry.Rate.Type == rateType))
-            .Where(entry => filter.TaskCategoryId == null || entry.TaskCategoryId == filter.TaskCategoryId)
-            .Where(entry => filter.ProjectId == null || entry.ProjectId == filter.ProjectId)
-            .Where(entry => filter.UserId == null || entry.UserId == filter.UserId)
+            .Where(entry => filter.TaskCategoryIds == null || (entry.TaskCategoryId != null && filter.TaskCategoryIds.Contains(entry.TaskCategoryId.Value)))
+            .Where(entry => filter.ProjectIds == null || (entry.ProjectId != null && filter.ProjectIds.Contains(entry.ProjectId.Value)))
+            .Where(entry => filter.UserIds == null || filter.UserIds.Contains(entry.UserId))
             .Where(entry => filter.From == null || entry.OccurredOn >= filter.From)
             .Where(entry => filter.To == null || entry.OccurredOn <= filter.To);
 
@@ -292,10 +291,9 @@ public sealed class ReportsService(ClockedInDbContext db, Access access)
         var to = filter.To?.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc);
         var entries = await db.CollectiveTimeEntries.AsNoTracking()
             .Where(entry => entry.OrganizationId == organizationId)
-            .Where(entry => filter.DepartmentId == null || entry.DepartmentId == filter.DepartmentId)
             .Where(entry => filter.DepartmentIds == null || (entry.DepartmentId != null && filter.DepartmentIds.Contains(entry.DepartmentId.Value)))
-            .Where(entry => filter.TaskCategoryId == null || entry.TaskCategoryId == filter.TaskCategoryId)
-            .Where(entry => filter.ProjectId == null || entry.ProjectId == filter.ProjectId)
+            .Where(entry => filter.TaskCategoryIds == null || filter.TaskCategoryIds.Contains(entry.TaskCategoryId))
+            .Where(entry => filter.ProjectIds == null || filter.ProjectIds.Contains(entry.ProjectId))
             .Where(entry => entry.Rate == null || entry.Rate.Type == RateType.Volunteer)
             .Where(entry => from == null || entry.StartedAt >= from)
             .Where(entry => to == null || entry.StartedAt <= to)
@@ -444,37 +442,40 @@ public sealed class ReportsService(ClockedInDbContext db, Access access)
 
         if (visibility.IsDepartments)
         {
-            if (filter.DepartmentId is Guid requested && !visibility.DepartmentIds.Contains(requested))
+            if (filter.DepartmentIds is { } requested)
             {
-                throw ApiException.Forbidden();
+                if (requested.Any(id => !visibility.DepartmentIds.Contains(id)))
+                {
+                    throw ApiException.Forbidden();
+                }
+
+                return filter;
             }
 
-            return filter.DepartmentId is not null ? filter : filter with { DepartmentIds = visibility.DepartmentIds.ToList() };
+            return filter with { DepartmentIds = visibility.DepartmentIds.ToList() };
         }
 
-        if (filter.UserId is Guid userId && userId != access.ActorUserId)
+        if (filter.UserIds is { } userIds && userIds.Any(id => id != access.ActorUserId))
         {
             throw ApiException.Forbidden();
         }
 
-        return filter with { UserId = access.ActorUserId };
+        return filter with { UserIds = [access.ActorUserId] };
     }
 
     private sealed record Filter(
-        Guid? DepartmentId,
         IReadOnlyList<Guid>? DepartmentIds,
-        Guid? TaskCategoryId,
-        Guid? ProjectId,
-        Guid? UserId,
+        IReadOnlyList<Guid>? TaskCategoryIds,
+        IReadOnlyList<Guid>? ProjectIds,
+        IReadOnlyList<Guid>? UserIds,
         DateOnly? From,
         DateOnly? To)
     {
         public static Filter Parse(ReportFilter query) => new(
-            Fields.QueryGuid(query.DepartmentId, "departmentId"),
-            null,
-            Fields.QueryGuid(query.TaskCategoryId, "taskCategoryId"),
-            Fields.QueryGuid(query.ProjectId, "projectId"),
-            Fields.QueryGuid(query.UserId, "userId"),
+            Fields.QueryGuids(query.DepartmentId, "departmentId"),
+            Fields.QueryGuids(query.TaskCategoryId, "taskCategoryId"),
+            Fields.QueryGuids(query.ProjectId, "projectId"),
+            Fields.QueryGuids(query.UserId, "userId"),
             Fields.QueryDate(query.From, "from"),
             Fields.QueryDate(query.To, "to"));
     }

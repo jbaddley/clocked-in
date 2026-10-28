@@ -34,10 +34,14 @@ export function reportFilterSummary(
   copy: { department: string; project: string; taskCategory: string; departments: string },
 ) {
   const parts = [datePart(filters)];
-  if (filters.departmentId) parts.push(names.department.get(filters.departmentId) ?? copy.department);
-  if (filters.taskCategoryId) parts.push(names.category.get(filters.taskCategoryId) ?? copy.taskCategory);
-  if (filters.projectId) parts.push(names.project.get(filters.projectId) ?? copy.project);
-  if (filters.userId) parts.push(names.person.get(filters.userId) ?? "Person");
+  const named = (ids: string[] | undefined, lookup: Map<string, string>, fallback: string) => {
+    if (!ids || ids.length === 0) return;
+    parts.push(ids.map((id) => lookup.get(id) ?? fallback).join(", "));
+  };
+  named(filters.departmentId, names.department, copy.department);
+  named(filters.taskCategoryId, names.category, copy.taskCategory);
+  named(filters.projectId, names.project, copy.project);
+  named(filters.userId, names.person, "Person");
   if (parts.length === 1 && parts[0] === "All time") {
     parts.push(`All ${copy.departments.toLowerCase()}`);
   }

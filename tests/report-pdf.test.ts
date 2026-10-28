@@ -7,6 +7,7 @@ import {
   filtersEqual,
   filtersFromSearch,
   filtersQuery,
+  normalizeFilters,
   reportLayoutAutosave,
   type ChartReportCard,
   type ReportCard,
@@ -71,18 +72,41 @@ test("designer layout autosave omits filters", () => {
 });
 
 test("filtersQuery and filtersFromSearch round-trip", () => {
-  const filters = { from: "2026-01-01", to: "2026-12-31", departmentId: "11111111-1111-4111-8111-111111111101" };
+  const filters = { from: "2026-01-01", to: "2026-12-31", departmentId: ["11111111-1111-4111-8111-111111111101"] };
   const query = filtersQuery(filters);
   assert.equal(query.includes("from=2026-01-01"), true);
+  assert.equal(query.includes("departmentId=11111111-1111-4111-8111-111111111101"), true);
   assert.deepEqual(filtersFromSearch(new URLSearchParams(query)), filters);
   assert.equal(filtersEqual(filters, filtersFromSearch(new URLSearchParams(query))), true);
   assert.equal(filtersEqual(filters, { ...filters, to: "2026-06-30" }), false);
 });
 
+test("multi-id filters join with commas and compare without order", () => {
+  const a = "11111111-1111-4111-8111-111111111101";
+  const b = "11111111-1111-4111-8111-111111111102";
+  const filters = { userId: [a, b] };
+  const query = filtersQuery(filters);
+  assert.equal(new URLSearchParams(query).get("userId"), `${a},${b}`);
+  assert.deepEqual(filtersFromSearch(new URLSearchParams(query)), filters);
+  assert.deepEqual(filtersFromSearch(new URLSearchParams(`userId=${a},nope,${a}`)), { userId: [a] });
+  assert.equal(filtersEqual({ userId: [a, b] }, { userId: [b, a] }), true);
+  assert.equal(filtersEqual({ userId: [a] }, { userId: [a, b] }), false);
+});
+
+test("normalizeFilters accepts a legacy string id or a list", () => {
+  const a = "11111111-1111-4111-8111-111111111101";
+  const b = "11111111-1111-4111-8111-111111111102";
+  assert.deepEqual(normalizeFilters({ departmentId: a }), { departmentId: [a] });
+  assert.deepEqual(normalizeFilters({ departmentId: [a, b, a] }), { departmentId: [a, b] });
+  assert.deepEqual(normalizeFilters({ departmentId: [] }), {});
+  assert.throws(() => normalizeFilters({ departmentId: 3 }), /departmentId must be an id or a list of ids/);
+  assert.throws(() => normalizeFilters({ departmentId: ["nope"] }), /departmentId must be an id/);
+});
+
 test("reportFilterSummary names the active filters", () => {
   assert.equal(reportFilterSummary({}, names, copy), "All time · All groups");
   assert.equal(
-    reportFilterSummary({ from: "2026-01-01", to: "2026-12-31", departmentId: "dept-1" }, names, copy),
+    reportFilterSummary({ from: "2026-01-01", to: "2026-12-31", departmentId: ["dept-1"] }, names, copy),
     "Thu, Jan 1, 2026 – Thu, Dec 31, 2026 · Visual Arts Society",
   );
 });

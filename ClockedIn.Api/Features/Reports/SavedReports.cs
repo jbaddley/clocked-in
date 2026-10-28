@@ -26,7 +26,7 @@ public sealed record SavedReportDto(
         report.IsDefault,
         report.IsDashboard,
         ReportDocuments.Element(report.Layout),
-        ReportDocuments.Element(report.Filters),
+        ReportDocuments.StoredFilters(report.Filters),
         report.CreatedAt,
         report.UpdatedAt);
 }

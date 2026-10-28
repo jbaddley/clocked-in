@@ -104,10 +104,10 @@ export type ReportLayout = {
 };
 
 export type ReportFilters = {
-  departmentId?: string;
-  taskCategoryId?: string;
-  projectId?: string;
-  userId?: string;
+  departmentId?: string[];
+  taskCategoryId?: string[];
+  projectId?: string[];
+  userId?: string[];
   from?: string;
   to?: string;
 };
@@ -361,21 +361,51 @@ export function normalizeLayout(value: unknown): ReportLayout {
   return { version: 1, cards };
 }
 
-export const reportFilterKeys = ["departmentId", "taskCategoryId", "projectId", "userId", "from", "to"] as const;
+export const reportIdFilterKeys = ["departmentId", "taskCategoryId", "projectId", "userId"] as const;
+export type ReportIdFilterKey = (typeof reportIdFilterKeys)[number];
+export const reportFilterKeys = [...reportIdFilterKeys, "from", "to"] as const;
 
 const dateOnly = /^\d{4}-\d{2}-\d{2}$/;
+
+function isIdKey(key: (typeof reportFilterKeys)[number]): key is ReportIdFilterKey {
+  return key !== "from" && key !== "to";
+}
+
+/** URL/query form of a filter value: ids joined with commas, dates as-is. */
+export function filterParam(filters: ReportFilters, key: (typeof reportFilterKeys)[number]) {
+  if (isIdKey(key)) {
+    const ids = filters[key];
+    return ids && ids.length > 0 ? ids.join(",") : undefined;
+  }
+  return filters[key] || undefined;
+}
+
+export function filterParams(filters: ReportFilters) {
+  const params: Record<string, string | undefined> = {};
+  for (const key of reportFilterKeys) params[key] = filterParam(filters, key);
+  return params;
+}
 
 export function filtersQuery(filters: ReportFilters) {
   const params = new URLSearchParams();
   for (const key of reportFilterKeys) {
-    const value = filters[key];
+    const value = filterParam(filters, key);
     if (value) params.set(key, value);
   }
   return params.toString();
 }
 
 export function filtersEqual(left: ReportFilters, right: ReportFilters) {
-  return reportFilterKeys.every((key) => (left[key] ?? "") === (right[key] ?? ""));
+  return reportFilterKeys.every((key) => {
+    if (!isIdKey(key)) return (left[key] ?? "") === (right[key] ?? "");
+    const a = [...(left[key] ?? [])].sort().join(",");
+    const b = [...(right[key] ?? [])].sort().join(",");
+    return a === b;
+  });
+}
+
+export function activeIdFilterCount(filters: ReportFilters) {
+  return reportIdFilterKeys.filter((key) => (filters[key]?.length ?? 0) > 0).length;
 }
 
 /** Layout-only PATCH body so designer autosave does not wipe stored filters. */
@@ -388,13 +418,22 @@ export function filtersFromSearch(search: { get: (key: string) => string | null 
   for (const key of reportFilterKeys) {
     const value = search.get(key);
     if (!value) continue;
-    if (key === "from" || key === "to") {
+    if (!isIdKey(key)) {
       if (dateOnly.test(value)) filters[key] = value;
       continue;
     }
-    if (uuid.test(value)) filters[key] = value;
+    const ids = [...new Set(value.split(",").map((part) => part.trim().toLowerCase()).filter((part) => uuid.test(part)))];
+    if (ids.length > 0) filters[key] = ids;
   }
   return filters;
+}
+
+function idList(value: unknown, key: string) {
+  const parts = typeof value === "string" ? value.split(",").map((part) => part.trim()).filter(Boolean) : value;
+  if (!Array.isArray(parts)) {
+    fail(`${key} must be an id or a list of ids.`);
+  }
+  return [...new Set(parts.map((part) => id(part, key)))];
 }
 
 export function cardsInReadingOrder<T extends Box>(cards: T[]) {
@@ -414,7 +453,12 @@ export function normalizeFilters(value: unknown): ReportFilters {
       continue;
     }
 
-    filters[key] = key === "from" || key === "to" ? dateText(field.value, key) : id(field.value, key);
+    if (isIdKey(key)) {
+      const ids = idList(field.value, key);
+      if (ids.length > 0) filters[key] = ids;
+    } else {
+      filters[key] = dateText(field.value, key);
+    }
   }
 
   leftover(source, "filters");

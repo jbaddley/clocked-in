@@ -82,6 +82,21 @@ export function queryUuid(params: URLSearchParams, key: string) {
   return parseGuid(value) ?? validation(`${key} must be an id.`);
 }
 
+/** Comma-separated or repeated ids; undefined when none are given. */
+export function queryUuids(params: URLSearchParams, key: string) {
+  const ids: string[] = [];
+  for (const value of params.getAll(key)) {
+    for (const part of value.split(",")) {
+      const text = part.trim();
+      if (!text) continue;
+      const id = parseGuid(text) ?? validation(`${key} must be an id.`);
+      if (!ids.includes(id)) ids.push(id);
+    }
+  }
+
+  return ids.length > 0 ? ids : undefined;
+}
+
 export function queryDate(params: URLSearchParams, key: string) {
   const value = queryValue(params, key);
   return value === undefined ? undefined : dateOnly(value, key);
