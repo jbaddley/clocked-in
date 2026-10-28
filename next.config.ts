@@ -13,6 +13,7 @@ const nextConfig: NextConfig = {
   // A new deployment id busts asset URLs and turns a skewed client navigation
   // into a full page load on the first click.
   ...(deploymentId ? { deploymentId } : {}),
+  serverExternalPackages: ["@react-pdf/renderer"],
   experimental: {
     appNavFailHandling: true,
     serverActions: {

@@ -5,12 +5,13 @@ import {
   isReportId,
   isReportViewerPath,
   isStandardSlug,
+  newReportPath,
   reportPath,
   slugForSavedReport,
   slugify,
   standardSlugForKey,
   viewerSlug,
-} from "../src/lib/report-slug";
+} from "../src/lib/report-slug.ts";
 
 test("slugify lowercases and hyphenates a report name", () => {
   assert.equal(slugify("Grant Packet 2026"), "grant-packet-2026");
@@ -39,6 +40,12 @@ test("reportPath keeps a query string", () => {
   assert.equal(reportPath("summary"), "/reports/summary");
   assert.equal(reportPath("people", "from=2026-01-01"), "/reports/people?from=2026-01-01");
   assert.equal(reportPath("staff", new URLSearchParams("userId=abc")), "/reports/staff?userId=abc");
+});
+
+test("newReportPath copies filters and the template to start from", () => {
+  assert.equal(newReportPath(), "/reports/new");
+  assert.equal(newReportPath("from=2026-01-01"), "/reports/new?from=2026-01-01");
+  assert.equal(newReportPath("from=2026-01-01", "summary"), "/reports/new?from=2026-01-01&startFrom=summary");
 });
 
 test("viewer paths exclude designer and reserved routes", () => {

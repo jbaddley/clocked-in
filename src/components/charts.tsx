@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Bar, BarChart, CartesianGrid, Cell, Label, Pie, PieChart, Text, XAxis, YAxis } from "recharts";
 import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart";
 import { seriesColor, type ChartType } from "@/lib/chart-palette";
@@ -103,6 +102,8 @@ export function ChartPlot({
   valueKey = "hours",
   pattern,
   rowHref,
+  navigate,
+  animate = true,
 }: {
   rows: ReportGroup[];
   chartType: ChartType;
@@ -110,10 +111,21 @@ export function ChartPlot({
   valueKey?: "hours" | "inKind";
   pattern: string;
   rowHref?: (row: ReportGroup) => string;
+  navigate?: (href: string) => void;
+  animate?: boolean;
 }) {
   if (chartType === "donut" || chartType === "pie") {
     return (
-      <ArcChart rows={rows} colors={colors} valueKey={valueKey} pattern={pattern} donut={chartType === "donut"} rowHref={rowHref} />
+      <ArcChart
+        rows={rows}
+        colors={colors}
+        valueKey={valueKey}
+        pattern={pattern}
+        donut={chartType === "donut"}
+        rowHref={rowHref}
+        navigate={navigate}
+        animate={animate}
+      />
     );
   }
 
@@ -125,6 +137,8 @@ export function ChartPlot({
       pattern={pattern}
       orientation={chartType === "bar" ? "horizontal" : "vertical"}
       rowHref={rowHref}
+      navigate={navigate}
+      animate={animate}
     />
   );
 }
@@ -136,6 +150,8 @@ function ArcChart({
   pattern,
   donut,
   rowHref,
+  navigate,
+  animate,
 }: {
   rows: ReportGroup[];
   colors: string[];
@@ -143,8 +159,9 @@ function ArcChart({
   pattern: string;
   donut: boolean;
   rowHref?: (row: ReportGroup) => string;
+  navigate?: (href: string) => void;
+  animate: boolean;
 }) {
-  const router = useRouter();
   const data = rows.map((row, index) => ({ ...row, fill: seriesColor(colors, index) }));
   const total = data.reduce((sum, row) => sum + row[valueKey], 0);
   const totalLabel = formatWithPattern(total, pattern);
@@ -158,7 +175,14 @@ function ArcChart({
       <ChartContainer config={configFor(rows, colors)} className="absolute inset-0 aspect-auto h-full w-full">
         <PieChart>
           <ChartTooltip cursor={false} content={<ValueTooltip valueKey={valueKey} pattern={pattern} />} />
-          <Pie data={data} dataKey={valueKey} nameKey="id" innerRadius={donut ? "62%" : 0} strokeWidth={2}>
+          <Pie
+            data={data}
+            dataKey={valueKey}
+            nameKey="id"
+            innerRadius={donut ? "62%" : 0}
+            strokeWidth={2}
+            isAnimationActive={animate}
+          >
             {data.map((row) => (
               <Cell
                 key={row.id}
@@ -166,7 +190,7 @@ function ArcChart({
                 cursor={rowHref ? "pointer" : undefined}
                 onClick={() => {
                   const href = rowHref?.(row);
-                  if (href) router.push(href);
+                  if (href) navigate?.(href);
                 }}
               />
             ))}
@@ -225,6 +249,8 @@ function SummaryBars({
   pattern,
   orientation = "horizontal",
   rowHref,
+  navigate,
+  animate,
 }: {
   rows: ReportGroup[];
   colors: string[];
@@ -232,8 +258,9 @@ function SummaryBars({
   pattern: string;
   orientation?: "horizontal" | "vertical";
   rowHref?: (row: ReportGroup) => string;
+  navigate?: (href: string) => void;
+  animate: boolean;
 }) {
-  const router = useRouter();
   const frame = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
 
@@ -307,7 +334,7 @@ function SummaryBars({
             </>
           )}
           <ChartTooltip cursor={false} content={<ValueTooltip valueKey={valueKey} pattern={pattern} />} />
-          <Bar dataKey={valueKey} radius={6} maxBarSize={28}>
+          <Bar dataKey={valueKey} radius={6} maxBarSize={28} isAnimationActive={animate}>
             {data.map((row) => (
               <Cell
                 key={row.id}
@@ -315,7 +342,7 @@ function SummaryBars({
                 cursor={rowHref ? "pointer" : undefined}
                 onClick={() => {
                   const href = rowHref?.(row);
-                  if (href) router.push(href);
+                  if (href) navigate?.(href);
                 }}
               />
             ))}

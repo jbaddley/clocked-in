@@ -1,19 +1,12 @@
 "use client";
 
-import { DateRangeFilter, rangeFromSearch, useUrlParams } from "@/components/date-range-filter";
+import { DateRangeFilter, useUrlParams } from "@/components/date-range-filter";
 import { SelectField } from "@/components/select-field";
 import { useLabels } from "@/hooks/use-labels";
 import { useLookups } from "@/hooks/use-lookups";
 import { useMembers } from "@/hooks/use-members";
 import { useWorkspace } from "@/hooks/use-workspace";
-import type { ReportFilters } from "@/lib/report-layout";
-
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function readId(search: { get: (key: string) => string | null }, key: string) {
-  const value = search.get(key);
-  return value && uuid.test(value) ? value : undefined;
-}
+import { filtersFromSearch, type ReportFilters } from "@/lib/report-layout";
 
 function personName(member: {
   user: { displayName: string | null; firstName: string | null; lastName: string | null; username: string };
@@ -25,13 +18,7 @@ function personName(member: {
 }
 
 export function reportFiltersFromSearch(search: { get: (key: string) => string | null }): ReportFilters {
-  return {
-    ...rangeFromSearch(search),
-    departmentId: readId(search, "departmentId"),
-    taskCategoryId: readId(search, "taskCategoryId"),
-    projectId: readId(search, "projectId"),
-    userId: readId(search, "userId"),
-  };
+  return filtersFromSearch(search);
 }
 
 export function ReportFilters({ filters }: { filters: ReportFilters }) {
