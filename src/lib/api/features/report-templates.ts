@@ -4,8 +4,9 @@ import { guard } from "@/lib/api/db";
 import { conflict, forbidden, notFound, validation } from "@/lib/api/errors";
 import { Body, has, list, page } from "@/lib/api/json";
 import { parseGuid } from "@/lib/api/guid";
+import { readLayout, readName } from "@/lib/api/report-input";
 import { prisma } from "@/lib/prisma";
-import { normalizeLayout, normalizeReportName, reportTemplateIds, type ReportLayout } from "@/lib/report-layout";
+import { reportTemplateIds, type ReportLayout } from "@/lib/report-layout";
 
 const globalKeys = reportTemplateIds;
 
@@ -31,22 +32,6 @@ export type ReportTemplate = {
   createdAt: string;
   updatedAt: string;
 };
-
-function readLayout(value: unknown) {
-  try {
-    return normalizeLayout(value);
-  } catch (error) {
-    validation(error instanceof Error ? error.message : "layout is invalid.");
-  }
-}
-
-function readName(value: unknown) {
-  try {
-    return normalizeReportName(value);
-  } catch (error) {
-    validation(error instanceof Error ? error.message : "name is required.");
-  }
-}
 
 function describe(row: TemplateRow, globals: Map<string, TemplateRow>): ReportTemplate {
   const layout = readLayout(row.layout);
@@ -133,7 +118,7 @@ export async function getReportTemplate(access: Access, organizationId: string, 
 }
 
 export async function createReportTemplate(access: Access, organizationId: string, body: Body) {
-  await access.requireOrganization(organizationId, true);
+  await access.requireReportDesigner(organizationId);
   if (!has(body, "layout")) validation("layout is required.");
   const layout = readLayout(body.layout);
   const now = new Date();
@@ -196,7 +181,7 @@ export async function updateReportTemplate(access: Access, organizationId: strin
   if (current.organizationId === null) {
     if (!access.isSuperAdmin) forbidden();
   } else {
-    await access.requireOrganization(organizationId, true);
+    await access.requireReportDesigner(organizationId);
   }
 
   if (has(body, "baseTemplateId")) validation("baseTemplateId cannot be changed.");
@@ -222,6 +207,6 @@ export async function deleteReportTemplate(access: Access, organizationId: strin
   const current = await prisma.reportTemplate.findUnique({ where: { id: templateId } });
   if (!current || (current.organizationId !== null && current.organizationId !== organizationId)) notFound();
   if (current.organizationId === null) forbidden();
-  await access.requireOrganization(organizationId, true);
+  await access.requireReportDesigner(organizationId);
   await guard(prisma.reportTemplate.delete({ where: { id: templateId } }));
 }

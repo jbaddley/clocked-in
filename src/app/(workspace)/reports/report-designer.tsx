@@ -1,19 +1,16 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeftIcon, ChartColumnIcon, CircleHelpIcon, HashIcon, InboxIcon, ListIcon, XIcon, ZoomInIcon, ZoomOutIcon } from "lucide-react";
+import { ArrowLeftIcon, ChartColumnIcon, CircleHelpIcon, FileQuestionIcon, HashIcon, InboxIcon, ListIcon, XIcon } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Field } from "@/components/field";
-import { IconPickerDialog, iconLabel } from "@/components/icon-picker-dialog";
+import { IconPickerDialog } from "@/components/icon-picker-dialog";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { PageHeader } from "@/components/page-header";
 import { ReportGrid } from "@/components/report-grid";
-import { SelectField, type Option } from "@/components/select-field";
 import { DesignerSkeleton } from "@/components/skeletons";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -29,48 +26,28 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { useLabels } from "@/hooks/use-labels";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useIsBelowLarge } from "@/hooks/use-mobile";
 import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
 import { useSavedReports } from "@/hooks/use-saved-reports";
 import type { ReportTemplate } from "@/lib/api/features/report-templates";
 import type { SavedReport } from "@/lib/api/features/saved-reports";
-import { chartTypeLabel, chartTypes, paletteTypeLabel, paletteTypes } from "@/lib/chart-palette";
 import {
   createReportAction,
   createReportTemplateAction,
   updateReportAction,
   updateReportTemplateAction,
 } from "@/app/actions/reports";
-import { formatPatterns, formatPresetLabel } from "@/lib/number-pattern";
+import { formatPatterns } from "@/lib/number-pattern";
 import { useReport } from "@/hooks/use-report";
 import { useReportEntries, withEntries } from "@/hooks/use-report-entries";
-import { keys, reportTemplateQuery, reportTemplatesQuery, savedReportQuery } from "@/lib/queries";
+import { keys, reportTemplateQuery, savedReportQuery } from "@/lib/queries";
 import {
-  chartValueKeys,
   dashboardLayout,
   emptyLayout,
-  entriesLimitDefault,
-  entriesLimitMax,
-  entriesScopes,
-  firstOpening,
-  layoutError,
-  listColumnKeys,
-  listColumnLabel,
-  listLimitMax,
-  listSortDirs,
-  listSortKeys,
-  builtinTemplateIds,
-  filtersFromSearch,
-  reportLayoutAutosave,
-  reportTemplate,
-  reportTemplateIds,
-  reportTemplateLabel,
-  valueColors,
-  valueFormats,
-  type ReportCard,
-  type ReportLayout,
-  type ValueColor,
+  entriesLimitDefault, firstOpening,
+  layoutError, reportLayoutAutosave, type ReportCard,
+  type ReportLayout
 } from "@/lib/report-layout";
 import { scalarAccessors, seriesAccessors } from "@/lib/report-path";
 import {
@@ -82,212 +59,21 @@ import {
   standardSlugForKey,
 } from "@/lib/report-slug";
 import { cn } from "cn";
+import { PreviewZoom, useDesignerPreferences, zoomSteps } from "./designer-preferences";
+import { CardFields } from "./card-fields";
+import { ReportSetup, useTemplateChoices } from "./report-setup";
+import { EmptyState } from "@/components/empty-state";
 
-const designerPreferencesKey = "clocked-in.report-designer";
-const zoomSteps = [0.5, 0.75, 1, 1.25, 1.5, 2];
-const defaultDesignerPreferences = { editorOpen: true, zoom: 1 };
-const presetIcons = ["clock", "hand-coins", "users", "list-checks"];
-
-type DesignerPreferences = { editorOpen: boolean; zoom: number };
-
-const preferenceListeners = new Set<() => void>();
-let designerPreferences: DesignerPreferences = defaultDesignerPreferences;
-let designerPreferencesLoaded = false;
-
-const colorSwatches: Record<ValueColor, string> = {
-  primary: "bg-primary",
-  highlight: "bg-highlight",
-  accent: "bg-brand-accent",
-  success: "bg-success",
-};
-
-function readDesignerPreferences(): DesignerPreferences {
-  try {
-    const raw = window.localStorage.getItem(designerPreferencesKey);
-    if (!raw) return defaultDesignerPreferences;
-    const parsed = JSON.parse(raw) as Partial<DesignerPreferences>;
-    return {
-      editorOpen: parsed.editorOpen !== false,
-      zoom: zoomSteps.find((step) => step === parsed.zoom) ?? 1,
-    };
-  } catch {
-    return defaultDesignerPreferences;
-  }
-}
-
-function loadDesignerPreferences() {
-  if (!designerPreferencesLoaded) {
-    designerPreferencesLoaded = true;
-    designerPreferences = readDesignerPreferences();
-  }
-  return designerPreferences;
-}
-
-function subscribeDesignerPreferences(listener: () => void) {
-  preferenceListeners.add(listener);
-  return () => preferenceListeners.delete(listener);
-}
-
-function updateDesignerPreferences(change: Partial<DesignerPreferences>) {
-  designerPreferences = { ...loadDesignerPreferences(), ...change };
-  window.localStorage.setItem(designerPreferencesKey, JSON.stringify(designerPreferences));
-  preferenceListeners.forEach((listener) => listener());
-}
-
-function serverDesignerPreferences() {
-  return defaultDesignerPreferences;
-}
-
-function useDesignerPreferences() {
-  const preferences = useSyncExternalStore(subscribeDesignerPreferences, loadDesignerPreferences, serverDesignerPreferences);
-  const setEditorOpen = useCallback((editorOpen: boolean) => updateDesignerPreferences({ editorOpen }), []);
-  const setZoom = useCallback((zoom: number) => updateDesignerPreferences({ zoom }), []);
-  return { editorOpen: preferences.editorOpen, zoom: preferences.zoom, setEditorOpen, setZoom };
-}
-
-function PreviewZoom({ zoom, onZoom }: { zoom: number; onZoom: (zoom: number) => void }) {
-  const index = zoomSteps.indexOf(zoom);
-  return (
-    <div className="flex items-center gap-1" role="group" aria-label="Preview zoom">
-      <Button type="button" variant="outline" size="icon" aria-label="Zoom out" disabled={index <= 0} onClick={() => onZoom(zoomSteps[index - 1])}>
-        <ZoomOutIcon />
-      </Button>
-      <Button type="button" variant="outline" className="w-16 tabular-nums" aria-label="Reset zoom" onClick={() => onZoom(1)}>
-        {Math.round(zoom * 100)}%
-      </Button>
-      <Button
-        type="button"
-        variant="outline"
-        size="icon"
-        aria-label="Zoom in"
-        disabled={index === -1 || index >= zoomSteps.length - 1}
-        onClick={() => onZoom(zoomSteps[index + 1])}
-      >
-        <ZoomInIcon />
-      </Button>
-    </div>
-  );
-}
-
-function formatOptions(formats: readonly string[]) {
-  return formats.map((value) => ({ value, label: formatPresetLabel(value as "number") }));
-}
-
-function iconOptions(current: string | null): Option[] {
-  const options: Option[] = [{ value: "none", label: "None" }];
-  for (const name of presetIcons) options.push({ value: name, label: iconLabel(name), icon: name });
-  if (current && !presetIcons.includes(current)) options.push({ value: current, label: iconLabel(current), icon: current });
-  options.push({ value: "other", label: "Other" });
-  return options;
-}
-
-function builtinTemplates(copy: { department: string; taskCategory: string; project: string }): ReportTemplate[] {
-  return reportTemplateIds.map((id) => ({
-    id: builtinTemplateIds[id],
-    organizationId: null,
-    key: id,
-    name: reportTemplateLabel(id),
-    layout: reportTemplate(id, copy),
-    baseTemplateId: null,
-    scope: "global",
-    createdAt: "",
-    updatedAt: "",
-  }));
-}
-
-function useTemplateChoices() {
-  const organization = useOrganization();
-  const { department, taskCategory, project } = useLabels();
-  const builtin = useMemo(
-    () => builtinTemplates({ department, taskCategory, project }),
-    [department, taskCategory, project],
-  );
-  const templates = useQuery({
-    ...reportTemplatesQuery(organization.id),
-    placeholderData: builtin,
-  });
-  return { organization, templates, choices: templates.data?.length ? templates.data : builtin };
-}
-
-function ReportSetup() {
-  const router = useRouter();
-  const search = useSearchParams();
-  const { organization, choices } = useTemplateChoices();
-  const [name, setName] = useState("");
-  const [isDefault, setIsDefault] = useState(false);
-  const [startFrom, setStartFrom] = useState("blank");
-  const [error, setError] = useState<string | null>(null);
-  const startHint = search.get("startFrom");
-  const matchedStart = choices.find((item) => item.id === startFrom || item.id === startHint || item.key === startHint);
-
-  useEffect(() => {
-    if (matchedStart && matchedStart.id !== startFrom) setStartFrom(matchedStart.id);
-  }, [matchedStart, startFrom]);
-
-  const save = useMutation({
-    mutationFn: async () => {
-      const chosen = choices.find((item) => item.id === startFrom) ?? matchedStart;
-      const result = await createReportAction(organization.id, {
-        name,
-        isDefault,
-        layout: chosen?.layout ?? emptyLayout(),
-        filters: filtersFromSearch(search),
-      });
-      if (!result.ok || !result.data) {
-        throw new Error(result.ok ? "The report could not be saved." : result.error);
-      }
-      return result.data;
-    },
-    onSuccess: (saved) => router.replace(`/reports/${slugForSavedReport(saved.name)}/design`),
-    onError: (caught) => setError(caught instanceof Error ? caught.message : "The report could not be saved."),
-  });
-
-  return (
-    <div className="mx-auto flex w-full max-w-lg flex-col gap-4">
-      <PageHeader />
-      <form
-        className="flex flex-col gap-4"
-        onSubmit={(event) => {
-          event.preventDefault();
-          setError(null);
-          save.mutate();
-        }}
-      >
-        <Field label="Name" htmlFor="report-name">
-          <Input id="report-name" value={name} maxLength={80} placeholder="Report name" onChange={(event) => setName(event.target.value)} />
-        </Field>
-        <label className="flex items-center gap-2 text-sm">
-          <Checkbox checked={isDefault} onCheckedChange={(checked) => setIsDefault(checked === true)} />
-          Default report
-        </label>
-        <Field label="Start from" htmlFor="report-start">
-          <SelectField
-            id="report-start"
-            value={startFrom}
-            onValueChange={setStartFrom}
-            options={[
-              { value: "blank", label: "Blank" },
-              ...choices.map((item) => ({ value: item.id, label: item.name })),
-            ]}
-          />
-        </Field>
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        <div className="flex items-center gap-2">
-          <Link href="/reports" className={cn(buttonVariants({ variant: "outline", size: "lg" }))}>
-            Cancel
-          </Link>
-          <Button type="submit" size="lg" disabled={save.isPending}>
-            {save.isPending ? "Saving…" : "Save"}
-          </Button>
-        </div>
-      </form>
-    </div>
-  );
-}
-
+/** Debounced autosave. Saves run one at a time so a slow create cannot race a second create. */
 function useArrangeSave(enabled: boolean, layout: ReportLayout, save: (layout: ReportLayout) => Promise<void>) {
   const latest = useRef({ layout, save });
   const saved = useRef<string | null>(null);
+  const queue = useRef<Promise<void>>(Promise.resolve());
+  const enqueue = useCallback((next: ReportLayout) => {
+    const run = queue.current.then(() => latest.current.save(next));
+    queue.current = run.catch(() => undefined);
+    return run;
+  }, []);
 
   useEffect(() => {
     latest.current = { layout, save };
@@ -304,24 +90,23 @@ function useArrangeSave(enabled: boolean, layout: ReportLayout, save: (layout: R
     const handle = window.setTimeout(() => {
       const next = latest.current.layout;
       const text = JSON.stringify(next);
-      void latest.current
-        .save(next)
+      void enqueue(next)
         .then(() => {
           saved.current = text;
         })
         .catch(() => undefined);
     }, 400);
     return () => window.clearTimeout(handle);
-  }, [enabled, layout]);
+  }, [enabled, enqueue, layout]);
 
   useEffect(() => {
     return () => {
       if (!enabled || saved.current === null) return;
       const next = latest.current.layout;
       if (JSON.stringify(next) === saved.current) return;
-      void latest.current.save(next).catch(() => undefined);
+      void enqueue(next).catch(() => undefined);
     };
-  }, [enabled]);
+  }, [enabled, enqueue]);
 }
 
 function ArrangeCanvas({
@@ -350,6 +135,7 @@ function ArrangeCanvas({
   const [selectedId, setSelectedId] = useState<string | null>(initialLayout.cards[0]?.id ?? null);
   const [error, setError] = useState<string | null>(null);
   const { editorOpen, zoom, setEditorOpen, setZoom } = useDesignerPreferences();
+  const compact = useIsBelowLarge();
   const previewRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [frameWidth, setFrameWidth] = useState(0);
@@ -549,9 +335,28 @@ function ArrangeCanvas({
           : "Saving creates your organization's version of this template."
       : null;
 
+  const editorBody = (
+    <>
+    {selected ? (
+      <CardFields
+        card={selected}
+        paths={paths}
+        onPatch={(change) => patch(selected.id, change)}
+        onPickIcon={() => setIconPickerOpen(true)}
+        onDelete={() => {
+          setLayout((current) => ({ version: 1, cards: current.cards.filter((card) => card.id !== selected.id) }));
+          setSelectedId(null);
+        }}
+      />
+    ) : (
+      <p className="text-sm text-muted-foreground">Select a card to edit its title, color, and data.</p>
+    )}
+    </>
+  );
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <div className={cn("grid min-h-0 flex-1 gap-3", editorOpen && "grid-cols-[minmax(0,1fr)_18rem]")}>
+      <div className={cn("grid min-h-0 flex-1 gap-3", editorOpen && !compact && "grid-cols-[minmax(0,1fr)_18rem]")}>
         <section className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border bg-card">
           <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
             <div className="min-w-0">
@@ -640,7 +445,7 @@ function ArrangeCanvas({
             </div>
           </div>
         </section>
-        {editorOpen ? (
+        {editorOpen && !compact ? (
           <aside className="flex min-h-0 flex-col gap-3 overflow-y-auto rounded-xl border bg-card p-3">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-sm font-medium">Card editor</h2>
@@ -648,23 +453,20 @@ function ArrangeCanvas({
                 <XIcon />
               </Button>
             </div>
-            {selected ? (
-              <CardFields
-                card={selected}
-                paths={paths}
-                onPatch={(change) => patch(selected.id, change)}
-                onPickIcon={() => setIconPickerOpen(true)}
-                onDelete={() => {
-                  setLayout((current) => ({ version: 1, cards: current.cards.filter((card) => card.id !== selected.id) }));
-                  setSelectedId(null);
-                }}
-              />
-            ) : (
-              <p className="text-sm text-muted-foreground">Select a card to edit its title, color, and data.</p>
-            )}
+            {editorBody}
           </aside>
         ) : null}
       </div>
+      {compact ? (
+        <Sheet open={editorOpen} onOpenChange={setEditorOpen}>
+          <SheetContent side="bottom" className="max-h-[75vh] overflow-y-auto p-4">
+            <SheetHeader className="p-0">
+              <SheetTitle>Card editor</SheetTitle>
+            </SheetHeader>
+            {editorBody}
+          </SheetContent>
+        </Sheet>
+      ) : null}
       {error ? <p className="shrink-0 text-sm text-destructive">{error}</p> : null}
       {problem ? <p className="shrink-0 text-sm text-destructive">{problem}</p> : null}
       <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
@@ -726,242 +528,6 @@ function ArrangeCanvas({
   );
 }
 
-function CardFields({
-  card,
-  paths,
-  onPatch,
-  onPickIcon,
-  onDelete,
-}: {
-  card: ReportCard;
-  paths: readonly (readonly [string, string])[];
-  onPatch: (change: Partial<ReportCard>) => void;
-  onPickIcon: () => void;
-  onDelete: () => void;
-}) {
-  if (card.kind === "entries") {
-    return (
-      <>
-        <Field label="Title" htmlFor="card-title">
-          <Input id="card-title" value={card.title} onChange={(event) => onPatch({ title: event.target.value })} />
-        </Field>
-        <Field label="Description" htmlFor="card-description">
-          <Textarea id="card-description" value={card.description} onChange={(event) => onPatch({ description: event.target.value })} />
-        </Field>
-        <Field label="Scope" htmlFor="card-scope">
-          <SelectField
-            id="card-scope"
-            value={card.scope}
-            onValueChange={(scope) => {
-              if (scope === "mine" || scope === "organization") {
-                onPatch({ scope, accessor: `entries.${scope}` } as Partial<ReportCard>);
-              }
-            }}
-            options={entriesScopes.map((value) => ({
-              value,
-              label: value === "mine" ? "My entries" : "Organization entries",
-            }))}
-          />
-        </Field>
-        <Field label="Limit" htmlFor="card-limit">
-          <Input
-            id="card-limit"
-            type="number"
-            min={1}
-            max={entriesLimitMax}
-            value={card.limit}
-            onChange={(event) => {
-              const next = Number(event.target.value);
-              if (Number.isInteger(next) && next >= 1 && next <= entriesLimitMax) {
-                onPatch({ limit: next } as Partial<ReportCard>);
-              }
-            }}
-          />
-        </Field>
-        <Button type="button" variant="destructive" onClick={onDelete}>
-          Delete card
-        </Button>
-      </>
-    );
-  }
-
-  return (
-    <>
-      <Field label="Title" htmlFor="card-title">
-        <Input id="card-title" value={card.title} onChange={(event) => onPatch({ title: event.target.value })} />
-      </Field>
-      <Field label="Description" htmlFor="card-description">
-        <Textarea id="card-description" value={card.description} onChange={(event) => onPatch({ description: event.target.value })} />
-      </Field>
-      <Field label="Data" htmlFor="card-accessor">
-        <SelectField
-          id="card-accessor"
-          value={paths.some(([path]) => path === card.accessor) ? card.accessor : "custom"}
-          onValueChange={(value) => {
-            if (value !== "custom") onPatch({ accessor: value });
-          }}
-          options={[...paths.map(([value, label]) => ({ value, label })), { value: "custom", label: "Custom path" }]}
-        />
-        <Input aria-label="Data path" className="mt-2" value={card.accessor} onChange={(event) => onPatch({ accessor: event.target.value })} />
-      </Field>
-      <Field label="Format" htmlFor="card-format">
-        <SelectField
-          id="card-format"
-          value={card.format}
-          onValueChange={(format) => {
-            if (format === "number" || format === "hours" || format === "currency") {
-              onPatch({ format, pattern: formatPatterns[format] });
-            }
-          }}
-          options={formatOptions(valueFormats)}
-        />
-      </Field>
-      <Field label="Number format" htmlFor="card-pattern">
-        <Input id="card-pattern" value={card.pattern ?? formatPatterns[card.format]} onChange={(event) => onPatch({ pattern: event.target.value })} />
-      </Field>
-      {card.kind === "value" ? (
-        <>
-          <Field label="Color" htmlFor="card-color">
-            <SelectField
-              id="card-color"
-              value={card.color}
-              onValueChange={(color) => onPatch({ color } as Partial<ReportCard>)}
-              options={valueColors.map((value) => ({
-                value,
-                label: value.charAt(0).toUpperCase() + value.slice(1),
-                swatch: colorSwatches[value],
-              }))}
-            />
-          </Field>
-          <Field label="Icon" htmlFor="card-icon">
-            <SelectField
-              id="card-icon"
-              value={card.icon ?? "none"}
-              onValueChange={(icon) => {
-                if (icon === "other") {
-                  onPickIcon();
-                  return;
-                }
-                onPatch({ icon: icon === "none" ? null : icon });
-              }}
-              options={iconOptions(card.icon)}
-            />
-          </Field>
-        </>
-      ) : null}
-      {card.kind === "chart" ? (
-        <>
-          <Field label="Chart type" htmlFor="card-chart">
-            <SelectField
-              id="card-chart"
-              value={card.chartType}
-              onValueChange={(chartType) => onPatch({ chartType } as Partial<ReportCard>)}
-              options={chartTypes.map((value) => ({ value, label: chartTypeLabel(value) }))}
-            />
-          </Field>
-          <Field label="Palette" htmlFor="card-palette">
-            <SelectField
-              id="card-palette"
-              value={card.palette}
-              onValueChange={(palette) => onPatch({ palette } as Partial<ReportCard>)}
-              options={paletteTypes.map((value) => ({ value, label: paletteTypeLabel(value) }))}
-            />
-          </Field>
-          <Field label="Value" htmlFor="card-value-key">
-            <SelectField
-              id="card-value-key"
-              value={card.valueKey}
-              onValueChange={(valueKey) => onPatch({ valueKey } as Partial<ReportCard>)}
-              options={chartValueKeys.map((value) => ({ value, label: value === "inKind" ? "In-kind value" : "Hours" }))}
-            />
-          </Field>
-        </>
-      ) : null}
-      {card.kind === "list" ? (
-        <fieldset className="flex flex-col gap-2">
-          <legend className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Columns</legend>
-          {listColumnKeys.map((column) => (
-            <label key={column} className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={card.visibleColumns.includes(column)}
-                onCheckedChange={(checked) => {
-                  const next = checked === true
-                    ? [...card.visibleColumns, column]
-                    : card.visibleColumns.filter((item) => item !== column);
-                  onPatch({ visibleColumns: listColumnKeys.filter((item) => next.includes(item)) } as Partial<ReportCard>);
-                }}
-              />
-              {listColumnLabel(column)}
-            </label>
-          ))}
-        </fieldset>
-      ) : null}
-      {card.kind === "list" ? (
-        <>
-          <Field label="Sort by" htmlFor="card-sort-key">
-            <SelectField
-              id="card-sort-key"
-              value={card.sortKey ?? (card.limit !== undefined ? "hours" : "api")}
-              onValueChange={(sortKey) => {
-                if (sortKey === "api") {
-                  onPatch({ sortKey: undefined } as Partial<ReportCard>);
-                  return;
-                }
-                if (listSortKeys.includes(sortKey as (typeof listSortKeys)[number])) {
-                  onPatch({ sortKey } as Partial<ReportCard>);
-                }
-              }}
-              options={[
-                { value: "api", label: "API order" },
-                ...listSortKeys.map((value) => ({
-                  value,
-                  label: value === "people" ? "People" : value === "inKind" ? "In-kind" : value.charAt(0).toUpperCase() + value.slice(1),
-                })),
-              ]}
-            />
-          </Field>
-          <Field label="Direction" htmlFor="card-sort-dir">
-            <SelectField
-              id="card-sort-dir"
-              value={card.sortDir ?? "desc"}
-              onValueChange={(sortDir) => {
-                if (listSortDirs.includes(sortDir as (typeof listSortDirs)[number])) {
-                  onPatch({ sortDir } as Partial<ReportCard>);
-                }
-              }}
-              options={listSortDirs.map((value) => ({ value, label: value === "asc" ? "Ascending" : "Descending" }))}
-            />
-          </Field>
-          <Field label="Limit" htmlFor="card-list-limit">
-            <Input
-              id="card-list-limit"
-              type="number"
-              min={1}
-              max={listLimitMax}
-              placeholder="No limit"
-              value={card.limit ?? ""}
-              onChange={(event) => {
-                const raw = event.target.value;
-                if (raw === "") {
-                  onPatch({ limit: undefined } as Partial<ReportCard>);
-                  return;
-                }
-                const next = Number(raw);
-                if (Number.isInteger(next) && next >= 1 && next <= listLimitMax) {
-                  onPatch({ limit: next } as Partial<ReportCard>);
-                }
-              }}
-            />
-          </Field>
-        </>
-      ) : null}
-      <Button type="button" variant="destructive" onClick={onDelete}>
-        Delete card
-      </Button>
-    </>
-  );
-}
-
 export function ReportDesigner({ reportSlug, dashboard = false }: { reportSlug?: string; dashboard?: boolean }) {
   const organization = useOrganization();
   const router = useRouter();
@@ -1018,7 +584,7 @@ export function ReportDesigner({ reportSlug, dashboard = false }: { reportSlug?:
     return <DesignerSkeleton />;
   }
   if (!report) {
-    return <p className="text-sm text-muted-foreground">That report is not available.</p>;
+    return <EmptyState icon={FileQuestionIcon} title="That report is not available" description="It may have been renamed or deleted." />;
   }
 
   return <ArrangeCanvas key={report.id} mode="report" report={report} />;
@@ -1030,7 +596,7 @@ export function TemplateDesigner({ templateId }: { templateId: string }) {
 
   if (existing.isPending) return <DesignerSkeleton />;
   if (existing.isError || !existing.data) {
-    return <p className="text-sm text-muted-foreground">That template is not available.</p>;
+    return <EmptyState icon={FileQuestionIcon} title="That template is not available" description="It may have been deleted." />;
   }
 
   return <ArrangeCanvas key={existing.data.id} mode="template" template={existing.data} />;

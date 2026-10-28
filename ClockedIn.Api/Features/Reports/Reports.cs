@@ -66,6 +66,9 @@ public sealed record PersonName(string Username, string? DisplayName, string? Fi
 
 public sealed class ReportsService(ClockedInDbContext db, Access access)
 {
+    /// <summary>Task category whose hours count as participation, not volunteering. Matches reports.ts.</summary>
+    public const string ParticipantHoursCategory = "participant hours";
+
     public async Task<ReportDto> Report(Guid organizationId, ReportFilter query, CancellationToken cancellationToken)
     {
         var parsed = Filter.Parse(query);
@@ -86,7 +89,7 @@ public sealed class ReportsService(ClockedInDbContext db, Access access)
             cancellationToken);
         var named = byPerson.Where(row => row.Label.Length > 0).ToList();
         var volunteerMinutes = await entries
-            .Where(entry => entry.TaskCategory.Name.ToLower() != "participant hours")
+            .Where(entry => entry.TaskCategory.Name.ToLower() != ParticipantHoursCategory)
             .GroupBy(entry => entry.UserId)
             .Select(group => new { group.Key, Minutes = group.Sum(entry => entry.DurationMinutes ?? 0) })
             .ToListAsync(cancellationToken);

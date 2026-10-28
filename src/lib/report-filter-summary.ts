@@ -1,4 +1,4 @@
-import { formatDate } from "@/lib/format";
+import { formatDate, formatPersonName } from "@/lib/format";
 import type { ReportFilters } from "@/lib/report-layout";
 
 export type FilterNames = {
@@ -14,10 +14,7 @@ export function personLabel(person: {
   lastName: string | null;
   username: string;
 }) {
-  const display = person.displayName?.trim();
-  if (display) return display;
-  const full = [person.firstName, person.lastName].filter(Boolean).join(" ").trim();
-  return full || person.username;
+  return formatPersonName(person);
 }
 
 function datePart(filters: ReportFilters) {

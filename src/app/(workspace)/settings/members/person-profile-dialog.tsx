@@ -10,11 +10,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useActionMutation } from "@/hooks/use-action-mutation";
 import { useMembers } from "@/hooks/use-members";
 import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
-import { fetchJson } from "@/lib/fetch-json";
 import { formatInstant } from "@/lib/format";
 import { avatarImageSrc } from "@/lib/avatar";
 import { connectionPersonName, memberRelationships, relationshipFor, type MemberConnectionRecord } from "@/lib/member-connection";
-import { connectionsQuery, keys } from "@/lib/queries";
+import { connectionsQuery, keys, userQuery } from "@/lib/queries";
 import type { Membership } from "@/lib/types";
 
 type UserProfile = {
@@ -28,13 +27,6 @@ type UserProfile = {
   memberNumber: string | null;
   avatarUrl: string | null;
   description: string | null;
-};
-
-type UserResponse = {
-  id: string;
-  username: string;
-  email: string;
-  profile: UserProfile | null;
 };
 
 function personName(member: Membership, profile: UserProfile | null | undefined) {
@@ -68,11 +60,7 @@ export function PersonProfileDialog({
   timeZone: string;
   onOpenChange: (open: boolean) => void;
 }) {
-  const profileQuery = useQuery({
-    queryKey: ["user", member?.userId],
-    enabled: Boolean(member),
-    queryFn: ({ signal }) => fetchJson<UserResponse>(`/users/${member!.userId}`, signal),
-  });
+  const profileQuery = useQuery({ ...userQuery(member?.userId ?? ""), enabled: Boolean(member) });
   const profile = profileQuery.data?.profile;
   const name = member ? personName(member, profile) : "";
   const avatarSrc = member ? avatarImageSrc(member.userId, profile?.avatarUrl) : null;

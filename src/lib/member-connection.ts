@@ -1,3 +1,5 @@
+import { formatPersonName } from "@/lib/format";
+
 export const memberRelationships = [
   "Parent",
   "Child",
@@ -94,8 +96,5 @@ export function connectionPersonName(user: {
   firstName?: string | null;
   lastName?: string | null;
 }) {
-  const display = user.displayName?.trim();
-  if (display) return display;
-  const full = [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
-  return full || user.username;
+  return formatPersonName(user);
 }

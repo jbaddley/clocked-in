@@ -10,4 +10,4 @@ export const GET = withGuids<{ id: string }>(async (request, { id }) =>
 export const POST = withGuids<{ id: string }>(async (request, { id }) => {
   const access = await authenticate(request);
   return createReportTemplate(access, id, await readBody(request));
-});
+}, 201);

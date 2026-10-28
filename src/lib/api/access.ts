@@ -168,6 +168,19 @@ export class Access {
     return true;
   }
 
+  /** Saving report designs: an admin API key, or a person with manage_organization or design_reports. */
+  async requireReportDesigner(organizationId: string) {
+    if (this.apiKey) {
+      return this.requireOrganizationAdmin(organizationId);
+    }
+
+    const organization = await this.requireOrganization(organizationId, false);
+    if (!(await this.can(organizationId, "manage_organization")) && !(await this.can(organizationId, "design_reports"))) {
+      forbidden();
+    }
+    return organization;
+  }
+
   async requirePermission(organizationId: string, permission: Permission, departmentId?: string | null) {
     const organization = await this.requireOrganization(organizationId, false);
     if (!(await this.can(organizationId, permission, departmentId))) {

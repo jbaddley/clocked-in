@@ -1,5 +1,6 @@
 "use client";
 
+import { LinkIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { createConnectionAction, deleteConnectionAction, updateConnectionAction } from "@/app/actions/connections";
@@ -11,6 +12,7 @@ import { useMembers } from "@/hooks/use-members";
 import { useOrganization } from "@/hooks/use-workspace";
 import { connectionPersonName, memberRelationships, type MemberConnectionRecord } from "@/lib/member-connection";
 import { connectionsQuery, keys } from "@/lib/queries";
+import { EmptyState } from "@/components/empty-state";
 
 const relationshipOptions = memberRelationships.map((relationship) => ({ value: relationship, label: relationship }));
 
@@ -111,7 +113,7 @@ export function ConnectionsCard() {
         )}
         {connections.isPending ? <p className="text-sm text-muted-foreground">Loading connections…</p> : null}
         {!connections.isPending && rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No connections yet.</p>
+          <EmptyState icon={LinkIcon} title="No connections yet" className="py-8" />
         ) : null}
         {rows.length > 0 ? (
           <ul className="flex flex-col gap-2">

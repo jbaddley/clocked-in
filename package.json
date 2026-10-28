@@ -16,6 +16,8 @@
     "start:production": "node scripts/with-env.mjs production -- next start --port 3025",
     "env:print": "node scripts/with-env.mjs -- node scripts/print-env.mjs",
     "lint": "eslint",
+    "test": "npm run test:unit && npm run test:import && npm run test:http",
+    "test:unit": "node --import tsx --test tests/*.test.ts",
     "test:http": "node --test --test-concurrency=4 tests/http/*.test.mjs",
     "test:import": "node --import tsx --test tests/import/*.test.ts",
     "test:e2e": "playwright test -c tests/e2e/playwright.config.ts",

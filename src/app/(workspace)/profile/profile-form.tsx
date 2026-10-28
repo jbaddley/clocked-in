@@ -15,12 +15,11 @@ import { requestAccessAction } from "@/app/actions/access-requests";
 import { useActionMutation } from "@/hooks/use-action-mutation";
 import { useLookups } from "@/hooks/use-lookups";
 import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
+import { keys } from "@/lib/queries";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SelectField } from "@/components/select-field";
+import { SearchableSelect } from "@/components/searchable-select";
 import { ProfileNav, type ProfileSection } from "./profile-nav";
-
-const selectClass =
-  "h-9 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30";
 
 function timezoneChoices(current: string) {
   const rest = Intl.supportedValuesOf("timeZone")
@@ -122,6 +121,7 @@ function AboutForm({ user, onStatus }: { user: EditableProfile; onStatus: (statu
   const [avatarUrl, setAvatarUrl] = useState(profile.avatarUrl ?? "");
   const [appliedResult, setAppliedResult] = useState(result);
   const [zones, setZones] = useState<string[]>(() => [profile.timezone || "UTC"]);
+  const [timezone, setTimezone] = useState(profile.timezone || "UTC");
   if (result !== appliedResult) {
     setAppliedResult(result);
     if (result?.ok && typeof result.data === "string") {
@@ -135,7 +135,8 @@ function AboutForm({ user, onStatus }: { user: EditableProfile; onStatus: (statu
 
   useEffect(() => {
     if (!result?.ok) return;
-    void queryClient.invalidateQueries({ queryKey: ["user"] });
+    void queryClient.invalidateQueries({ queryKey: keys.me() });
+    void queryClient.invalidateQueries({ queryKey: keys.user(user.id) });
   }, [queryClient, result]);
 
   useEffect(() => {
@@ -197,13 +198,15 @@ function AboutForm({ user, onStatus }: { user: EditableProfile; onStatus: (statu
 
           <FieldGroup title="Contact" hint="Phone, ZIP, and notes stay on your profile.">
             <Field label="Timezone" htmlFor="timezone" hint="Punch dates use this timezone.">
-              <select id="timezone" name="timezone" required defaultValue={profile.timezone} className={selectClass}>
-                {zones.map((zone) => (
-                  <option key={zone} value={zone}>
-                    {zone.replaceAll("_", " ")}
-                  </option>
-                ))}
-              </select>
+              <input type="hidden" name="timezone" value={timezone} />
+              <SearchableSelect
+                id="timezone"
+                value={timezone}
+                onValueChange={(next) => setTimezone(next || timezone)}
+                options={zones.map((zone) => ({ value: zone, label: zone.replaceAll("_", " ") }))}
+                searchPlaceholder="Search timezones"
+                className="h-9"
+              />
             </Field>
             <Field label="Phone" htmlFor="phone">
               <Input

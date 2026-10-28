@@ -1,5 +1,6 @@
 "use client";
 
+import { FileQuestionIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef } from "react";
@@ -30,6 +31,7 @@ import {
 import { ReportMenu } from "./report-menu";
 import { listedSavedReports } from "./report-switcher";
 import { ReportFilters, reportFiltersFromSearch } from "./report-filters";
+import { EmptyState } from "@/components/empty-state";
 
 type ResolvedReport = {
   slug: string;
@@ -222,7 +224,7 @@ export function ReportWorkspace() {
           </div>
         </>
       ) : missing ? (
-        <p className="text-sm text-muted-foreground">That report is not available.</p>
+        <EmptyState icon={FileQuestionIcon} title="That report is not available" description="It may have been renamed or deleted." />
       ) : resolved ? (
         <ReportGrid cards={resolved.cards} data={report} filters={filters} />
       ) : null}

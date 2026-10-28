@@ -80,6 +80,7 @@ export const keys = {
     ["org", organizationId, "email-templates", templateId] as const,
   openPunch: (userId: string) => ["user", userId, "open-punch"] as const,
   me: () => ["user", "me"] as const,
+  user: (userId: string) => ["user", userId, "detail"] as const,
   feedback: (active?: boolean) => (active === undefined ? (["feedback"] as const) : (["feedback", active] as const)),
   feedbackItem: (id: string) => ["feedback", "item", id] as const,
   needs: (organizationId: string) => ["org", organizationId, "needs"] as const,
@@ -281,8 +282,16 @@ export type MeUser = {
     notes: string | null;
     avatarUrl: string | null;
     description: string | null;
+    memberNumber: string | null;
   } | null;
 };
+
+export function userQuery(userId: string) {
+  return queryOptions({
+    queryKey: keys.user(userId),
+    queryFn: ({ signal }) => fetchJson<MeUser>(`/users/${userId}`, signal),
+  });
+}
 
 export function meQuery() {
   return queryOptions({

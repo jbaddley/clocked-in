@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarClockIcon } from "lucide-react";
+import { CalendarClockIcon, UsersIcon } from "lucide-react";
 import { TimeEntryForm } from "@/components/entity-forms/time-entry-form";
 import { selectableMembers } from "@/components/person-select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import { useClientRedirect } from "@/hooks/use-client-redirect";
 import { useMembers } from "@/hooks/use-members";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { canLogMemberTime } from "@/lib/roles";
+import { EmptyState } from "@/components/empty-state";
 
 export function MemberTimeView() {
   const { viewer, isAdmin, isCoordinator, groupDepartments } = useWorkspace();
@@ -34,7 +35,7 @@ export function MemberTimeView() {
           {isPending ? (
             <p className="text-sm text-muted-foreground">Loading…</p>
           ) : eligible.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No other active members to log time for.</p>
+            <EmptyState icon={UsersIcon} title="No other active members" description="Add or reactivate someone on People to log time for them." />
           ) : (
             <TimeEntryForm people={{ excludeSelf: true, activeOnly: true }} />
           )}

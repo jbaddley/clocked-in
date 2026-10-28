@@ -20,10 +20,7 @@ import { feedbackAreas, feedbackLabel, feedbackPriorities, feedbackStatuses, fee
 import { feedbackItemQuery, keys } from "@/lib/queries";
 import type { ActionResult, Feedback } from "@/lib/types";
 import { safeHttpUrl } from "@/lib/url";
-
-function personName(feedback: Feedback) {
-  return feedback.user.displayName || feedback.user.username;
-}
+import { formatPersonName } from "@/lib/format";
 
 function formatWhen(value: string) {
   return new Date(value).toLocaleString();
@@ -78,7 +75,7 @@ function FeedbackBody({ feedback, canUpdateStatus }: { feedback: Feedback; canUp
         <Meta label="Type" value={feedbackLabel(feedbackTypes, feedback.type)} />
         <Meta label="Priority" value={feedbackLabel(feedbackPriorities, feedback.priority)} />
         <Meta label="Area" value={feedbackLabel(feedbackAreas, feedback.area)} />
-        <Meta label="From" value={`${personName(feedback)} (${feedback.user.username})`} />
+        <Meta label="From" value={`${formatPersonName(feedback.user)} (${feedback.user.username})`} />
         <Meta label="Organization" value={feedback.organization?.name ?? "—"} />
         <Meta
           label="GitHub"

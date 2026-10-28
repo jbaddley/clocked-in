@@ -86,6 +86,23 @@ public sealed class Access(ClockedInDbContext db, CurrentUser current)
         return organization;
     }
 
+    /// <summary>Saving report designs: an admin API key, or a person with manage_organization or design_reports.</summary>
+    public async Task<Organization> RequireReportDesigner(Guid organizationId, CancellationToken cancellationToken)
+    {
+        if (current.ApiKey is not null)
+        {
+            return await RequireOrganizationAdmin(organizationId, cancellationToken);
+        }
+
+        var organization = await RequireOrganization(organizationId, false, cancellationToken);
+        if (!await Can(organizationId, "manage_organization", cancellationToken) && !await Can(organizationId, "design_reports", cancellationToken))
+        {
+            throw ApiException.Forbidden();
+        }
+
+        return organization;
+    }
+
     public async Task<Organization> RequirePermission(Guid organizationId, string permission, CancellationToken cancellationToken) =>
         await RequirePermission(organizationId, permission, null, cancellationToken);
 

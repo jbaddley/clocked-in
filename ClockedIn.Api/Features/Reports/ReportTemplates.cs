@@ -89,7 +89,7 @@ public sealed class ReportTemplatesService(ClockedInDbContext db, Access access,
 
     public async Task<ReportTemplateDto> Create(Guid organizationId, SaveReportTemplateBody body, CancellationToken cancellationToken)
     {
-        await access.RequireOrganizationAdmin(organizationId, cancellationToken);
+        await access.RequireReportDesigner(organizationId, cancellationToken);
         if (body.Layout.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null)
         {
             throw ApiException.Validation("layout is required.");
@@ -163,7 +163,7 @@ public sealed class ReportTemplatesService(ClockedInDbContext db, Access access,
         }
         else
         {
-            await access.RequireOrganizationAdmin(organizationId, cancellationToken);
+            await access.RequireReportDesigner(organizationId, cancellationToken);
         }
 
         if (body.BaseTemplateId is not null)
@@ -214,7 +214,7 @@ public sealed class ReportTemplatesService(ClockedInDbContext db, Access access,
             throw ApiException.NotFound();
         }
 
-        await access.RequireOrganizationAdmin(organizationId, cancellationToken);
+        await access.RequireReportDesigner(organizationId, cancellationToken);
         db.ReportTemplates.Remove(template);
         await db.SaveOrThrowAsync(cancellationToken);
     }
@@ -308,8 +308,8 @@ public static class ReportTemplateEndpoints
         var templates = app.MapGroup("/organizations/{id:guid}/report-templates").RequireAuthorization();
         templates.MapGet("", async Task<Ok<ListResponse<ReportTemplateDto>>> (Guid id, [AsParameters] PageQuery query, ReportTemplatesService service, CancellationToken ct) =>
             TypedResults.Ok(await service.List(id, query, ct)));
-        templates.MapPost("", async Task<Ok<ReportTemplateDto>> (Guid id, SaveReportTemplateBody body, ReportTemplatesService service, CancellationToken ct) =>
-            TypedResults.Ok(await service.Create(id, body, ct)));
+        templates.MapPost("", async Task<Created<ReportTemplateDto>> (Guid id, SaveReportTemplateBody body, ReportTemplatesService service, CancellationToken ct) =>
+            TypedResults.Created((string?)null, await service.Create(id, body, ct)));
         templates.MapGet("/{templateId:guid}", async Task<Ok<ReportTemplateDto>> (Guid id, Guid templateId, ReportTemplatesService service, CancellationToken ct) =>
             TypedResults.Ok(await service.Get(id, templateId, ct)));
         templates.MapPatch("/{templateId:guid}", async Task<Ok<ReportTemplateDto>> (Guid id, Guid templateId, SaveReportTemplateBody body, ReportTemplatesService service, CancellationToken ct) =>

@@ -12,13 +12,13 @@ import { SelectField } from "@/components/select-field";
 import { SubmitButton } from "@/components/submit-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { useActionMutation } from "@/hooks/use-action-mutation";
 import { useClientRedirect } from "@/hooks/use-client-redirect";
 import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
 import { connectionPersonName, memberRelationships, relationshipFor } from "@/lib/member-connection";
 import { connectionsQuery, keys } from "@/lib/queries";
 import { canLogConnectionTime } from "@/lib/roles";
+import { PersonIdentityFields, readPersonIdentity } from "@/components/entity-forms/person-identity-fields";
 
 const relationshipOptions = memberRelationships.map((relationship) => ({ value: relationship, label: relationship }));
 
@@ -104,37 +104,14 @@ function AddVolunteerForm({ onCancel, onSaved }: { onCancel: () => void; onSaved
         event.preventDefault();
         const data = new FormData(event.currentTarget);
         create.mutate({
-          email: String(data.get("email") ?? ""),
-          username: String(data.get("username") ?? ""),
-          password: String(data.get("password") ?? ""),
-          firstName: String(data.get("firstName") ?? ""),
-          lastName: String(data.get("lastName") ?? ""),
+          ...readPersonIdentity(data),
           role: "VOLUNTEER",
           relationship,
         });
       }}
     >
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="First name" htmlFor="connection-firstName">
-          <Input id="connection-firstName" name="firstName" required maxLength={100} className="h-9" />
-        </Field>
-        <Field label="Last name" htmlFor="connection-lastName">
-          <Input id="connection-lastName" name="lastName" required maxLength={100} className="h-9" />
-        </Field>
-        <Field label="Email" htmlFor="connection-email">
-          <Input id="connection-email" name="email" type="email" required className="h-9" />
-        </Field>
-        <Field label="Username" htmlFor="connection-username">
-          <Input id="connection-username" name="username" required minLength={3} maxLength={50} className="h-9" />
-        </Field>
-        <Field
-          label="Temporary password"
-          htmlFor="connection-password"
-          className="sm:col-span-2"
-          hint="They will choose a new password the first time they sign in."
-        >
-          <Input id="connection-password" name="password" type="password" required minLength={8} className="h-9" />
-        </Field>
+        <PersonIdentityFields idPrefix="connection" />
         <Field label="This person is my" htmlFor="connection-relationship" className="sm:col-span-2">
           <SelectField
             id="connection-relationship"

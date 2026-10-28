@@ -6,12 +6,14 @@ import { updateOrganizationSettingsAction } from "@/app/actions/organizations";
 import { Field, FormMessage } from "@/components/field";
 import { SubmitButton } from "@/components/submit-button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { useLabels } from "@/hooks/use-labels";
 import { useMembers } from "@/hooks/use-members";
 import { useOrganization } from "@/hooks/use-workspace";
 import type { Membership } from "@/lib/types";
 import { HourlyRatesCard } from "./hourly-rates-card";
+import { formatPersonName } from "@/lib/format";
 
 export function OrganizationForm() {
   const organization = useOrganization();
@@ -41,24 +43,14 @@ function OrganizationFields() {
       <CardContent>
         <form action={action} className="grid gap-4 sm:grid-cols-2">
           <label className="flex items-center gap-2 text-sm sm:col-span-2">
-            <input
-              type="checkbox"
-              name="allowTimeEntryEditing"
-              defaultChecked={organization.preferences.allowTimeEntryEditing}
-              className="size-4 rounded border"
-            />
+            <Checkbox name="allowTimeEntryEditing" value="on" defaultChecked={organization.preferences.allowTimeEntryEditing} />
             Allow time entry editing
           </label>
           <p className="text-sm text-muted-foreground sm:col-span-2">
             When this is off, saved entries keep their start, end, and duration. {copy.project}, {copy.taskCategory.toLowerCase()}, and notes can still change.
           </p>
           <label className="flex items-center gap-2 text-sm sm:col-span-2">
-            <input
-              type="checkbox"
-              name="allowVolunteersToAddVolunteers"
-              defaultChecked={organization.preferences.allowVolunteersToAddVolunteers}
-              className="size-4 rounded border"
-            />
+            <Checkbox name="allowVolunteersToAddVolunteers" value="on" defaultChecked={organization.preferences.allowVolunteersToAddVolunteers} />
             Allow volunteers to add volunteers
           </label>
           <p className="text-sm text-muted-foreground sm:col-span-2">
@@ -90,16 +82,8 @@ function OrganizationFields() {
   );
 }
 
-function personName(member: Membership) {
-  return (
-    member.user.displayName?.trim() ||
-    [member.user.firstName, member.user.lastName].filter(Boolean).join(" ").trim() ||
-    member.user.username
-  );
-}
-
 function personSearch(member: Membership) {
-  return [personName(member), member.user.username, member.user.email].filter(Boolean).join(" ").toLowerCase();
+  return [formatPersonName(member.user), member.user.username, member.user.email].filter(Boolean).join(" ").toLowerCase();
 }
 
 function FeedbackNotifyField({ defaultIds }: { defaultIds: string[] }) {
@@ -123,7 +107,7 @@ function FeedbackNotifyField({ defaultIds }: { defaultIds: string[] }) {
     const member = members.find((item) => item.userId === id);
     return {
       id,
-      name: member ? personName(member) : isPending ? "" : "Former member",
+      name: member ? formatPersonName(member.user) : isPending ? "" : "Former member",
     };
   });
 
@@ -222,7 +206,7 @@ function FeedbackNotifyField({ defaultIds }: { defaultIds: string[] }) {
             <li className="px-2 py-1.5 text-muted-foreground">No matches</li>
           ) : (
             suggestions.map((member, index) => {
-              const name = personName(member);
+              const name = formatPersonName(member.user);
               return (
                 <li key={member.userId}>
                   <button

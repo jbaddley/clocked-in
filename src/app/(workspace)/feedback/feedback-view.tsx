@@ -1,5 +1,6 @@
 "use client";
 
+import { MessageSquareIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -15,10 +16,8 @@ import { useWorkspace } from "@/hooks/use-workspace";
 import { feedbackAreas, feedbackLabel, feedbackPriorities, feedbackStatuses, feedbackTypes } from "@/lib/feedback";
 import { feedbackQuery } from "@/lib/queries";
 import type { Feedback } from "@/lib/types";
-
-function personName(row: Feedback) {
-  return row.user.displayName || row.user.username;
-}
+import { formatPersonName } from "@/lib/format";
+import { EmptyState } from "@/components/empty-state";
 
 function formatWhen(value: string) {
   return new Date(value).toLocaleString();
@@ -31,7 +30,7 @@ export function FeedbackView() {
 
   return (
     <>
-      <PageHeader description='Bugs and feature requests from everyone using VolunTime.' />
+      <PageHeader description='Bugs and feature requests from everyone who uses the app.' />
       <Tabs defaultValue='active'>
         <TabsList variant='line'>
           <TabsTrigger value='active'>Active</TabsTrigger>
@@ -67,7 +66,7 @@ function FeedbackTable({ active }: { active: boolean }) {
       if (area !== "all" && row.area !== area) return false;
       if (status !== "all" && row.status !== status) return false;
       if (!needle) return true;
-      return `${row.title} ${row.description} ${personName(row)}`.toLowerCase().includes(needle);
+      return `${row.title} ${row.description} ${formatPersonName(row.user)}`.toLowerCase().includes(needle);
     });
     const ranked = [...filtered].sort((left, right) => {
       const a = sortKey === "createdAt" ? left.createdAt : left[sortKey];
@@ -159,7 +158,7 @@ function FeedbackTable({ active }: { active: boolean }) {
     {
       key: "submitter",
       header: "From",
-      cell: (row) => personName(row),
+      cell: (row) => formatPersonName(row.user),
     },
     {
       key: "organization",
@@ -209,6 +208,7 @@ function FeedbackTable({ active }: { active: boolean }) {
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder='Search'
+          aria-label='Search feedback'
           className='h-9'
         />
         <SelectField
@@ -242,7 +242,7 @@ function FeedbackTable({ active }: { active: boolean }) {
           onRowClick={(row) => router.push(`/feedback/${row.id}`)}
         />
       ) : (
-        <p className='text-sm text-muted-foreground'>No feedback in this list.</p>
+        <EmptyState icon={MessageSquareIcon} title="No feedback in this list" />
       )}
     </div>
   );

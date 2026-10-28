@@ -29,7 +29,7 @@ test("admin invite is accepted and the person appears on People", async ({ page,
   await expect(page.getByText(email)).toBeVisible();
 
   const code = await waitForInviteCode(email);
-  test.skip(!code, "Invite accept needs the local mail sink.");
+  expect(code, "No invite code reached the mail sink. Start tests/http/mail-sink.mjs and point RESEND_API_URL at it.").toBeTruthy();
   await loginAs(page, username, password);
   await page.goto(`/accept?code=${code}`);
   await page.getByRole("button", { name: "Join organization" }).click();
@@ -48,17 +48,15 @@ async function waitForInviteCode(to: string) {
   const deadline = Date.now() + 4000;
   const pattern = /Use this code to accept the invite:\s*(\d{6})/;
   while (Date.now() < deadline) {
-    try {
-      const response = await fetch(`${sink}/emails?to=${encodeURIComponent(to)}`);
-      if (response.ok) {
-        const messages = (await response.json()) as { text?: string }[];
-        const match = pattern.exec(messages.at(-1)?.text ?? "");
-        if (match) {
-          return match[1];
-        }
+    const response = await fetch(`${sink}/emails?to=${encodeURIComponent(to)}`).catch((error: unknown) => {
+      throw new Error(`The mail sink at ${sink} is not reachable: ${error instanceof Error ? error.message : String(error)}`);
+    });
+    if (response.ok) {
+      const messages = (await response.json()) as { text?: string }[];
+      const match = pattern.exec(messages.at(-1)?.text ?? "");
+      if (match) {
+        return match[1];
       }
-    } catch {
-      return null;
     }
     await new Promise((resolve) => setTimeout(resolve, 200));
   }

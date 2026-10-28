@@ -26,7 +26,7 @@ export function EmptyState({
         <Icon className="size-6" />
       </div>
       <div className="max-w-sm">
-        <p className="font-medium">{title}</p>
+        <h2 className="font-medium">{title}</h2>
         {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
       </div>
       {action}

@@ -2,28 +2,9 @@
 
 import { ChevronDownIcon, MoreVerticalIcon, PencilIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import {
-  createPersonAction,
-  inviteDepartmentMemberAction,
-  inviteMemberAction,
-  removeMemberAction,
-  removeMembersAction,
-  revokeDepartmentInvitationAction,
-  resendInvitationAction,
-  revokeInvitationAction,
-  updateMemberAction,
-  type MemberPatch,
-  type NewPerson,
-} from "@/app/actions/members";
-import { decideAccessRequestAction } from "@/app/actions/access-requests";
-import { DialogActions } from "@/components/dialog-actions";
+import { removeMemberAction, removeMembersAction, updateMemberAction, type MemberPatch } from "@/app/actions/members";
 import { TimeEntryDialog } from "@/components/entity-forms/time-entry-form";
-import { EntityFormDialog } from "@/components/entity-forms/entity-form-dialog";
-import { Field, FormMessage } from "@/components/field";
-import { SelectField } from "@/components/select-field";
-import { SubmitButton } from "@/components/submit-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,9 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   AlertDialog,
@@ -53,61 +32,22 @@ import { PageSkeleton } from "@/components/skeletons";
 import { ConnectionsCard } from "./connections-card";
 import { PersonProfileDialog } from "./person-profile-dialog";
 import { useActionMutation } from "@/hooks/use-action-mutation";
-import { useInvitations } from "@/hooks/use-invitations";
 import { useLabels } from "@/hooks/use-labels";
 import { useLookups } from "@/hooks/use-lookups";
 import { useMembers } from "@/hooks/use-members";
 import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
-import { fetchJson } from "@/lib/fetch-json";
-import { formatInstant } from "@/lib/format";
+import { formatPersonName } from "@/lib/format";
 import { keys } from "@/lib/queries";
-import type { Invitation, Membership, Paged } from "@/lib/types";
-
-const fallbackRoles = [
-  { value: "VOLUNTEER", label: "Volunteer" },
-  { value: "MEMBER", label: "Staff" },
-  { value: "ADMIN", label: "Admin" },
-];
-
-function roleLabel(code: string, fallback: string) {
-  return fallbackRoles.find((role) => role.value === code)?.label ?? fallback;
-}
-
-function useOrgRoleOptions() {
-  const organization = useOrganization();
-  const { data } = useQuery({
-    queryKey: ["org", organization.id, "roles"],
-    queryFn: ({ signal }) =>
-      fetchJson<Paged<{ code: string; name: string }>>(`/organizations/${organization.id}/roles?limit=100`, signal),
-  });
-  const items = data?.items ?? [];
-  if (items.length === 0) return fallbackRoles;
-  return items.map((role) => ({
-    value: role.code,
-    label: role.name,
-  }));
-}
-
-function personName(member: Membership) {
-  const display = member.user.displayName?.trim();
-  if (display) return display;
-  const full = [member.user.firstName, member.user.lastName].filter(Boolean).join(" ").trim();
-  return full || member.user.username;
-}
+import type { Membership } from "@/lib/types";
+import { departmentNames, emailPattern, roleLabel } from "./member-shared";
+import { AccessRequestsCard, InviteForm } from "./invite-card";
+import { PersonDialog } from "./person-forms";
 
 function removalDescription(count: number, organizationName: string) {
   const people = count === 1 ? "1 person" : `${count} people`;
   const history = count === 1 ? "Their account and time history stay." : "Their accounts and time history stay.";
   return `${people} will lose access to ${organizationName}. ${history}`;
 }
-
-function departmentNames(member: Membership, departments: { id: string; name: string }[]) {
-  return (member.departmentIds ?? [])
-    .map((id) => departments.find((item) => item.id === id)?.name)
-    .filter((name): name is string => Boolean(name));
-}
-
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function InlineEmail({
   email,
@@ -376,7 +316,7 @@ export function MembersView() {
                             checked === true ? [...current, member.id] : current.filter((id) => id !== member.id),
                           );
                         }}
-                        aria-label={`Select ${personName(member)}`}
+                        aria-label={`Select ${formatPersonName(member.user)}`}
                       />
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
@@ -385,7 +325,7 @@ export function MembersView() {
                         className="font-medium hover:underline"
                         onClick={() => setProfileMember(member)}
                       >
-                        {personName(member)}
+                        {formatPersonName(member.user)}
                       </button>
                       {member.userId === viewer.id ? (
                         <span className="ml-1.5 text-xs font-normal text-muted-foreground">you</span>
@@ -394,7 +334,7 @@ export function MembersView() {
                     <TableCell>
                       <InlineEmail
                         email={member.user.email}
-                        name={personName(member)}
+                        name={formatPersonName(member.user)}
                         pending={emailSavingId === member.id}
                         onSave={(email) => saveMemberEmail(member.id, email)}
                       />
@@ -451,7 +391,7 @@ export function MembersView() {
                           checked === true ? [...current, member.id] : current.filter((id) => id !== member.id),
                         );
                       }}
-                      aria-label={`Select ${personName(member)}`}
+                      aria-label={`Select ${formatPersonName(member.user)}`}
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
@@ -461,7 +401,7 @@ export function MembersView() {
                             className="font-medium hover:underline"
                             onClick={() => setProfileMember(member)}
                           >
-                            {personName(member)}
+                            {formatPersonName(member.user)}
                           </button>
                           {member.userId === viewer.id ? (
                             <span className="ml-1.5 text-xs font-normal text-muted-foreground">you</span>
@@ -479,7 +419,7 @@ export function MembersView() {
                       </div>
                       <InlineEmail
                         email={member.user.email}
-                        name={personName(member)}
+                        name={formatPersonName(member.user)}
                         pending={emailSavingId === member.id}
                         onSave={(email) => saveMemberEmail(member.id, email)}
                       />
@@ -555,7 +495,7 @@ export function MembersView() {
             <AlertDialogTitle>Remove from organization?</AlertDialogTitle>
             <AlertDialogDescription>
               {removeMember
-                ? `${personName(removeMember)} will lose access to ${organization.name}. Their account and time history stay.`
+                ? `${formatPersonName(removeMember.user)} will lose access to ${organization.name}. Their account and time history stay.`
                 : null}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -606,593 +546,5 @@ function PersonActions({
         <DropdownMenuItem onClick={onAddTime}>Add Time</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
-  );
-}
-
-function useUsernamePreview(firstName: string, lastName: string) {
-  return useQuery({
-    queryKey: ["username-preview", firstName, lastName],
-    queryFn: ({ signal }) =>
-      fetchJson<{ username: string; base: string; collided: boolean }>(
-        `/usernames/preview?firstName=${encodeURIComponent(firstName)}&lastName=${encodeURIComponent(lastName)}`,
-        signal,
-      ),
-    enabled: firstName.trim().length > 0 && lastName.trim().length > 0,
-  });
-}
-
-function InviteForm() {
-  const organization = useOrganization();
-  const { isAdmin, isCoordinator, groupDepartments } = useWorkspace();
-  const { lookups } = useLookups();
-  const coordinated = lookups.departments.filter((department) => groupDepartments.includes(department.id));
-  const roleOptions = useOrgRoleOptions();
-  const coordinatorRoles = [
-    { value: "VOLUNTEER", label: "Volunteer" },
-    { value: "ADMIN", label: "Group manager" },
-  ];
-  const [email, setEmail] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [role, setRole] = useState("VOLUNTEER");
-  const [departmentId, setDepartmentId] = useState(coordinated[0]?.id ?? "");
-  const usernamePreview = useUsernamePreview(firstName, lastName);
-  const { invitations } = useInvitations();
-  const invalidate = [
-    keys.invitations(organization.id),
-    ...coordinated.map((department) => keys.departmentInvitations(department.id)),
-    keys.members(organization.id),
-  ];
-  const invite = useActionMutation(
-    (input: { email: string; role: string; firstName: string; lastName: string; departmentId?: string }) =>
-      input.departmentId
-        ? inviteDepartmentMemberAction(input.departmentId, input)
-        : inviteMemberAction(organization.id, input),
-    { invalidate, onSuccess: () => { setEmail(""); setFirstName(""); setLastName(""); } },
-  );
-  const revoke = useActionMutation(
-    (invitation: Invitation) =>
-      invitation.departmentId
-        ? revokeDepartmentInvitationAction(invitation.departmentId, invitation.id)
-        : revokeInvitationAction(organization.id, invitation.id),
-    { invalidate },
-  );
-  const resend = useActionMutation(
-    (invitation: Invitation) => resendInvitationAction(organization.id, invitation.id, invitation.email),
-    { invalidate },
-  );
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Invite someone</CardTitle>
-        <CardDescription>Set their name when you invite them. We email a 6-digit code and their username.</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-5">
-        <form
-          className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,2fr)]"
-          onSubmit={(event) => {
-            event.preventDefault();
-            invite.mutate({
-              email,
-              firstName,
-              lastName,
-              role,
-              departmentId: isCoordinator ? departmentId || coordinated[0]?.id : undefined,
-            });
-          }}
-        >
-          <Field label="First name" htmlFor="invite-first">
-            <Input id="invite-first" required value={firstName} onChange={(event) => setFirstName(event.target.value)} className="h-9" />
-          </Field>
-          <Field label="Last name" htmlFor="invite-last">
-            <Input id="invite-last" required value={lastName} onChange={(event) => setLastName(event.target.value)} className="h-9" />
-          </Field>
-          <Field label="Email" htmlFor="invite-email">
-            <Input
-              id="invite-email"
-              type="email"
-              required
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              className="h-9"
-            />
-          </Field>
-          {isCoordinator && coordinated.length > 1 ? (
-            <Field label="Group">
-              <SelectField
-                value={departmentId || coordinated[0]?.id || ""}
-                onValueChange={setDepartmentId}
-                options={coordinated.map((department) => ({ value: department.id, label: department.name }))}
-                className="h-9"
-              />
-            </Field>
-          ) : null}
-          <Field label="Role">
-            <SelectField
-              value={role}
-              onValueChange={setRole}
-              options={isCoordinator ? coordinatorRoles : roleOptions}
-              className="h-9"
-            />
-          </Field>
-          {usernamePreview.data?.username ? (
-            <p className="text-xs text-muted-foreground sm:col-span-3">
-              {usernamePreview.data.collided
-                ? `${usernamePreview.data.base} is taken. Will use ${usernamePreview.data.username}.`
-                : `Username will be ${usernamePreview.data.username}.`}
-            </p>
-          ) : null}
-          <SubmitButton pending={invite.isPending} className="h-9 sm:col-start-3 sm:mt-6 sm:justify-self-end">
-            Send invite
-          </SubmitButton>
-        </form>
-        {invitations.length ? (
-          <ul className="divide-y rounded-lg border">
-            {invitations.map((invitation) => (
-              <InvitationRow
-                key={invitation.id}
-                invitation={invitation}
-                pending={revoke.isPending || resend.isPending}
-                onRevoke={() => revoke.mutate(invitation)}
-                onResend={invitation.departmentId ? undefined : () => resend.mutate(invitation)}
-              />
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-muted-foreground">No invitations yet.</p>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function AccessRequestsCard() {
-  const organization = useOrganization();
-  const { lookups } = useLookups();
-  const { data } = useQuery({
-    queryKey: ["org", organization.id, "access-requests"],
-    queryFn: ({ signal }) =>
-      fetchJson<
-        Paged<{
-          id: string;
-          name: string;
-          email: string;
-          status: string;
-          message: string | null;
-          requestedRole: { code: string; name: string } | null;
-          requestedDepartmentIds: string[];
-        }>
-      >(`/organizations/${organization.id}/access-requests?limit=50`, signal),
-  });
-  const decide = useActionMutation(
-    ({ id, status }: { id: string; status: "approved" | "declined" }) => decideAccessRequestAction(organization.id, id, status),
-    { invalidate: [["org", organization.id, "access-requests"], keys.members(organization.id)] },
-  );
-  const pending = (data?.items ?? []).filter((item) => item.status === "pending");
-  if (pending.length === 0) return null;
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Access requests</CardTitle>
-        <CardDescription>Approve or decline people who asked for more access.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ul className="divide-y rounded-lg border">
-          {pending.map((item) => (
-            <li key={item.id} className="flex flex-wrap items-center gap-3 px-3 py-2">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">{item.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {item.email}
-                  {item.requestedRole ? ` · ${item.requestedRole.name}` : ""}
-                  {item.requestedDepartmentIds.length
-                    ? ` · ${item.requestedDepartmentIds
-                        .map((id) => lookups.departments.find((department) => department.id === id)?.name)
-                        .filter(Boolean)
-                        .join(", ")}`
-                    : ""}
-                  {item.message ? ` · ${item.message}` : ""}
-                </p>
-              </div>
-              <Button type="button" size="sm" onClick={() => decide.mutate({ id: item.id, status: "approved" })}>
-                Approve
-              </Button>
-              <Button type="button" size="sm" variant="outline" onClick={() => decide.mutate({ id: item.id, status: "declined" })}>
-                Decline
-              </Button>
-            </li>
-          ))}
-        </ul>
-      </CardContent>
-    </Card>
-  );
-}
-
-function invitationStatus(invitation: Invitation) {
-  if (invitation.acceptedAt) return { label: "Accepted", variant: "default" as const };
-  if (invitation.revokedAt) return { label: "Revoked", variant: "outline" as const };
-  if (new Date(invitation.expiresAt).getTime() <= Date.now()) return { label: "Expired", variant: "destructive" as const };
-  return { label: "Pending", variant: "secondary" as const };
-}
-
-function InvitationRow({
-  invitation,
-  pending,
-  onRevoke,
-  onResend,
-}: {
-  invitation: Invitation;
-  pending: boolean;
-  onRevoke: () => void;
-  onResend?: () => void;
-}) {
-  const { viewer } = useWorkspace();
-  const status = invitationStatus(invitation);
-  const canResend = Boolean(onResend) && (status.label === "Pending" || status.label === "Expired");
-  return (
-    <li className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5">
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{invitation.email}</p>
-        <p className="text-xs text-muted-foreground">
-          {roleLabel(invitation.role.code, invitation.role.name)} · sent {formatInstant(invitation.createdAt, viewer.timezone)}
-        </p>
-      </div>
-      <Badge variant={status.variant}>{status.label}</Badge>
-      {canResend ? (
-        <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={onResend}>
-          Resend
-        </Button>
-      ) : null}
-      {status.label === "Pending" ? (
-        <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={onRevoke}>
-          Revoke
-        </Button>
-      ) : null}
-    </li>
-  );
-}
-
-function PersonDialog({
-  open,
-  onOpenChange,
-  member,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  member?: Membership | null;
-}) {
-  return (
-    <EntityFormDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={member ? "Edit person" : "Add person"}
-      description={member ? "Update their membership and profile." : "Create an account with a temporary password."}
-      className="sm:max-w-lg"
-    >
-      {member ? (
-        <EditPersonForm member={member} onCancel={() => onOpenChange(false)} onSaved={() => onOpenChange(false)} />
-      ) : (
-        <AddPersonForm onCancel={() => onOpenChange(false)} onSaved={() => onOpenChange(false)} />
-      )}
-    </EntityFormDialog>
-  );
-}
-
-function AddPersonForm({ onCancel, onSaved }: { onCancel: () => void; onSaved: () => void }) {
-  const organization = useOrganization();
-  const roleOptions = useOrgRoleOptions();
-  const [role, setRole] = useState("VOLUNTEER");
-  const [groups, setGroups] = useState<GroupAssignment[]>([]);
-  const [emailUser, setEmailUser] = useState(true);
-  const create = useActionMutation((input: NewPerson) => createPersonAction(organization.id, input), {
-    invalidate: [keys.members(organization.id)],
-    errorToast: false,
-    onSuccess: onSaved,
-  });
-
-  return (
-    <form
-      id="add-person-form"
-      className="flex flex-col gap-4"
-      onSubmit={(event) => {
-        event.preventDefault();
-        const data = new FormData(event.currentTarget);
-        create.mutate({
-          email: String(data.get("email") ?? ""),
-          username: String(data.get("username") ?? ""),
-          password: String(data.get("password") ?? ""),
-          firstName: String(data.get("firstName") ?? ""),
-          lastName: String(data.get("lastName") ?? ""),
-          role,
-          departmentIds: groups.map((group) => group.departmentId),
-          managedDepartmentIds: groups.filter((group) => group.manager).map((group) => group.departmentId),
-          emailUser,
-        });
-      }}
-    >
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="First name" htmlFor="add-firstName">
-          <Input id="add-firstName" name="firstName" required maxLength={100} className="h-9" />
-        </Field>
-        <Field label="Last name" htmlFor="add-lastName">
-          <Input id="add-lastName" name="lastName" required maxLength={100} className="h-9" />
-        </Field>
-        <Field label="Email" htmlFor="add-email">
-          <Input id="add-email" name="email" type="email" required className="h-9" />
-        </Field>
-        <Field label="Username" htmlFor="add-username">
-          <Input id="add-username" name="username" required minLength={3} maxLength={50} className="h-9" />
-        </Field>
-        <Field
-          label="Temporary password"
-          htmlFor="add-password"
-          className="sm:col-span-2"
-          hint="They will choose a new password the first time they sign in."
-        >
-          <Input id="add-password" name="password" type="password" required minLength={8} className="h-9" />
-        </Field>
-        <div className="flex flex-col gap-1.5 sm:col-span-2">
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox checked={emailUser} onCheckedChange={(checked) => setEmailUser(checked === true)} />
-            Email user
-          </label>
-          <p className="text-xs text-muted-foreground">
-            They will get an email with their username and temporary password.
-          </p>
-        </div>
-        <Field label="Role">
-          <SelectField value={role} onValueChange={setRole} options={roleOptions} className="h-9" />
-        </Field>
-      </div>
-      <DepartmentChecks value={groups} onChange={setGroups} />
-      <FormMessage result={create.error ? { ok: false, error: create.error.message } : null} />
-      <DialogActions form="add-person-form">
-        <Button type="button" variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
-        <SubmitButton pending={create.isPending}>Add person</SubmitButton>
-      </DialogActions>
-    </form>
-  );
-}
-
-function EditPersonForm({
-  member,
-  onCancel,
-  onSaved,
-}: {
-  member: Membership;
-  onCancel: () => void;
-  onSaved: () => void;
-}) {
-  const organization = useOrganization();
-  const roleOptions = useOrgRoleOptions();
-  const [role, setRole] = useState(member.role.code);
-  const [groups, setGroups] = useState<GroupAssignment[]>(
-    (member.departmentIds ?? []).map((departmentId) => ({
-      departmentId,
-      manager: (member.managedDepartmentIds ?? []).includes(departmentId),
-    })),
-  );
-  const [profile, setProfile] = useState({
-    email: member.user.email,
-    firstName: member.user.firstName ?? "",
-    lastName: member.user.lastName ?? "",
-    displayName: member.user.displayName ?? "",
-    timezone: "UTC",
-    phone: "",
-    zipCode: "",
-    notes: "",
-  });
-  const save = useActionMutation(
-    (patch: MemberPatch) => updateMemberAction(organization.id, member.id, patch),
-    { invalidate: [keys.members(organization.id)], errorToast: false, onSuccess: onSaved },
-  );
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchJson<{
-      email: string;
-      profile: {
-        firstName: string;
-        lastName: string;
-        displayName: string | null;
-        timezone: string;
-        phone: string | null;
-        zipCode: string | null;
-        notes: string | null;
-      } | null;
-    }>(`/users/${member.userId}`)
-      .then((user) => {
-        if (cancelled || !user.profile) return;
-        setProfile({
-          email: user.email,
-          firstName: user.profile.firstName,
-          lastName: user.profile.lastName,
-          displayName: user.profile.displayName ?? "",
-          timezone: user.profile.timezone,
-          phone: user.profile.phone ?? "",
-          zipCode: user.profile.zipCode ?? "",
-          notes: user.profile.notes ?? "",
-        });
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [member.userId]);
-
-  return (
-    <form
-      id="edit-person-form"
-      className="flex flex-col gap-4"
-      onSubmit={(event) => {
-        event.preventDefault();
-        save.mutate({
-          role,
-          departmentIds: groups.map((group) => group.departmentId),
-          managedDepartmentIds: groups.filter((group) => group.manager).map((group) => group.departmentId),
-          email: profile.email,
-          firstName: profile.firstName,
-          lastName: profile.lastName,
-          displayName: profile.displayName.trim() || null,
-          timezone: profile.timezone,
-          phone: profile.phone.trim() || null,
-          zipCode: profile.zipCode.trim() || null,
-          notes: profile.notes.trim() || null,
-        });
-      }}
-    >
-      <Tabs defaultValue="membership">
-        <TabsList>
-          <TabsTrigger value="membership">Membership</TabsTrigger>
-          <TabsTrigger value="profile">Profile</TabsTrigger>
-        </TabsList>
-        <TabsContent value="membership" className="mt-4 flex flex-col gap-4">
-          <Field label="Role">
-            <SelectField value={role} onValueChange={setRole} options={roleOptions} className="h-9" />
-          </Field>
-          <DepartmentChecks value={groups} onChange={setGroups} />
-        </TabsContent>
-        <TabsContent value="profile" className="mt-4 grid gap-4 sm:grid-cols-2">
-          <Field label="Email" htmlFor="edit-email" className="sm:col-span-2" hint="Invite and password codes go to this address.">
-            <Input
-              id="edit-email"
-              type="email"
-              autoComplete="email"
-              value={profile.email}
-              onChange={(event) => setProfile({ ...profile, email: event.target.value })}
-              required
-              maxLength={254}
-              className="h-9"
-            />
-          </Field>
-          <Field label="First name" htmlFor="edit-firstName">
-            <Input
-              id="edit-firstName"
-              value={profile.firstName}
-              onChange={(event) => setProfile({ ...profile, firstName: event.target.value })}
-              required
-              className="h-9"
-            />
-          </Field>
-          <Field label="Last name" htmlFor="edit-lastName">
-            <Input
-              id="edit-lastName"
-              value={profile.lastName}
-              onChange={(event) => setProfile({ ...profile, lastName: event.target.value })}
-              required
-              className="h-9"
-            />
-          </Field>
-          <Field label="Display name" htmlFor="edit-displayName" className="sm:col-span-2">
-            <Input
-              id="edit-displayName"
-              value={profile.displayName}
-              onChange={(event) => setProfile({ ...profile, displayName: event.target.value })}
-              className="h-9"
-            />
-          </Field>
-          <Field label="Timezone" htmlFor="edit-timezone">
-            <Input
-              id="edit-timezone"
-              value={profile.timezone}
-              onChange={(event) => setProfile({ ...profile, timezone: event.target.value })}
-              className="h-9"
-            />
-          </Field>
-          <Field label="Phone" htmlFor="edit-phone">
-            <Input
-              id="edit-phone"
-              value={profile.phone}
-              onChange={(event) => setProfile({ ...profile, phone: event.target.value })}
-              className="h-9"
-            />
-          </Field>
-          <Field label="Zip code" htmlFor="edit-zipCode">
-            <Input
-              id="edit-zipCode"
-              value={profile.zipCode}
-              onChange={(event) => setProfile({ ...profile, zipCode: event.target.value })}
-              className="h-9"
-            />
-          </Field>
-          <Field label="Notes" htmlFor="edit-notes" className="sm:col-span-2">
-            <Textarea
-              id="edit-notes"
-              value={profile.notes}
-              onChange={(event) => setProfile({ ...profile, notes: event.target.value })}
-              className="min-h-24"
-            />
-          </Field>
-        </TabsContent>
-      </Tabs>
-      <FormMessage result={save.error ? { ok: false, error: save.error.message } : null} />
-      <DialogActions form="edit-person-form">
-        <Button type="button" variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
-        <SubmitButton pending={save.isPending}>Save</SubmitButton>
-      </DialogActions>
-    </form>
-  );
-}
-
-type GroupAssignment = { departmentId: string; manager: boolean };
-
-function DepartmentChecks({
-  value,
-  onChange,
-}: {
-  value: GroupAssignment[];
-  onChange: (value: GroupAssignment[]) => void;
-}) {
-  const { lookups } = useLookups();
-  const copy = useLabels();
-  if (lookups.departments.length === 0) {
-    return <p className="text-sm text-muted-foreground">No {copy.departments.toLowerCase()} yet.</p>;
-  }
-
-  return (
-    <Field label={copy.departments}>
-      <ul className="grid gap-3">
-        {lookups.departments.map((department) => {
-          const assignment = value.find((item) => item.departmentId === department.id);
-          return (
-            <li key={department.id} className="flex flex-wrap items-center gap-x-4 gap-y-1">
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={Boolean(assignment)}
-                  onCheckedChange={(next) => {
-                    onChange(
-                      next === true
-                        ? [...value, { departmentId: department.id, manager: false }]
-                        : value.filter((item) => item.departmentId !== department.id),
-                    );
-                  }}
-                />
-                {department.name}
-              </label>
-              {assignment ? (
-                <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Checkbox
-                    checked={assignment.manager}
-                    onCheckedChange={(next) => {
-                      onChange(
-                        value.map((item) =>
-                          item.departmentId === department.id ? { ...item, manager: next === true } : item,
-                        ),
-                      );
-                    }}
-                  />
-                  Group manager
-                </label>
-              ) : null}
-            </li>
-          );
-        })}
-      </ul>
-    </Field>
   );
 }

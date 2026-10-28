@@ -105,7 +105,7 @@ public sealed class SavedReportsService(ClockedInDbContext db, Access access, Re
 
     public async Task<SavedReportDto> Create(Guid organizationId, SaveReportBody body, CancellationToken cancellationToken)
     {
-        await access.RequireOrganizationAdmin(organizationId, cancellationToken);
+        await access.RequireReportDesigner(organizationId, cancellationToken);
         if (body.Layout.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null)
         {
             throw ApiException.Validation("layout is required.");
@@ -149,7 +149,7 @@ public sealed class SavedReportsService(ClockedInDbContext db, Access access, Re
 
     public async Task<SavedReportDto> Update(Guid organizationId, Guid reportId, SaveReportBody body, CancellationToken cancellationToken)
     {
-        await access.RequireOrganizationAdmin(organizationId, cancellationToken);
+        await access.RequireReportDesigner(organizationId, cancellationToken);
         await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
         var report = await db.Reports.FirstOrDefaultAsync(
             item => item.Id == reportId && item.OrganizationId == organizationId,
@@ -203,7 +203,7 @@ public sealed class SavedReportsService(ClockedInDbContext db, Access access, Re
 
     public async Task Delete(Guid organizationId, Guid reportId, CancellationToken cancellationToken)
     {
-        await access.RequireOrganizationAdmin(organizationId, cancellationToken);
+        await access.RequireReportDesigner(organizationId, cancellationToken);
         var report = await db.Reports.FirstOrDefaultAsync(
             item => item.Id == reportId && item.OrganizationId == organizationId,
             cancellationToken) ?? throw ApiException.NotFound();

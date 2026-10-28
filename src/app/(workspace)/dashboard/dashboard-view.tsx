@@ -1,10 +1,12 @@
 "use client";
 
+import { ChartColumnIcon } from "lucide-react";
 import Link from "next/link";
+import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { ReportGrid } from "@/components/report-grid";
 import { DashboardSkeleton } from "@/components/skeletons";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { useReportEntries, withEntries } from "@/hooks/use-report-entries";
 import { useReport } from "@/hooks/use-report";
 import { useSavedReports } from "@/hooks/use-saved-reports";
@@ -23,6 +25,20 @@ export function DashboardView() {
   const pending = reportsPending || builtin.isPending;
 
   if (pending) return <DashboardSkeleton />;
+  if (builtin.isError || !data) {
+    return (
+      <EmptyState
+        icon={ChartColumnIcon}
+        title="The dashboard did not load"
+        description="Your hours are safe. Try again in a moment."
+        action={
+          <Button type="button" variant="outline" onClick={() => builtin.refetch()}>
+            Retry
+          </Button>
+        }
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">

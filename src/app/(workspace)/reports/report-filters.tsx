@@ -26,15 +26,7 @@ import {
   type ReportFilters,
   type ReportIdFilterKey,
 } from "@/lib/report-layout";
-
-function personName(member: {
-  user: { displayName: string | null; firstName: string | null; lastName: string | null; username: string };
-}) {
-  const display = member.user.displayName?.trim();
-  if (display) return display;
-  const full = [member.user.firstName, member.user.lastName].filter(Boolean).join(" ").trim();
-  return full || member.user.username;
-}
+import { formatPersonName } from "@/lib/format";
 
 export function reportFiltersFromSearch(search: { get: (key: string) => string | null }): ReportFilters {
   return filtersFromSearch(search);
@@ -54,7 +46,7 @@ export function ReportFilters({ filters }: { filters: ReportFilters }) {
     : members;
   const people = scoped.map((member) => ({
     value: member.userId,
-    label: member.userId === viewer.id ? `${personName(member)} (you)` : personName(member),
+    label: member.userId === viewer.id ? `${formatPersonName(member.user)} (you)` : formatPersonName(member.user),
   }));
   const fields: { key: ReportIdFilterKey; label: string; placeholder: string; options: { value: string; label: string }[] }[] = [
     {

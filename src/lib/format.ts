@@ -146,3 +146,16 @@ export function formatInstant(value: string, timeZone: string) {
 export function share(part: number, total: number) {
   return total > 0 ? Math.round((part / total) * 100) : 0;
 }
+
+/** Display name, then first and last name, then username. */
+export function formatPersonName(person: {
+  username: string;
+  displayName?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+}) {
+  const display = person.displayName?.trim();
+  if (display) return display;
+  const full = [person.firstName, person.lastName].filter(Boolean).join(" ").trim();
+  return full || person.username;
+}

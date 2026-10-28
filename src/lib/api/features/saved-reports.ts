@@ -4,14 +4,9 @@ import { guard, lockOrganization, transaction } from "@/lib/api/db";
 import { conflict, notFound, validation } from "@/lib/api/errors";
 import { Body, has, list, page } from "@/lib/api/json";
 import { report } from "@/lib/api/features/reports";
+import { readFilters, readLayout, readName } from "@/lib/api/report-input";
 import { prisma } from "@/lib/prisma";
-import {
-  normalizeFilters,
-  normalizeLayout,
-  normalizeReportName,
-  type ReportFilters,
-  type ReportLayout,
-} from "@/lib/report-layout";
+import type { ReportFilters, ReportLayout } from "@/lib/report-layout";
 
 type ReportRow = {
   id: string;
@@ -24,30 +19,6 @@ type ReportRow = {
   createdAt: Date;
   updatedAt: Date;
 };
-
-function readLayout(value: unknown) {
-  try {
-    return normalizeLayout(value);
-  } catch (error) {
-    validation(error instanceof Error ? error.message : "layout is invalid.");
-  }
-}
-
-function readFilters(value: unknown) {
-  try {
-    return normalizeFilters(value);
-  } catch (error) {
-    validation(error instanceof Error ? error.message : "filters are invalid.");
-  }
-}
-
-function readName(value: unknown) {
-  try {
-    return normalizeReportName(value);
-  } catch (error) {
-    validation(error instanceof Error ? error.message : "name is required.");
-  }
-}
 
 function savedReportJson(row: ReportRow) {
   return {
@@ -100,7 +71,7 @@ export async function getSavedReport(access: Access, organizationId: string, rep
 }
 
 export async function createSavedReport(access: Access, organizationId: string, body: Body) {
-  await access.requireOrganization(organizationId, true);
+  await access.requireReportDesigner(organizationId);
   if (!has(body, "layout")) {
     validation("layout is required.");
   }
@@ -155,7 +126,7 @@ export async function createSavedReport(access: Access, organizationId: string, 
 }
 
 export async function updateSavedReport(access: Access, organizationId: string, reportId: string, body: Body) {
-  await access.requireOrganization(organizationId, true);
+  await access.requireReportDesigner(organizationId);
   const current = await prisma.report.findFirst({ where: { id: reportId, organizationId } });
   if (!current) {
     notFound();
@@ -213,7 +184,7 @@ export async function updateSavedReport(access: Access, organizationId: string, 
 }
 
 export async function deleteSavedReport(access: Access, organizationId: string, reportId: string) {
-  await access.requireOrganization(organizationId, true);
+  await access.requireReportDesigner(organizationId);
   const current = await prisma.report.findFirst({ where: { id: reportId, organizationId }, select: { id: true } });
   if (!current) {
     notFound();

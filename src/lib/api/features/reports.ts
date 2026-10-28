@@ -6,6 +6,9 @@ import { labels } from "@/lib/labels";
 import { readPreferences } from "@/lib/api/features/organizations";
 import { prisma } from "@/lib/prisma";
 
+/** Task category whose hours count as participation, not volunteering, in the volunteer table. Matches Reports.cs. */
+export const participantHoursCategory = "participant hours";
+
 type Filter = {
   departmentIds?: string[];
   taskCategoryIds?: string[];
@@ -178,7 +181,7 @@ async function userRollup(organizationId: string, filter: Filter, rateType: "Vol
   const people = bucketsFrom(byUser, (g) => g.userId, (key) => ({ id: key!, label: users.get(key!) ?? "" }));
   const named = people.filter((row) => row.label.trim().length > 0);
   const participantIds = new Set(
-    [...categories.entries()].filter(([, name]) => name.toLowerCase() === "participant hours").map(([id]) => id),
+    [...categories.entries()].filter(([, name]) => name.toLowerCase() === participantHoursCategory).map(([id]) => id),
   );
   const volunteerHours = new Map<string, number>();
   for (const group of byUserCategory) {

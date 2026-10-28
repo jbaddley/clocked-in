@@ -16,3 +16,20 @@ export function useIsMobile() {
     () => false,
   )
 }
+
+const belowLarge = "(max-width: 1023px)"
+
+function subscribeBelowLarge(onChange: () => void) {
+  const mql = window.matchMedia(belowLarge)
+  mql.addEventListener("change", onChange)
+  return () => mql.removeEventListener("change", onChange)
+}
+
+/** Below Tailwind's lg breakpoint. */
+export function useIsBelowLarge() {
+  return useSyncExternalStore(
+    subscribeBelowLarge,
+    () => window.matchMedia(belowLarge).matches,
+    () => false,
+  )
+}
