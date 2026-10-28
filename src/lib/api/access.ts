@@ -28,6 +28,13 @@ export type Account = Prisma.UserGetPayload<{ include: typeof accountInclude }>;
 type CallerOrganization = { isActive: boolean; role: RoleCode | null; roleId: string | null; scope: RoleScope };
 type CallerDepartment = { departmentId: string; organizationId: string; isAdmin: boolean };
 
+function roleScopeFrom(scope: string, code: string): RoleScope {
+  if (scope === "organization" || scope === "assigned_groups" || scope === "self") {
+    return scope;
+  }
+  return defaultScopeForCode(code);
+}
+
 export class Access {
   private organizations?: Map<string, CallerOrganization>;
   private departments?: CallerDepartment[];
@@ -334,19 +341,20 @@ export class Access {
     return shared.map((membership) => membership.organizationId);
   }
 
-  private async organizationMemberships() {
+  private async organizationMemberships(): Promise<Map<string, CallerOrganization>> {
     if (this.organizations) {
       return this.organizations;
     }
 
     if (this.apiKey) {
-      this.organizations = new Map([
+      const organizations = new Map<string, CallerOrganization>([
         [this.apiKey.organizationId, { isActive: true, role: this.apiKey.isAdmin ? "ADMIN" : "MEMBER", roleId: null, scope: "organization" }],
       ]);
-      return this.organizations;
+      this.organizations = organizations;
+      return organizations;
     }
 
-    this.organizations = new Map(
+    const organizations = new Map<string, CallerOrganization>(
       (
         await prisma.organizationMembership.findMany({
           where: { userId: this.caller.id },
@@ -358,11 +366,12 @@ export class Access {
           isActive: membership.isActive,
           roleId: membership.roleId,
           role: membership.role.code || null,
-          scope: membership.role.scope || defaultScopeForCode(membership.role.code),
+          scope: roleScopeFrom(membership.role.scope, membership.role.code),
         },
       ]),
     );
-    return this.organizations;
+    this.organizations = organizations;
+    return organizations;
   }
 
   private async departmentMemberships() {

@@ -191,7 +191,7 @@ async function userRollup(organizationId: string, filter: Filter, rateType: "Vol
   );
   const volunteerHours = new Map<string, number>();
   for (const group of byUserCategory) {
-    if (participantIds.has(group.taskCategoryId)) {
+    if (group.taskCategoryId !== null && participantIds.has(group.taskCategoryId)) {
       continue;
     }
 

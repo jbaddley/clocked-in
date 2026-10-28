@@ -59,9 +59,9 @@ function TimerCard() {
           <TimerIcon className="size-5 shrink-0 text-muted-foreground" />
           {running && punch ? (
             <div className="min-w-0 flex-1">
-              <p className="truncate font-medium">{punch.description || names.project.get(punch.projectId) || "Running timer"}</p>
+              <p className="truncate font-medium">{punch.description || (punch.projectId && names.project.get(punch.projectId)) || "Running timer"}</p>
               <p className="truncate text-xs text-muted-foreground" suppressHydrationWarning>
-                Started {formatTime(punch.startedAt)} · {names.category.get(punch.taskCategoryId)}
+                Started {formatTime(punch.startedAt)} · {punch.taskCategoryId ? names.category.get(punch.taskCategoryId) : null}
               </p>
             </div>
           ) : (
