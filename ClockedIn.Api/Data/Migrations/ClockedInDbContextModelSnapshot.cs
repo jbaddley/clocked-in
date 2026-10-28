@@ -25,6 +25,84 @@ namespace ClockedIn.Api.Data.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "citext");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("ClockedIn.Api.Entities.AccessRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("createdAt")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<Guid?>("GuestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("guestId");
+
+                    b.Property<string>("Message")
+                        .HasColumnType("text")
+                        .HasColumnName("message");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("organizationId");
+
+                    b.Property<string>("RequestedDepartmentIds")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("requestedDepartmentIds")
+                        .HasDefaultValueSql("'[]'::jsonb");
+
+                    b.Property<Guid?>("RequestedRoleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("requestedRoleId");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reviewedAt");
+
+                    b.Property<Guid?>("ReviewedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reviewedByUserId");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("pending")
+                        .HasColumnName("status");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("userId");
+
+                    b.Property<Guid?>("VolunteerNeedId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("volunteerNeedId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GuestId");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("RequestedRoleId");
+
+                    b.HasIndex("ReviewedByUserId");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("VolunteerNeedId");
+
+                    b.ToTable("AccessRequest");
+                });
+
             modelBuilder.Entity("ClockedIn.Api.Entities.CollectiveTimeEntry", b =>
                 {
                     b.Property<Guid>("Id")
@@ -104,7 +182,7 @@ namespace ClockedIn.Api.Data.Migrations
 
                     b.ToTable("CollectiveTimeEntry", t =>
                         {
-                            t.HasCheckConstraint("CollectiveTimeEntry_span_check", "\"endedAt\" > \"startedAt\"\r\nAND \"participantCount\" >= 1\r\nAND \"hourlyRate\" > 0\r\nAND \"inKindValue\" = ROUND(\r\n  (EXTRACT(EPOCH FROM (\"endedAt\" - \"startedAt\")) / 3600.0)\r\n  * \"participantCount\"\r\n  * \"hourlyRate\"\r\n, 2)");
+                            t.HasCheckConstraint("CollectiveTimeEntry_span_check", "\"endedAt\" > \"startedAt\"\nAND \"participantCount\" >= 1\nAND \"hourlyRate\" > 0\nAND \"inKindValue\" = ROUND(\n  (EXTRACT(EPOCH FROM (\"endedAt\" - \"startedAt\")) / 3600.0)\n  * \"participantCount\"\n  * \"hourlyRate\"\n, 2)");
                         });
                 });
 
@@ -167,6 +245,83 @@ namespace ClockedIn.Api.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("DepartmentMembership");
+                });
+
+            modelBuilder.Entity("ClockedIn.Api.Entities.EmailTemplate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("createdAt")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("For")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("for");
+
+                    b.Property<string>("Heading")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("heading");
+
+                    b.Property<bool>("IsEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("isEnabled");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("organizationId");
+
+                    b.Property<string>("Preview")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("preview");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("subject");
+
+                    b.Property<string>("Template")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("template");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updatedAt")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<int>("Version")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1)
+                        .HasColumnName("version");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId", "For")
+                        .IsUnique()
+                        .HasDatabaseName("EmailTemplate_organization_for");
+
+                    b.ToTable("EmailTemplate", t =>
+                        {
+                            t.HasCheckConstraint("EmailTemplate_name_check", "char_length(btrim(\"name\")) BETWEEN 1 AND 80 AND char_length(btrim(\"subject\")) BETWEEN 1 AND 200");
+                        });
                 });
 
             modelBuilder.Entity("ClockedIn.Api.Entities.Feedback", b =>
@@ -251,7 +406,7 @@ namespace ClockedIn.Api.Data.Migrations
 
                     b.ToTable("Feedback", t =>
                         {
-                            t.HasCheckConstraint("Feedback_values_check", "\"type\" IN ('Bug', 'Feature')\r\nAND \"priority\" IN ('Urgent', 'High', 'Medium', 'Low')\r\nAND \"area\" IN ('Dashboard', 'LogTime', 'Entries', 'Reports', 'Settings', 'Other')\r\nAND \"status\" IN ('Pending', 'Acknowledged', 'Planned', 'InProgress', 'Resolved', 'Cancelled', 'CouldNotReproduce', 'Archived')\r\nAND char_length(\"title\") BETWEEN 1 AND 120\r\nAND char_length(\"description\") BETWEEN 1 AND 4000\r\nAND left(\"screenshotUrls\"::text, 1) = '['\r\nAND (\"githubIssueNumber\" IS NULL OR \"githubIssueNumber\" > 0)");
+                            t.HasCheckConstraint("Feedback_values_check", "\"type\" IN ('Bug', 'Feature')\nAND \"priority\" IN ('Urgent', 'High', 'Medium', 'Low')\nAND \"area\" IN ('Dashboard', 'LogTime', 'Entries', 'Reports', 'Settings', 'Other')\nAND \"status\" IN ('Pending', 'Acknowledged', 'Planned', 'InProgress', 'Resolved', 'Cancelled', 'CouldNotReproduce', 'Archived')\nAND char_length(\"title\") BETWEEN 1 AND 120\nAND char_length(\"description\") BETWEEN 1 AND 4000\nAND left(\"screenshotUrls\"::text, 1) = '['\nAND (\"githubIssueNumber\" IS NULL OR \"githubIssueNumber\" > 0)");
                         });
                 });
 
@@ -301,7 +456,7 @@ namespace ClockedIn.Api.Data.Migrations
 
                     b.ToTable("FeedbackAction", t =>
                         {
-                            t.HasCheckConstraint("FeedbackAction_values_check", "\"previousStatus\" IN ('Pending', 'Acknowledged', 'Planned', 'InProgress', 'Resolved', 'Cancelled', 'CouldNotReproduce', 'Archived')\r\nAND \"updatedStatus\" IN ('Pending', 'Acknowledged', 'Planned', 'InProgress', 'Resolved', 'Cancelled', 'CouldNotReproduce', 'Archived')\r\nAND char_length(\"description\") BETWEEN 1 AND 2000");
+                            t.HasCheckConstraint("FeedbackAction_values_check", "\"previousStatus\" IN ('Pending', 'Acknowledged', 'Planned', 'InProgress', 'Resolved', 'Cancelled', 'CouldNotReproduce', 'Archived')\nAND \"updatedStatus\" IN ('Pending', 'Acknowledged', 'Planned', 'InProgress', 'Resolved', 'Cancelled', 'CouldNotReproduce', 'Archived')\nAND char_length(\"description\") BETWEEN 1 AND 2000");
                         });
                 });
 
@@ -343,7 +498,7 @@ namespace ClockedIn.Api.Data.Migrations
 
                     b.ToTable("Guest", t =>
                         {
-                            t.HasCheckConstraint("Guest_values_check", "char_length(btrim(\"name\")) BETWEEN 1 AND 120\r\nAND \"email\" = lower(\"email\")\r\nAND char_length(btrim(\"phone\")) BETWEEN 1 AND 40");
+                            t.HasCheckConstraint("Guest_values_check", "char_length(btrim(\"name\")) BETWEEN 1 AND 120\nAND \"email\" = lower(\"email\")\nAND char_length(btrim(\"phone\")) BETWEEN 1 AND 40");
                         });
                 });
 
@@ -401,7 +556,7 @@ namespace ClockedIn.Api.Data.Migrations
 
                     b.ToTable("HourlyRate", t =>
                         {
-                            t.HasCheckConstraint("HourlyRate_rate_check", "\"type\" IN ('Volunteer', 'Professional')\r\nAND \"perHourRate\" > 0\r\nAND (\r\n  (\"isDefault\" = FALSE)\r\n  OR (\"type\" = 'Volunteer')\r\n)\r\nAND (\"source\" IS NULL OR char_length(\"source\") BETWEEN 1 AND 200)");
+                            t.HasCheckConstraint("HourlyRate_rate_check", "\"type\" IN ('Volunteer', 'Professional')\nAND \"perHourRate\" > 0\nAND (\n  (\"isDefault\" = FALSE)\n  OR (\"type\" = 'Volunteer')\n)\nAND (\"source\" IS NULL OR char_length(\"source\") BETWEEN 1 AND 200)");
                         });
                 });
 
@@ -440,9 +595,17 @@ namespace ClockedIn.Api.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("expiresAt");
 
+                    b.Property<string>("FirstName")
+                        .HasColumnType("text")
+                        .HasColumnName("firstName");
+
                     b.Property<Guid>("InvitedByUserId")
                         .HasColumnType("uuid")
                         .HasColumnName("invitedByUserId");
+
+                    b.Property<string>("LastName")
+                        .HasColumnType("text")
+                        .HasColumnName("lastName");
 
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uuid")
@@ -455,6 +618,10 @@ namespace ClockedIn.Api.Data.Migrations
                     b.Property<Guid>("RoleId")
                         .HasColumnType("uuid")
                         .HasColumnName("roleId");
+
+                    b.Property<string>("Username")
+                        .HasColumnType("text")
+                        .HasColumnName("username");
 
                     b.HasKey("Id");
 
@@ -535,7 +702,7 @@ namespace ClockedIn.Api.Data.Migrations
 
                     b.ToTable("MemberConnection", t =>
                         {
-                            t.HasCheckConstraint("MemberConnection_pair_check", "\"userAId\" <> \"userBId\"\r\nAND \"userAId\"::text < \"userBId\"::text\r\nAND \"relationship\" IN (\r\n  'Parent', 'Child', 'Spouse', 'Sibling', 'Grandparent', 'Grandchild',\r\n  'Guardian', 'Dependent', 'Friend', 'Colleague', 'Associate'\r\n)");
+                            t.HasCheckConstraint("MemberConnection_pair_check", "\"userAId\" <> \"userBId\"\nAND \"userAId\"::text < \"userBId\"::text\nAND \"relationship\" IN (\n  'Parent', 'Child', 'Spouse', 'Sibling', 'Grandparent', 'Grandchild',\n  'Guardian', 'Dependent', 'Friend', 'Colleague', 'Associate'\n)");
                         });
                 });
 
@@ -570,6 +737,10 @@ namespace ClockedIn.Api.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("name");
 
+                    b.Property<string>("PublicSlug")
+                        .HasColumnType("text")
+                        .HasColumnName("publicSlug");
+
                     b.Property<Guid>("ThemeId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
@@ -589,6 +760,11 @@ namespace ClockedIn.Api.Data.Migrations
                         .HasColumnName("wordmarkUrl");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("PublicSlug")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Organization_publicSlug")
+                        .HasFilter("\"publicSlug\" IS NOT NULL");
 
                     b.HasIndex("ThemeId");
 
@@ -733,7 +909,7 @@ namespace ClockedIn.Api.Data.Migrations
 
                     b.ToTable("OrganizationMembership", t =>
                         {
-                            t.HasCheckConstraint("OrganizationMembership_rate_check", "\"rateType\" IN ('Volunteer', 'Professional')\r\nAND (\r\n  (\"rateType\" = 'Volunteer' AND \"professionalBillingRate\" IS NULL)\r\n  OR (\r\n    \"rateType\" = 'Professional'\r\n    AND \"professionalBillingRate\" IS NOT NULL\r\n    AND \"professionalBillingRate\" > 0\r\n  )\r\n)");
+                            t.HasCheckConstraint("OrganizationMembership_rate_check", "\"rateType\" IN ('Volunteer', 'Professional')\nAND (\n  (\"rateType\" = 'Volunteer' AND \"professionalBillingRate\" IS NULL)\n  OR (\n    \"rateType\" = 'Professional'\n    AND \"professionalBillingRate\" IS NOT NULL\n    AND \"professionalBillingRate\" > 0\n  )\n)");
                         });
                 });
 
@@ -903,7 +1079,7 @@ namespace ClockedIn.Api.Data.Migrations
 
                     b.ToTable("Project", t =>
                         {
-                            t.HasCheckConstraint("Project_access_check", "\"projectType\" IN ('Project', 'Event')\r\nAND \"accessType\" IN ('Public', 'Private', 'Department')\r\nAND (\r\n  (\"accessType\" = 'Department' AND \"departmentId\" IS NOT NULL)\r\n  OR (\"accessType\" IN ('Public', 'Private') AND \"departmentId\" IS NULL)\r\n)\r\nAND (\r\n  \"startDate\" IS NULL\r\n  OR \"endDate\" IS NULL\r\n  OR \"endDate\" >= \"startDate\"\r\n)");
+                            t.HasCheckConstraint("Project_access_check", "\"projectType\" IN ('Project', 'Event')\nAND \"accessType\" IN ('Public', 'Private', 'Department')\nAND (\n  (\"accessType\" = 'Department' AND \"departmentId\" IS NOT NULL)\n  OR (\"accessType\" IN ('Public', 'Private') AND \"departmentId\" IS NULL)\n)\nAND (\n  \"startDate\" IS NULL\n  OR \"endDate\" IS NULL\n  OR \"endDate\" >= \"startDate\"\n)");
                         });
                 });
 
@@ -961,17 +1137,17 @@ namespace ClockedIn.Api.Data.Migrations
                         .HasColumnName("filters")
                         .HasDefaultValueSql("'{}'::jsonb");
 
-                    b.Property<bool>("IsDefault")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false)
-                        .HasColumnName("isDefault");
-
                     b.Property<bool>("IsDashboard")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(false)
                         .HasColumnName("isDashboard");
+
+                    b.Property<bool>("IsDefault")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("isDefault");
 
                     b.Property<string>("Layout")
                         .IsRequired()
@@ -996,11 +1172,6 @@ namespace ClockedIn.Api.Data.Migrations
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("OrganizationId")
-                        .IsUnique()
-                        .HasDatabaseName("Report_one_default")
-                        .HasFilter("\"isDefault\" = TRUE");
 
                     b.HasIndex("OrganizationId")
                         .IsUnique()
@@ -1085,7 +1256,7 @@ namespace ClockedIn.Api.Data.Migrations
 
                     b.ToTable("ReportTemplate", t =>
                         {
-                            t.HasCheckConstraint("ReportTemplate_shape_check", "char_length(btrim(\"name\"::text)) BETWEEN 1 AND 80\r\nAND (\r\n  (\"organizationId\" IS NULL AND \"baseTemplateId\" IS NULL AND \"key\" IN ('summary', 'people', 'groups', 'staff'))\r\n  OR (\"organizationId\" IS NOT NULL AND \"key\" IS NULL AND \"baseTemplateId\" IS NULL)\r\n  OR (\"organizationId\" IS NOT NULL AND \"key\" IS NULL AND \"baseTemplateId\" IS NOT NULL)\r\n)");
+                            t.HasCheckConstraint("ReportTemplate_shape_check", "char_length(btrim(\"name\"::text)) BETWEEN 1 AND 80\nAND (\n  (\"organizationId\" IS NULL AND \"baseTemplateId\" IS NULL AND \"key\" IN ('summary', 'people', 'groups', 'staff'))\n  OR (\"organizationId\" IS NOT NULL AND \"key\" IS NULL AND \"baseTemplateId\" IS NULL)\n  OR (\"organizationId\" IS NOT NULL AND \"key\" IS NULL AND \"baseTemplateId\" IS NOT NULL)\n)");
                         });
                 });
 
@@ -1101,15 +1272,39 @@ namespace ClockedIn.Api.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("code");
 
+                    b.Property<bool>("IsSystem")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("isSystem");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("name");
 
+                    b.Property<Guid?>("OrganizationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("organizationId");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("organization")
+                        .HasColumnName("scope");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Code")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasDatabaseName("Role_system_code_key")
+                        .HasFilter("\"organizationId\" IS NULL");
+
+                    b.HasIndex("OrganizationId", "Code")
+                        .IsUnique()
+                        .HasDatabaseName("Role_org_code_key")
+                        .HasFilter("\"organizationId\" IS NOT NULL");
 
                     b.ToTable("Role");
 
@@ -1118,20 +1313,56 @@ namespace ClockedIn.Api.Data.Migrations
                         {
                             Id = new Guid("11111111-1111-4111-8111-111111111111"),
                             Code = "MEMBER",
-                            Name = "Staff"
+                            IsSystem = true,
+                            Name = "Staff",
+                            Scope = "organization"
                         },
                         new
                         {
                             Id = new Guid("33333333-3333-4333-8333-333333333333"),
                             Code = "VOLUNTEER",
-                            Name = "Volunteer"
+                            IsSystem = true,
+                            Name = "Volunteer",
+                            Scope = "self"
                         },
                         new
                         {
                             Id = new Guid("22222222-2222-4222-8222-222222222222"),
                             Code = "ADMIN",
-                            Name = "Admin"
+                            IsSystem = true,
+                            Name = "Admin",
+                            Scope = "organization"
                         });
+                });
+
+            modelBuilder.Entity("ClockedIn.Api.Entities.RolePermission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Allowed")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("allowed");
+
+                    b.Property<string>("Permission")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("permission");
+
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("roleId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RoleId", "Permission")
+                        .IsUnique();
+
+                    b.ToTable("RolePermission");
                 });
 
             modelBuilder.Entity("ClockedIn.Api.Entities.Tag", b =>
@@ -1140,6 +1371,12 @@ namespace ClockedIn.Api.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<bool>("IsArchived")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("isArchived");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -1282,7 +1519,7 @@ namespace ClockedIn.Api.Data.Migrations
 
                     b.ToTable("Theme", t =>
                         {
-                            t.HasCheckConstraint("Theme_token_check", "\"primary\" ~ '^#[0-9A-Fa-f]{6}$'\r\nAND \"primaryForeground\" ~ '^#[0-9A-Fa-f]{6}$'\r\nAND \"highlight\" ~ '^#[0-9A-Fa-f]{6}$'\r\nAND \"accent\" ~ '^#[0-9A-Fa-f]{6}$'\r\nAND \"success\" ~ '^#[0-9A-Fa-f]{6}$'\r\nAND \"surface\" ~ '^#[0-9A-Fa-f]{6}$'\r\nAND \"surfaceForeground\" ~ '^#[0-9A-Fa-f]{6}$'\r\nAND \"foreground\" ~ '^#[0-9A-Fa-f]{6}$'\r\nAND \"chartColor\" ~ '^#[0-9A-Fa-f]{6}$'\r\nAND \"headingFont\" IN ('HelveticaNeue', 'AvenirNext', 'SourceSans3', 'NunitoSans', 'Geist')\r\nAND \"bodyFont\" IN ('HelveticaNeue', 'AvenirNext', 'SourceSans3', 'NunitoSans', 'Geist')\r\nAND left(\"categoricalPalette\", 1) = '['\r\nAND left(\"sequentialPalette\", 1) = '['\r\nAND left(\"divergingPalette\", 1) = '['");
+                            t.HasCheckConstraint("Theme_token_check", "\"primary\" ~ '^#[0-9A-Fa-f]{6}$'\nAND \"primaryForeground\" ~ '^#[0-9A-Fa-f]{6}$'\nAND \"highlight\" ~ '^#[0-9A-Fa-f]{6}$'\nAND \"accent\" ~ '^#[0-9A-Fa-f]{6}$'\nAND \"success\" ~ '^#[0-9A-Fa-f]{6}$'\nAND \"surface\" ~ '^#[0-9A-Fa-f]{6}$'\nAND \"surfaceForeground\" ~ '^#[0-9A-Fa-f]{6}$'\nAND \"foreground\" ~ '^#[0-9A-Fa-f]{6}$'\nAND \"chartColor\" ~ '^#[0-9A-Fa-f]{6}$'\nAND \"headingFont\" IN ('HelveticaNeue', 'AvenirNext', 'SourceSans3', 'NunitoSans', 'Geist')\nAND \"bodyFont\" IN ('HelveticaNeue', 'AvenirNext', 'SourceSans3', 'NunitoSans', 'Geist')\nAND left(\"categoricalPalette\", 1) = '['\nAND left(\"sequentialPalette\", 1) = '['\nAND left(\"divergingPalette\", 1) = '['");
                         });
 
                     b.HasData(
@@ -1643,7 +1880,7 @@ namespace ClockedIn.Api.Data.Migrations
 
                     b.ToTable("UserTimeEntry", t =>
                         {
-                            t.HasCheckConstraint("UserTimeEntry_mode_check", "(\r\n  (\"mode\" IN ('Punch', 'Duration') AND \"hourlyRate\" > 0)\r\n  OR (\"mode\" = 'Total' AND \"hourlyRate\" >= 0)\r\n)\r\nAND (\r\n  (\r\n    \"mode\" = 'Punch'\r\n    AND \"startedAt\" IS NOT NULL\r\n    AND (\r\n      (\r\n        \"endedAt\" IS NULL\r\n        AND \"durationMinutes\" IS NULL\r\n        AND \"inKindValue\" IS NULL\r\n      )\r\n      OR (\r\n        \"endedAt\" IS NOT NULL\r\n        AND \"endedAt\" > \"startedAt\"\r\n        AND \"durationMinutes\" BETWEEN 1 AND 1440\r\n        AND \"durationMinutes\" = FLOOR(EXTRACT(EPOCH FROM (\"endedAt\" - \"startedAt\")) / 60)::integer\r\n        AND \"inKindValue\" IS NOT NULL\r\n        AND \"inKindValue\" = ROUND((\"durationMinutes\"::numeric * \"hourlyRate\") / 60, 2)\r\n      )\r\n    )\r\n  )\r\n  OR (\r\n    \"mode\" = 'Duration'\r\n    AND \"durationMinutes\" BETWEEN 1 AND 1440\r\n    AND \"inKindValue\" IS NOT NULL\r\n    AND \"inKindValue\" = ROUND((\"durationMinutes\"::numeric * \"hourlyRate\") / 60, 2)\r\n    AND (\r\n      (\"startedAt\" IS NULL AND \"endedAt\" IS NULL)\r\n      OR (\r\n        \"startedAt\" IS NOT NULL\r\n        AND \"endedAt\" IS NOT NULL\r\n        AND \"endedAt\" > \"startedAt\"\r\n        AND \"durationMinutes\" = FLOOR(EXTRACT(EPOCH FROM (\"endedAt\" - \"startedAt\")) / 60)::integer\r\n      )\r\n    )\r\n  )\r\n  OR (\r\n    \"mode\" = 'Total'\r\n    AND \"durationMinutes\" BETWEEN 1 AND 59940\r\n    AND \"hourlyRate\" >= 0\r\n    AND \"inKindValue\" IS NOT NULL\r\n    AND \"inKindValue\" = ROUND((\"durationMinutes\"::numeric * \"hourlyRate\") / 60, 2)\r\n  )\r\n)");
+                            t.HasCheckConstraint("UserTimeEntry_mode_check", "(\n  (\"mode\" IN ('Punch', 'Duration') AND \"hourlyRate\" > 0)\n  OR (\"mode\" = 'Total' AND \"hourlyRate\" >= 0)\n)\nAND (\n  (\n    \"mode\" = 'Punch'\n    AND \"startedAt\" IS NOT NULL\n    AND (\n      (\n        \"endedAt\" IS NULL\n        AND \"durationMinutes\" IS NULL\n        AND \"inKindValue\" IS NULL\n      )\n      OR (\n        \"endedAt\" IS NOT NULL\n        AND \"endedAt\" > \"startedAt\"\n        AND \"durationMinutes\" BETWEEN 1 AND 1440\n        AND \"durationMinutes\" = FLOOR(EXTRACT(EPOCH FROM (\"endedAt\" - \"startedAt\")) / 60)::integer\n        AND \"inKindValue\" IS NOT NULL\n        AND \"inKindValue\" = ROUND((\"durationMinutes\"::numeric * \"hourlyRate\") / 60, 2)\n      )\n    )\n  )\n  OR (\n    \"mode\" = 'Duration'\n    AND \"durationMinutes\" BETWEEN 1 AND 1440\n    AND \"inKindValue\" IS NOT NULL\n    AND \"inKindValue\" = ROUND((\"durationMinutes\"::numeric * \"hourlyRate\") / 60, 2)\n    AND (\n      (\"startedAt\" IS NULL AND \"endedAt\" IS NULL)\n      OR (\n        \"startedAt\" IS NOT NULL\n        AND \"endedAt\" IS NOT NULL\n        AND \"endedAt\" > \"startedAt\"\n        AND \"durationMinutes\" = FLOOR(EXTRACT(EPOCH FROM (\"endedAt\" - \"startedAt\")) / 60)::integer\n      )\n    )\n  )\n  OR (\n    \"mode\" = 'Total'\n    AND \"durationMinutes\" BETWEEN 1 AND 59940\n    AND \"hourlyRate\" >= 0\n    AND \"inKindValue\" IS NOT NULL\n    AND \"inKindValue\" = ROUND((\"durationMinutes\"::numeric * \"hourlyRate\") / 60, 2)\n  )\n)");
                         });
                 });
 
@@ -1731,6 +1968,13 @@ namespace ClockedIn.Api.Data.Migrations
                         .HasColumnType("date")
                         .HasColumnName("startDate");
 
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("published")
+                        .HasColumnName("status");
+
                     b.Property<Guid?>("TaskCategoryId")
                         .HasColumnType("uuid")
                         .HasColumnName("taskCategoryId");
@@ -1763,7 +2007,7 @@ namespace ClockedIn.Api.Data.Migrations
 
                     b.ToTable("VolunteerNeed", t =>
                         {
-                            t.HasCheckConstraint("VolunteerNeed_values_check", "\"type\" IN ('Position', 'Task')\r\nAND char_length(btrim(\"name\"::text)) BETWEEN 1 AND 200\r\nAND (\"description\" IS NULL OR char_length(\"description\") BETWEEN 1 AND 4000)\r\nAND \"countNeeded\" BETWEEN 1 AND 10000\r\nAND \"countVetted\" >= 0\r\nAND \"countVetted\" <= \"countNeeded\"\r\nAND (\"endDate\" IS NULL OR \"startDate\" IS NULL OR \"endDate\" >= \"startDate\")\r\nAND char_length(\"publicToken\") = 32\r\nAND \"publicToken\" = lower(\"publicToken\")\r\nAND left(\"questions\"::text, 1) = '{'");
+                            t.HasCheckConstraint("VolunteerNeed_values_check", "\"type\" IN ('Position', 'Task')\nAND char_length(btrim(\"name\"::text)) BETWEEN 1 AND 200\nAND (\"description\" IS NULL OR char_length(\"description\") BETWEEN 1 AND 4000)\nAND \"countNeeded\" BETWEEN 1 AND 10000\nAND \"countVetted\" >= 0\nAND \"countVetted\" <= \"countNeeded\"\nAND (\"endDate\" IS NULL OR \"startDate\" IS NULL OR \"endDate\" >= \"startDate\")\nAND char_length(\"publicToken\") = 32\nAND \"publicToken\" = lower(\"publicToken\")\nAND left(\"questions\"::text, 1) = '{'");
                         });
                 });
 
@@ -1833,7 +2077,7 @@ namespace ClockedIn.Api.Data.Migrations
 
                     b.ToTable("VolunteerSignup", t =>
                         {
-                            t.HasCheckConstraint("VolunteerSignup_person_check", "((\"userId\" IS NOT NULL AND \"guestId\" IS NULL) OR (\"userId\" IS NULL AND \"guestId\" IS NOT NULL))\r\nAND (\"comment\" IS NULL OR char_length(\"comment\") BETWEEN 1 AND 2000)\r\nAND left(\"answers\"::text, 1) = '['");
+                            t.HasCheckConstraint("VolunteerSignup_person_check", "((\"userId\" IS NOT NULL AND \"guestId\" IS NULL) OR (\"userId\" IS NULL AND \"guestId\" IS NOT NULL))\nAND (\"comment\" IS NULL OR char_length(\"comment\") BETWEEN 1 AND 2000)\nAND left(\"answers\"::text, 1) = '['");
                         });
                 });
 
@@ -1886,6 +2130,52 @@ namespace ClockedIn.Api.Data.Migrations
                     b.HasIndex("TagId");
 
                     b.ToTable("UserTimeEntryTag");
+                });
+
+            modelBuilder.Entity("ClockedIn.Api.Entities.AccessRequest", b =>
+                {
+                    b.HasOne("ClockedIn.Api.Entities.Guest", "Guest")
+                        .WithMany("AccessRequests")
+                        .HasForeignKey("GuestId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ClockedIn.Api.Entities.Organization", "Organization")
+                        .WithMany("AccessRequests")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ClockedIn.Api.Entities.Role", "RequestedRole")
+                        .WithMany()
+                        .HasForeignKey("RequestedRoleId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ClockedIn.Api.Entities.User", "ReviewedBy")
+                        .WithMany("AccessRequestsReviewed")
+                        .HasForeignKey("ReviewedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ClockedIn.Api.Entities.User", "User")
+                        .WithMany("AccessRequests")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("ClockedIn.Api.Entities.VolunteerNeed", "VolunteerNeed")
+                        .WithMany("AccessRequests")
+                        .HasForeignKey("VolunteerNeedId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Guest");
+
+                    b.Navigation("Organization");
+
+                    b.Navigation("RequestedRole");
+
+                    b.Navigation("ReviewedBy");
+
+                    b.Navigation("User");
+
+                    b.Navigation("VolunteerNeed");
                 });
 
             modelBuilder.Entity("ClockedIn.Api.Entities.CollectiveTimeEntry", b =>
@@ -1973,6 +2263,17 @@ namespace ClockedIn.Api.Data.Migrations
                     b.Navigation("Role");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ClockedIn.Api.Entities.EmailTemplate", b =>
+                {
+                    b.HasOne("ClockedIn.Api.Entities.Organization", "Organization")
+                        .WithMany("EmailTemplates")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Organization");
                 });
 
             modelBuilder.Entity("ClockedIn.Api.Entities.Feedback", b =>
@@ -2313,6 +2614,27 @@ namespace ClockedIn.Api.Data.Migrations
                     b.Navigation("Organization");
                 });
 
+            modelBuilder.Entity("ClockedIn.Api.Entities.Role", b =>
+                {
+                    b.HasOne("ClockedIn.Api.Entities.Organization", "Organization")
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Organization");
+                });
+
+            modelBuilder.Entity("ClockedIn.Api.Entities.RolePermission", b =>
+                {
+                    b.HasOne("ClockedIn.Api.Entities.Role", "Role")
+                        .WithMany("Permissions")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Role");
+                });
+
             modelBuilder.Entity("ClockedIn.Api.Entities.Tag", b =>
                 {
                     b.HasOne("ClockedIn.Api.Entities.Organization", "Organization")
@@ -2383,14 +2705,12 @@ namespace ClockedIn.Api.Data.Migrations
                     b.HasOne("ClockedIn.Api.Entities.Project", "Project")
                         .WithMany("UserTimeEntries")
                         .HasForeignKey("ProjectId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("ClockedIn.Api.Entities.TaskCategory", "TaskCategory")
                         .WithMany("UserTimeEntries")
                         .HasForeignKey("TaskCategoryId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("ClockedIn.Api.Entities.User", "User")
                         .WithMany("TimeEntries")
@@ -2547,6 +2867,8 @@ namespace ClockedIn.Api.Data.Migrations
 
             modelBuilder.Entity("ClockedIn.Api.Entities.Guest", b =>
                 {
+                    b.Navigation("AccessRequests");
+
                     b.Navigation("Signups");
                 });
 
@@ -2559,6 +2881,8 @@ namespace ClockedIn.Api.Data.Migrations
 
             modelBuilder.Entity("ClockedIn.Api.Entities.Organization", b =>
                 {
+                    b.Navigation("AccessRequests");
+
                     b.Navigation("ApiKeys");
 
                     b.Navigation("CollectiveTimeEntries");
@@ -2566,6 +2890,8 @@ namespace ClockedIn.Api.Data.Migrations
                     b.Navigation("Connections");
 
                     b.Navigation("Departments");
+
+                    b.Navigation("EmailTemplates");
 
                     b.Navigation("Feedback");
 
@@ -2613,6 +2939,8 @@ namespace ClockedIn.Api.Data.Migrations
                     b.Navigation("Invitations");
 
                     b.Navigation("OrganizationMemberships");
+
+                    b.Navigation("Permissions");
                 });
 
             modelBuilder.Entity("ClockedIn.Api.Entities.TaskCategory", b =>
@@ -2631,6 +2959,10 @@ namespace ClockedIn.Api.Data.Migrations
 
             modelBuilder.Entity("ClockedIn.Api.Entities.User", b =>
                 {
+                    b.Navigation("AccessRequests");
+
+                    b.Navigation("AccessRequestsReviewed");
+
                     b.Navigation("CollectiveTimeEntries");
 
                     b.Navigation("DepartmentMemberships");
@@ -2668,6 +3000,8 @@ namespace ClockedIn.Api.Data.Migrations
 
             modelBuilder.Entity("ClockedIn.Api.Entities.VolunteerNeed", b =>
                 {
+                    b.Navigation("AccessRequests");
+
                     b.Navigation("Signups");
                 });
 #pragma warning restore 612, 618

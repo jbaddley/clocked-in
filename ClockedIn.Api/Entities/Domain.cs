@@ -227,6 +227,7 @@ public class Organization
     public ICollection<MemberConnection> Connections { get; set; } = [];
     public ICollection<Report> Reports { get; set; } = [];
     public ICollection<ReportTemplate> ReportTemplates { get; set; } = [];
+    public ICollection<EmailTemplate> EmailTemplates { get; set; } = [];
     public ICollection<VolunteerNeed> VolunteerNeeds { get; set; } = [];
     public ICollection<AccessRequest> AccessRequests { get; set; } = [];
 }
@@ -240,6 +241,41 @@ public class Report
     public bool IsDashboard { get; set; }
     public string Layout { get; set; } = """{"version":1,"cards":[]}""";
     public string Filters { get; set; } = "{}";
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+
+    public Organization Organization { get; set; } = null!;
+}
+
+public enum EmailTemplateFor
+{
+    Invite,
+    Welcome,
+    PasswordReset,
+    LoggedTime,
+    UnclassifiedEntry,
+    FeedbackReceived,
+    FeedbackNotify,
+    FeedbackCompleted,
+    AccessRequestReceived,
+    AccessRequestDecided,
+    NeedSubmitted,
+    NeedDecided,
+    VolunteerMessage,
+}
+
+public class EmailTemplate
+{
+    public Guid Id { get; set; }
+    public Guid OrganizationId { get; set; }
+    public string Name { get; set; } = null!;
+    public int Version { get; set; } = 1;
+    public EmailTemplateFor For { get; set; }
+    public string Subject { get; set; } = null!;
+    public string Heading { get; set; } = null!;
+    public string Preview { get; set; } = null!;
+    public string Template { get; set; } = null!;
+    public bool IsEnabled { get; set; } = true;
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

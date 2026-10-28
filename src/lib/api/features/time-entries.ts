@@ -11,6 +11,7 @@ import {
   Body,
   description,
   has,
+  hoursFromMinutes,
   ids,
   inKindFromMinutes,
   list,
@@ -707,6 +708,42 @@ export async function listOrganizationTimeEntries(access: Access, organizationId
   return list(entries.map(timeEntryJson), paging);
 }
 
+function entryDateLabel(dates: Date[]) {
+  const format = (date: Date) =>
+    date.toLocaleDateString("en-US", { timeZone: "UTC", weekday: "short", month: "short", day: "numeric", year: "numeric" });
+  const sorted = [...dates].sort((a, b) => a.getTime() - b.getTime());
+  const first = format(sorted[0]);
+  const last = format(sorted[sorted.length - 1]);
+  return first === last ? first : `${first} – ${last}`;
+}
+
+/** One "hours logged" mail per save. A failed send never undoes the saved time. */
+async function notifyLoggedTime(userId: string, rows: EntryRow[]) {
+  const saved = rows.filter((row) => row.durationMinutes !== null && !isUnclassified(row));
+  const minutes = saved.reduce((sum, row) => sum + (row.durationMinutes ?? 0), 0);
+  if (saved.length === 0 || minutes <= 0) return;
+  const organizationId = saved[0].organizationId;
+  const [user, organization] = await Promise.all([
+    prisma.user.findUnique({ where: { id: userId }, select: { email: true, profile: { select: { firstName: true } } } }),
+    prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true } }),
+  ]);
+  if (!user?.email || !organization) return;
+  await sendEmail({
+    to: user.email,
+    organizationId,
+    for: "LoggedTime",
+    context: {
+      user: { firstName: user.profile?.firstName || "there" },
+      organization: { name: organization.name },
+      entry: {
+        hours: String(hoursFromMinutes(minutes)),
+        date: entryDateLabel(saved.map((row) => row.occurredOn)),
+        url: appUrl("/log"),
+      },
+    },
+  }).catch(() => undefined);
+}
+
 export async function createTimeEntry(access: Access, userId: string, request: CreateTimeEntryRequest) {
   const user = await prisma.user.findUnique({ where: { id: userId }, include: accountInclude });
   if (!user) {
@@ -738,6 +775,7 @@ export async function createTimeEntry(access: Access, userId: string, request: C
       include: entryInclude,
     });
   });
+  await notifyLoggedTime(userId, [entry]);
   return timeEntryJson(entry);
 }
 
@@ -777,6 +815,7 @@ export async function createTimeEntries(access: Access, userId: string, requests
 
     return rows;
   });
+  await notifyLoggedTime(userId, created);
   return { items: created.map(timeEntryJson) };
 }
 
@@ -965,15 +1004,19 @@ export async function clockOut(access: Access, request: ClockOutRequest) {
     });
   });
   const json = timeEntryJson(entry);
-  if (isUnclassified(json)) {
+  if (!isUnclassified(json)) {
+    await notifyLoggedTime(userId, [entry]);
+  } else {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { email: true, profile: { select: { firstName: true } } },
     });
     if (user?.email) {
-      await sendEmail(user.email, "unclassified-entry", {
-        name: user.profile?.firstName || "there",
-        url: appUrl("/entries?unclassified=1"),
+      await sendEmail({
+        to: user.email,
+        organizationId: json.organizationId,
+        for: "UnclassifiedEntry",
+        context: { user: { firstName: user.profile?.firstName || "there" }, entry: { url: appUrl("/entries?unclassified=1") } },
       }).catch(() => undefined);
     }
   }

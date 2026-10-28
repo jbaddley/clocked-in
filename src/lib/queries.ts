@@ -2,6 +2,7 @@ import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 import { fetchJson } from "@/lib/fetch-json";
 import type { MemberConnectionRecord } from "@/lib/member-connection";
 import type { ReportFilters } from "@/lib/report-layout";
+import type { EmailTemplateJson } from "@/lib/api/features/email-templates";
 import type { ReportTemplate } from "@/lib/api/features/report-templates";
 import type { SavedReport } from "@/lib/api/features/saved-reports";
 import type {
@@ -74,6 +75,9 @@ export const keys = {
   savedReportData: (organizationId: string, reportId: string, filter: ReportFilters) =>
     ["org", organizationId, "saved-report-data", reportId, filter] as const,
   themes: (organizationId: string) => ["org", organizationId, "themes"] as const,
+  emailTemplates: (organizationId: string) => ["org", organizationId, "email-templates"] as const,
+  emailTemplate: (organizationId: string, templateId: string) =>
+    ["org", organizationId, "email-templates", templateId] as const,
   openPunch: (userId: string) => ["user", userId, "open-punch"] as const,
   me: () => ["user", "me"] as const,
   feedback: (active?: boolean) => (active === undefined ? (["feedback"] as const) : (["feedback", active] as const)),
@@ -208,6 +212,22 @@ export function reportTemplatesQuery(organizationId: string) {
     queryKey: keys.reportTemplates(organizationId),
     queryFn: async ({ signal }) =>
       (await fetchJson<Paged<ReportTemplate>>(`/organizations/${organizationId}/report-templates?limit=100`, signal)).items,
+  });
+}
+
+export function emailTemplatesQuery(organizationId: string) {
+  return queryOptions({
+    queryKey: keys.emailTemplates(organizationId),
+    queryFn: async ({ signal }) =>
+      (await fetchJson<Paged<EmailTemplateJson>>(`/organizations/${organizationId}/email-templates`, signal)).items,
+  });
+}
+
+export function emailTemplateQuery(organizationId: string, templateId: string) {
+  return queryOptions({
+    queryKey: keys.emailTemplate(organizationId, templateId),
+    queryFn: ({ signal }) =>
+      fetchJson<EmailTemplateJson>(`/organizations/${organizationId}/email-templates/${templateId}`, signal),
   });
 }
 

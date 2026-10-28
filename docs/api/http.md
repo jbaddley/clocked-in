@@ -411,6 +411,18 @@ Rows are user entries sorted by `occurredOn` and then `createdAt`. Cell formats 
 
 A cell that starts with `=`, `+`, `-`, `@`, a tab, or a carriage return gets a leading `'`. A cell containing `"`, `,`, a newline, or a carriage return is wrapped in double quotes, with each `"` doubled.
 
+## Email templates
+
+Email templates live at `/organizations/{id}/email-templates`. Each organization has one per email type (`for`), seeded when it is created. There is no create or delete.
+
+`GET /organizations/{id}/email-templates` (any member) lists all 13 in a fixed order and adds any that are missing. Each item has `id`, `organizationId`, `name`, `version`, `for`, `subject`, `heading`, `preview`, `template`, `isEnabled`, `isOptional`, `fields` (the placeholders that type allows), `createdAt`, and `updatedAt`. `GET .../email-templates/{templateId}` reads one.
+
+`PATCH .../email-templates/{templateId}` requires an organization admin. Body may include `name` (1–80), `subject` (1–200), `heading` (1–120), `preview` (0–200), `template` (HTML, up to 20000 characters), and `isEnabled`. `template` is sanitized to `p`, `h1`–`h3`, `strong`, `em`, `a` (http, https, mailto, or a `{{field}}` href), `ul`, `ol`, `li`, `br`, and `span[data-placeholder]`; a body with no text after that fails with `template is required.`. A `{{field}}` outside that type's catalog fails with `{{field}} is not a field for this email.`. Sending `for` fails with `for cannot be changed.`. Only `LoggedTime` and `UnclassifiedEntry` can set `isEnabled` to false; any other fails with `This email cannot be turned off.`. A patch with none of these fields fails with `Provide at least one field to update.`. Each successful patch adds 1 to `version`.
+
+`POST .../email-templates/{templateId}/reset` requires an organization admin. It restores the default name, subject, heading, preview, and body, turns the email back on, and adds 1 to `version`.
+
+`LoggedTime` is sent to the person whose hours were saved, once per save: a classified clock-out, a single classified duration or total entry, or a multi-day batch (hours summed). Open punches, edits, and group sessions do not send it. A failed send never undoes the save.
+
 ## Organization API keys
 
 ClockedIn.Api accepts organization API keys on REST and on `POST /mcp`. The Next.js app accepts the same keys on `POST /mcp`. Next.js REST routes still require a user JWT unless `CSHARP_API_URL` is set and Next proxies to ClockedIn.Api. A key is shown once at create or rotate: `cki_live_<prefix>_<secret>` in production, `cki_test_…` otherwise. Send `Authorization: Bearer <key>` or `X-Api-Key: <key>`. Only the HMAC hash is stored. Key create, list, rotate, and revoke require a human organization admin JWT. A key cannot mint other keys.

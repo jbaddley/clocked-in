@@ -181,14 +181,15 @@ public sealed class FeedbackService(
         {
             await TrySend(
                 feedback.User.Email,
-                "feedback-completed",
-                new Dictionary<string, string>
+                feedback.OrganizationId,
+                EmailTemplateFor.FeedbackCompleted,
+                new Dictionary<string, string?>
                 {
-                    ["firstName"] = FirstName(feedback.User),
-                    ["title"] = feedback.Title,
-                    ["typeLabel"] = TypeLabel(feedback.Type),
-                    ["outcome"] = Outcome(request.Status),
-                    ["note"] = request.Description,
+                    ["user.firstName"] = FirstName(feedback.User),
+                    ["feedback.title"] = feedback.Title,
+                    ["feedback.typeLabel"] = TypeLabel(feedback.Type),
+                    ["feedback.outcome"] = Outcome(request.Status),
+                    ["feedback.note"] = request.Description,
                 },
                 cancellationToken);
         }
@@ -237,25 +238,26 @@ public sealed class FeedbackService(
         var sent = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         await TrySend(
             feedback.User.Email,
-            "feedback-received",
-            new Dictionary<string, string>
+            feedback.OrganizationId,
+            EmailTemplateFor.FeedbackReceived,
+            new Dictionary<string, string?>
             {
-                ["firstName"] = FirstName(feedback.User),
-                ["title"] = feedback.Title,
-                ["typeLabel"] = TypeLabel(feedback.Type),
+                ["user.firstName"] = FirstName(feedback.User),
+                ["feedback.title"] = feedback.Title,
+                ["feedback.typeLabel"] = TypeLabel(feedback.Type),
             },
             cancellationToken);
         sent.Add(feedback.User.Email);
 
-        var notify = new Dictionary<string, string>
+        var notify = new Dictionary<string, string?>
         {
-            ["submitterName"] = DisplayName(feedback.User),
-            ["typeLabel"] = TypeLabel(feedback.Type),
-            ["priorityLabel"] = feedback.Priority.ToString(),
-            ["areaLabel"] = AreaLabel(feedback.Area),
-            ["title"] = feedback.Title,
-            ["description"] = feedback.Description,
-            ["url"] = emailOptions.Value.Link("/feedback"),
+            ["feedback.submitterName"] = DisplayName(feedback.User),
+            ["feedback.typeLabel"] = TypeLabel(feedback.Type),
+            ["feedback.priorityLabel"] = feedback.Priority.ToString(),
+            ["feedback.areaLabel"] = AreaLabel(feedback.Area),
+            ["feedback.title"] = feedback.Title,
+            ["feedback.description"] = feedback.Description,
+            ["feedback.url"] = emailOptions.Value.Link("/feedback"),
         };
         var superAdmins = await db.Users.AsNoTracking()
             .Where(user => user.IsSuperAdmin)
@@ -265,7 +267,7 @@ public sealed class FeedbackService(
         {
             if (sent.Add(email))
             {
-                await TrySend(email, "feedback-notify", notify, cancellationToken);
+                await TrySend(email, feedback.OrganizationId, EmailTemplateFor.FeedbackNotify, notify, cancellationToken);
             }
         }
 
@@ -293,7 +295,7 @@ public sealed class FeedbackService(
         {
             if (sent.Add(email))
             {
-                await TrySend(email, "feedback-notify", notify, cancellationToken);
+                await TrySend(email, feedback.OrganizationId, EmailTemplateFor.FeedbackNotify, notify, cancellationToken);
             }
         }
     }
@@ -336,11 +338,16 @@ public sealed class FeedbackService(
         }
     }
 
-    private async Task TrySend(string to, string template, IReadOnlyDictionary<string, string> variables, CancellationToken cancellationToken)
+    private async Task TrySend(
+        string to,
+        Guid? organizationId,
+        EmailTemplateFor kind,
+        IReadOnlyDictionary<string, string?> context,
+        CancellationToken cancellationToken)
     {
         try
         {
-            await mail.Send(to, template, variables, cancellationToken);
+            await mail.Send(to, organizationId, kind, context, cancellationToken);
         }
         catch (ApiException)
         {

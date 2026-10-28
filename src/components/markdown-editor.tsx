@@ -276,15 +276,15 @@ export function MarkdownEditor({
   );
 }
 
-function Group({ children }: { children: ReactNode }) {
+export function Group({ children }: { children: ReactNode }) {
   return <div className="flex items-center">{children}</div>;
 }
 
-function Bar() {
+export function Bar() {
   return <span aria-hidden className="mx-1 h-5 w-px bg-border" />;
 }
 
-function FormatButton({
+export function FormatButton({
   label,
   pressed,
   disabled,

@@ -180,13 +180,14 @@ public sealed class MembershipsService(
             {
                 await mail.Send(
                     request.Email,
-                    "account-welcome",
-                    new Dictionary<string, string>
+                    organizationId,
+                    EmailTemplateFor.Welcome,
+                    new Dictionary<string, string?>
                     {
-                        ["organizationName"] = organization.Name,
-                        ["username"] = request.Username!,
-                        ["password"] = request.Password!,
-                        ["url"] = emailOptions.Value.Link("/login"),
+                        ["organization.name"] = organization.Name,
+                        ["user.username"] = request.Username!,
+                        ["user.password"] = request.Password!,
+                        ["account.url"] = emailOptions.Value.Link("/login"),
                     },
                     cancellationToken);
             }

@@ -1,4 +1,5 @@
 using ClockedIn.Api.Data;
+using ClockedIn.Api.Email;
 using ClockedIn.Api.Entities;
 using ClockedIn.Api.Features.HourlyRates;
 using ClockedIn.Api.Features.Shared;
@@ -22,6 +23,7 @@ public sealed class OrganizationsService(ClockedInDbContext db, Access access, T
         var defaultRate = HourlyRatesService.SeedDefault(organization.Id);
         db.Organizations.Add(organization);
         db.HourlyRates.Add(defaultRate);
+        db.EmailTemplates.AddRange(EmailTemplateDefaults.NewRows(organization.Id, time.UtcNow()));
         db.OrganizationMemberships.Add(new OrganizationMembership
         {
             Id = Guid.NewGuid(),

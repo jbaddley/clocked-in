@@ -7,8 +7,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="..\emails\dist\messages.json">
-      <LogicalName>ClockedIn.Api.Email.messages.json</LogicalName>
+    <EmbeddedResource Include="..\emails\dist\defaults.json">
+      <LogicalName>ClockedIn.Api.Email.defaults.json</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
 

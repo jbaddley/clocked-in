@@ -115,6 +115,7 @@ model Organization {
   publicSlug            String?                  @unique(map: "IX_Organization_publicSlug")
   collectiveTimeEntries CollectiveTimeEntry[]
   departments           Department[]
+  emailTemplates        EmailTemplate[]
   feedback              Feedback[]
   hourlyRates           HourlyRate[]
   invitations           Invitation[]
@@ -559,6 +560,25 @@ model Report {
   @@unique([organizationId, name], map: "IX_Report_organizationId_name")
   @@unique([organizationId], map: "Report_one_default", where: raw("(\"isDefault\" = true)"))
   @@unique([organizationId], map: "Report_one_dashboard", where: raw("(\"isDashboard\" = true)"))
+}
+
+/// An organization's copy of one transactional email. `for` is fixed at seed; `template` is sanitized TipTap HTML.
+model EmailTemplate {
+  id             String       @id(map: "PK_EmailTemplate") @db.Uuid
+  organizationId String       @db.Uuid
+  name           String
+  version        Int          @default(1)
+  for            String
+  subject        String
+  heading        String
+  preview        String
+  template       String
+  isEnabled      Boolean      @default(true)
+  createdAt      DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime     @default(now()) @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_EmailTemplate_Organization_organizationId")
+
+  @@unique([organizationId, for], map: "EmailTemplate_organization_for")
 }
 
 /// A reusable card layout. A null organizationId is a global template. An organization row with baseTemplateId replaces that global for one organization.

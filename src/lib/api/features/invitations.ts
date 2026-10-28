@@ -66,6 +66,14 @@ function inviteUrl(code: string) {
   return appUrl(`/accept?code=${encodeURIComponent(code)}`);
 }
 
+function inviteContext(target: { targetKind: string; targetName: string }, roleName: string, username: string, code: string) {
+  return {
+    organization: { name: target.targetName },
+    invite: { targetKind: target.targetKind, targetName: target.targetName, roleName, code, url: inviteUrl(code) },
+    user: { username },
+  };
+}
+
 async function usernameTaken(username: string) {
   return Boolean(
     (await prisma.user.findUnique({ where: { username }, select: { id: true } })) ||
@@ -136,14 +144,11 @@ async function create(
     }),
   );
   try {
-    await sendEmail(request.email, "invitation", {
-      targetKind: target.targetKind,
-      targetName: target.targetName,
-      organizationName: target.targetName,
-      roleName: invitation.role.name,
-      username,
-      code,
-      url: inviteUrl(code),
+    await sendEmail({
+      to: request.email,
+      organizationId,
+      for: "Invite",
+      context: inviteContext(target, invitation.role.name, username, code),
     });
   } catch (error) {
     await prisma.invitation.delete({ where: { id: invitation.id } });
@@ -248,14 +253,11 @@ async function resend(where: Prisma.InvitationWhereInput, target: { targetKind: 
     }),
   );
   try {
-    await sendEmail(invitation.email, "invitation", {
-      targetKind: target.targetKind,
-      targetName: target.targetName,
-      organizationName: target.targetName,
-      roleName: invitation.role.name,
-      username: invitation.username ?? "",
-      code,
-      url: inviteUrl(code),
+    await sendEmail({
+      to: invitation.email,
+      organizationId: invitation.organizationId,
+      for: "Invite",
+      context: inviteContext(target, invitation.role.name, invitation.username ?? "", code),
     });
   } catch (error) {
     await prisma.invitation.update({ where: { id: invitation.id }, data: previous });

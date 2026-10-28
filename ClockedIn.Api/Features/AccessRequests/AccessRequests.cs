@@ -224,12 +224,13 @@ public sealed class AccessRequestsService(ClockedInDbContext db, Access access, 
         {
             await mail.Send(
                 email,
-                "access-request-decided",
-                new Dictionary<string, string>
+                organizationId,
+                EmailTemplateFor.AccessRequestDecided,
+                new Dictionary<string, string?>
                 {
-                    ["organizationName"] = organization.Name,
-                    ["decision"] = request.Status == "approved" ? "approved" : "declined",
-                    ["name"] = row.User?.Profile?.FirstName ?? row.Guest?.Name ?? "there",
+                    ["organization.name"] = organization.Name,
+                    ["request.decision"] = request.Status == "approved" ? "approved" : "declined",
+                    ["user.name"] = row.User?.Profile?.FirstName ?? row.Guest?.Name ?? "there",
                 },
                 cancellationToken);
         }
@@ -288,11 +289,12 @@ public sealed class AccessRequestsService(ClockedInDbContext db, Access access, 
             {
                 await mail.Send(
                     email,
-                    "access-request-received",
-                    new Dictionary<string, string>
+                    organizationId,
+                    EmailTemplateFor.AccessRequestReceived,
+                    new Dictionary<string, string?>
                     {
-                        ["organizationName"] = organizationName,
-                        ["requesterEmail"] = requesterEmail,
+                        ["organization.name"] = organizationName,
+                        ["request.requesterEmail"] = requesterEmail,
                     },
                     cancellationToken);
             }

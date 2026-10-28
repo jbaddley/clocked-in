@@ -28,6 +28,7 @@ import {
 } from "@/lib/api/json";
 import { createGithubIssue, syncGithubIssueState } from "@/lib/api/github-issues";
 import { sendEmail } from "@/lib/api/mail";
+import type { EmailContext, EmailTemplateFor } from "@/lib/email/templates";
 import { appUrl } from "@/lib/api/security";
 import { readPreferences } from "@/lib/api/features/organizations";
 import { prisma } from "@/lib/prisma";
@@ -232,9 +233,14 @@ function outcome(status: FeedbackStatus) {
   return "we were not able to reproduce this";
 }
 
-async function trySend(to: string, template: string, variables: Record<string, string>) {
+async function trySend(
+  to: string,
+  organizationId: string | null,
+  kind: EmailTemplateFor,
+  context: EmailContext,
+) {
   try {
-    await sendEmail(to, template, variables);
+    await sendEmail({ to, organizationId, for: kind, context });
   } catch {
     // Keep the saved feedback even if a notify email fails.
   }
@@ -271,27 +277,28 @@ async function tryOpenGithubIssue(feedback: FeedbackRow) {
 
 async function notifyCreated(feedback: FeedbackRow) {
   const sent = new Set<string>();
-  await trySend(feedback.user.email, "feedback-received", {
-    firstName: firstName(feedback.user),
-    title: feedback.title,
-    typeLabel: typeLabel(feedback.type),
+  await trySend(feedback.user.email, feedback.organizationId, "FeedbackReceived", {
+    user: { firstName: firstName(feedback.user) },
+    feedback: { title: feedback.title, typeLabel: typeLabel(feedback.type) },
   });
   sent.add(feedback.user.email.toLowerCase());
 
   const notify = {
-    submitterName: displayName(feedback.user),
-    typeLabel: typeLabel(feedback.type),
-    priorityLabel: feedback.priority,
-    areaLabel: areaLabel(feedback.area),
-    title: feedback.title,
-    description: feedback.description,
-    url: appUrl("/feedback"),
+    feedback: {
+      submitterName: displayName(feedback.user),
+      typeLabel: typeLabel(feedback.type),
+      priorityLabel: feedback.priority,
+      areaLabel: areaLabel(feedback.area),
+      title: feedback.title,
+      description: feedback.description,
+      url: appUrl("/feedback"),
+    },
   };
   const superAdmins = await prisma.user.findMany({ where: { isSuperAdmin: true }, select: { email: true } });
   for (const admin of superAdmins) {
     if (!sent.has(admin.email.toLowerCase())) {
       sent.add(admin.email.toLowerCase());
-      await trySend(admin.email, "feedback-notify", notify);
+      await trySend(admin.email, feedback.organizationId, "FeedbackNotify", notify);
     }
   }
 
@@ -312,7 +319,7 @@ async function notifyCreated(feedback: FeedbackRow) {
     const email = membership.user.email;
     if (!sent.has(email.toLowerCase())) {
       sent.add(email.toLowerCase());
-      await trySend(email, "feedback-notify", notify);
+      await trySend(email, feedback.organizationId, "FeedbackNotify", notify);
     }
   }
 }
@@ -453,12 +460,14 @@ export async function updateFeedback(access: Access, feedbackId: string, request
   }
 
   if (!isCompletedFeedback(previous) && isCompletedFeedback(request.status)) {
-    await trySend(updated.user.email, "feedback-completed", {
-      firstName: firstName(updated.user),
-      title: updated.title,
-      typeLabel: typeLabel(updated.type),
-      outcome: outcome(request.status),
-      note: request.description,
+    await trySend(updated.user.email, updated.organizationId, "FeedbackCompleted", {
+      user: { firstName: firstName(updated.user) },
+      feedback: {
+        title: updated.title,
+        typeLabel: typeLabel(updated.type),
+        outcome: outcome(request.status),
+        note: request.description,
+      },
     });
   }
 

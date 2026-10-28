@@ -1,13 +1,24 @@
+using System.Globalization;
+using ClockedIn.Api.Configuration;
 using ClockedIn.Api.Data;
+using ClockedIn.Api.Email;
 using ClockedIn.Api.Entities;
 using ClockedIn.Api.Features.Connections;
 using ClockedIn.Api.Features.Shared;
 using ClockedIn.Api.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace ClockedIn.Api.Features.TimeEntries;
 
-public sealed class TimeEntriesService(ClockedInDbContext db, Access access, EntryRules rules, TimeProvider time, ConnectionsService connections)
+public sealed class TimeEntriesService(
+    ClockedInDbContext db,
+    Access access,
+    EntryRules rules,
+    TimeProvider time,
+    ConnectionsService connections,
+    IEmailSender mail,
+    IOptions<EmailOptions> emailOptions)
 {
     public async Task<ListResponse<TimeEntryDto>> List(Guid userId, TimeEntryFilter filter, CancellationToken cancellationToken)
     {
@@ -127,7 +138,45 @@ public sealed class TimeEntriesService(ClockedInDbContext db, Access access, Ent
         db.UserTimeEntries.Add(entry);
         await db.SaveOrThrowAsync(cancellationToken);
         await tx.CommitAsync(cancellationToken);
+        await NotifyLoggedTime(entry, cancellationToken);
         return TimeEntryDto.From(entry);
+    }
+
+    /// <summary>One "hours logged" mail for a finished, classified entry. A failed send never undoes the saved time.</summary>
+    private async Task NotifyLoggedTime(UserTimeEntry entry, CancellationToken cancellationToken)
+    {
+        if (entry.DurationMinutes is not int minutes || minutes <= 0
+            || (entry.ProjectId is null && entry.TaskCategoryId is null && entry.DepartmentId is null))
+        {
+            return;
+        }
+
+        var user = await db.UsersWithProfile().AsNoTracking().FirstOrDefaultAsync(item => item.Id == entry.UserId, cancellationToken);
+        var organization = await db.Organizations.AsNoTracking().FirstOrDefaultAsync(item => item.Id == entry.OrganizationId, cancellationToken);
+        if (user is null || organization is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await mail.Send(
+                user.Email,
+                entry.OrganizationId,
+                EmailTemplateFor.LoggedTime,
+                new Dictionary<string, string?>
+                {
+                    ["user.firstName"] = string.IsNullOrWhiteSpace(user.Profile?.FirstName) ? "there" : user.Profile.FirstName,
+                    ["organization.name"] = organization.Name,
+                    ["entry.hours"] = Math.Round(minutes / 60m, 2).ToString("0.##", CultureInfo.InvariantCulture),
+                    ["entry.date"] = entry.OccurredOn.ToString("ddd, MMM d, yyyy", CultureInfo.InvariantCulture),
+                    ["entry.url"] = emailOptions.Value.Link("/log"),
+                },
+                cancellationToken);
+        }
+        catch (Exception)
+        {
+        }
     }
 
     public async Task<TimeEntryDto> Get(Guid entryId, CancellationToken cancellationToken) =>
@@ -349,6 +398,7 @@ public sealed class TimeEntriesService(ClockedInDbContext db, Access access, Ent
 
         await db.SaveOrThrowAsync(cancellationToken);
         await tx.CommitAsync(cancellationToken);
+        await NotifyLoggedTime(open, cancellationToken);
         return TimeEntryDto.From(open);
     }
 

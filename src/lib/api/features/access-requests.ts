@@ -187,10 +187,15 @@ export async function decideAccessRequest(
   });
   const email = updated.user?.email ?? updated.guest?.email;
   if (email) {
-    await sendEmail(email, "access-request-decided", {
-      organizationName: row.organization.name,
-      decision: status === "approved" ? "approved" : "declined",
-      name: updated.user?.profile?.firstName || updated.guest?.name || "there",
+    await sendEmail({
+      to: email,
+      organizationId: row.organizationId,
+      for: "AccessRequestDecided",
+      context: {
+        organization: { name: row.organization.name },
+        request: { decision: status === "approved" ? "approved" : "declined" },
+        user: { name: updated.user?.profile?.firstName || updated.guest?.name || "there" },
+      },
     });
   }
   return requestJson(updated);
@@ -234,9 +239,11 @@ async function notifyAdmins(organizationId: string, organizationName: string, re
   });
   await Promise.all(
     admins.map((admin) =>
-      sendEmail(admin.user.email, "access-request-received", {
-        organizationName,
-        requesterEmail,
+      sendEmail({
+        to: admin.user.email,
+        organizationId,
+        for: "AccessRequestReceived",
+        context: { organization: { name: organizationName }, request: { requesterEmail } },
       }).catch(() => undefined),
     ),
   );

@@ -21,6 +21,7 @@ import {
     requireString,
     roundMoney,
 } from "@/lib/api/json";
+import { defaultEmailTemplateRows } from "@/lib/api/features/email-templates";
 import { defaultVolunteerRate } from "@/lib/api/features/hourly-rates";
 import { roleId } from "@/lib/api/features/memberships";
 import { clockedInThemeId, themeJson, type ThemeJson } from "@/lib/api/features/themes";
@@ -253,8 +254,9 @@ export async function createOrganization(access: Access, request: NameRequest) {
       data: {
         name: request.name,
         defaultRateType: "Volunteer",
-        themeId: clockedInThemeId,
+        theme: { connect: { id: clockedInThemeId } },
         hourlyRates: { create: { type: "Volunteer", name: "Volunteer", perHourRate: 35.47, isDefault: true } },
+        emailTemplates: { create: defaultEmailTemplateRows().map((row) => ({ id: crypto.randomUUID(), ...row })) },
         memberships: {
           create: { userId: caller.id, roleId: adminRoleId, rateType: "Volunteer", isActive: true },
         },

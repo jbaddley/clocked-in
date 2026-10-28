@@ -549,11 +549,11 @@ public sealed class VolunteerNeedsService(
         foreach (var signup in signups)
         {
             var person = VolunteerSignupDto.From(signup);
-            await mail.Send(person.Email, "volunteer-message", new Dictionary<string, string>
+            await mail.Send(person.Email, need.OrganizationId, EmailTemplateFor.VolunteerMessage, new Dictionary<string, string?>
             {
-                ["subject"] = request.Subject,
-                ["body"] = request.Message,
-                ["needName"] = need.Name,
+                ["message.subject"] = request.Subject,
+                ["message.body"] = request.Message,
+                ["need.name"] = need.Name,
             }, cancellationToken);
         }
 

@@ -489,10 +489,14 @@ export async function createVolunteerNeed(access: Access, organizationId: string
     });
     await Promise.all(
       admins.map((admin) =>
-        sendEmail(admin.user.email, "need-submitted", {
-          organizationName: organization?.name ?? "VolunTime",
-          needName: need.name,
-          managerName: access.caller.profile?.firstName || access.caller.username,
+        sendEmail({
+          to: admin.user.email,
+          organizationId,
+          for: "NeedSubmitted",
+          context: {
+            organization: { name: organization?.name ?? "VolunTime" },
+            need: { name: need.name, managerName: access.caller.profile?.firstName || access.caller.username },
+          },
         }).catch(() => undefined),
       ),
     );
@@ -718,10 +722,11 @@ export async function emailVolunteers(access: Access, needId: string, request: R
   if (signups.length !== request.signupIds.length) notFound();
   for (const signup of signups) {
     const person = signupJson(signup);
-    await sendEmail(person.email, "volunteer-message", {
-      subject: request.subject,
-      body: request.message,
-      needName: need.name,
+    await sendEmail({
+      to: person.email,
+      organizationId: need.organizationId,
+      for: "VolunteerMessage",
+      context: { message: { subject: request.subject, body: request.message }, need: { name: need.name } },
     });
   }
   return { sent: signups.length };
@@ -765,10 +770,11 @@ export async function decideNeed(access: Access, needId: string, status: "publis
   const creator = await prisma.user.findUnique({ where: { id: need.createdByUserId }, select: { email: true } });
   const organization = await prisma.organization.findUnique({ where: { id: need.organizationId }, select: { name: true } });
   if (creator) {
-    await sendEmail(creator.email, "need-decided", {
-      organizationName: organization?.name ?? "VolunTime",
-      needName: need.name,
-      decision: status,
+    await sendEmail({
+      to: creator.email,
+      organizationId: need.organizationId,
+      for: "NeedDecided",
+      context: { organization: { name: organization?.name ?? "VolunTime" }, need: { name: need.name, decision: status } },
     }).catch(() => undefined);
   }
   return needJson(updated);

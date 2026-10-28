@@ -389,6 +389,27 @@ A reusable card layout. `organizationId` null is a global template. A row with `
 | createdAt      | yes      |                                                                                                |
 | updatedAt      | yes      |                                                                                                |
 
+### EmailTemplate
+
+One organization's copy of a transactional email. Every organization gets one row per `for` when it is created; the `EmailTemplates` migration backfilled existing organizations. Defaults come from [emails/defaults.ts](../../emails/defaults.ts), built into `emails/dist/defaults.json` by `npm run email:render`. Mail falls back to that default when an organization has no row (and always for a password reset when the person belongs to zero or several organizations, or feedback with no organization).
+
+| Field          | Required | Notes                                                                                                         |
+| -------------- | -------- | ------------------------------------------------------------------------------------------------------------- |
+| id             | yes      | UUID primary key                                                                                              |
+| organizationId | yes      | Foreign key to Organization. Cascade delete. Unique with `for`                                                |
+| name           | yes      | 1–80 characters. Admin label                                                                                  |
+| version        | yes      | Starts at 1. Each patch or reset adds 1                                                                       |
+| for            | yes      | `Invite`, `Welcome`, `PasswordReset`, `LoggedTime`, `UnclassifiedEntry`, `FeedbackReceived`, `FeedbackNotify`, `FeedbackCompleted`, `AccessRequestReceived`, `AccessRequestDecided`, `NeedSubmitted`, `NeedDecided`, `VolunteerMessage`. Fixed after seed |
+| subject        | yes      | 1–200 characters. May use `{{field.name}}`                                                                    |
+| heading        | yes      | Title in the navy header                                                                                      |
+| preview        | yes      | Inbox preview text. May be empty                                                                              |
+| template       | yes      | Sanitized HTML body (`p`, `h1`–`h3`, `strong`, `em`, `a`, `ul`, `ol`, `li`, `br`, `span`)                     |
+| isEnabled      | yes      | Only `LoggedTime` and `UnclassifiedEntry` can be turned off; a disabled one sends nothing                    |
+| createdAt      | yes      |                                                                                                               |
+| updatedAt      | yes      |                                                                                                               |
+
+Placeholders are `{{path.to.field}}`. Each `for` has a fixed field catalog in [src/lib/email/templates.ts](../../src/lib/email/templates.ts) (mirrored in `ClockedIn.Api/Email/EmailRenderer.cs`). Saving rejects a field outside that catalog. Sending fails if the template uses a field the sender did not provide. Values are HTML-encoded in the body, and line breaks become `<br>`. A paragraph that holds only a `*.code` field renders as the gold code box.
+
 ### Department
 
 A department belongs to exactly one organization. Names are unique within that organization, compared case-insensitively.

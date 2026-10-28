@@ -105,6 +105,18 @@ public sealed class AuthService(
                 cancellationToken);
     }
 
+    /// <summary>A reset uses an organization's template only when the person belongs to exactly one.</summary>
+    private async Task<Guid?> SoleOrganizationId(Guid userId, CancellationToken cancellationToken)
+    {
+        var organizationIds = await db.OrganizationMemberships.AsNoTracking()
+            .Where(item => item.UserId == userId && item.IsActive)
+            .Select(item => item.OrganizationId)
+            .Distinct()
+            .Take(2)
+            .ToListAsync(cancellationToken);
+        return organizationIds.Count == 1 ? organizationIds[0] : null;
+    }
+
     public async Task RequestPasswordReset(string? emailValue, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(emailValue))
@@ -156,11 +168,12 @@ public sealed class AuthService(
         {
             await mail.Send(
                 email,
-                "password-reset",
-                new Dictionary<string, string>
+                await SoleOrganizationId(user.Id, cancellationToken),
+                EmailTemplateFor.PasswordReset,
+                new Dictionary<string, string?>
                 {
-                    ["code"] = code,
-                    ["url"] = emailOptions.Value.Link($"/forgot-password?code={Uri.EscapeDataString(code)}"),
+                    ["reset.code"] = code,
+                    ["reset.url"] = emailOptions.Value.Link($"/forgot-password?code={Uri.EscapeDataString(code)}"),
                 },
                 cancellationToken);
         }

@@ -25,6 +25,7 @@ const shellHeading: Record<string, RegExp | string> = {
   "/settings/members": "Settings",
   "/settings/theme": "Settings",
   "/settings/brand": "Settings",
+  "/settings/email-templates": "Settings",
   "/profile": "Profile",
 };
 
@@ -48,6 +49,7 @@ const viewCopy: Record<string, RegExp | string> = {
   "/settings/members": "Invite someone",
   "/settings/theme": /Chart palettes stay/,
   "/settings/brand": "Square mark for the browser tab",
+  "/settings/email-templates": /Every email .* sends/,
   "/profile": "About you",
   "/accept": "Accept an invite",
 };
@@ -65,6 +67,7 @@ const signedInPaths = [
   "/settings/members",
   "/settings/theme",
   "/settings/brand",
+  "/settings/email-templates",
   "/profile",
   "/accept",
 ];

@@ -454,11 +454,15 @@ export async function createOrgMembership(access: Access, organizationId: string
   });
   if (request.emailUser && createdAccount && request.username && request.password) {
     try {
-      await sendEmail(request.email, "account-welcome", {
-        organizationName,
-        username: request.username,
-        password: request.password,
-        url: appUrl("/login"),
+      await sendEmail({
+        to: request.email,
+        organizationId,
+        for: "Welcome",
+        context: {
+          organization: { name: organizationName },
+          user: { username: request.username, password: request.password },
+          account: { url: appUrl("/login") },
+        },
       });
     } catch (error) {
       await prisma.user.delete({ where: { id: membership.userId } });

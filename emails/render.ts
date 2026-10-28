@@ -1,152 +1,35 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { render } from "@react-email/render";
-import { createElement } from "react";
-import AccountWelcomeEmail, { accountWelcome } from "./account-welcome";
-import FeedbackCompletedEmail, { feedbackCompleted } from "./feedback-completed";
-import FeedbackNotifyEmail, { feedbackNotify } from "./feedback-notify";
-import FeedbackReceivedEmail, { feedbackReceived } from "./feedback-received";
-import InvitationEmail, { invitation } from "./invitation";
-import PasswordResetEmail, { passwordReset } from "./password-reset";
-import VolunteerMessageEmail, { volunteerMessage } from "./volunteer-message";
-import AccessRequestReceivedEmail, { accessRequestReceived } from "./access-request-received";
-import AccessRequestDecidedEmail, { accessRequestDecided } from "./access-request-decided";
-import NeedSubmittedEmail, { needSubmitted } from "./need-submitted";
-import NeedDecidedEmail, { needDecided } from "./need-decided";
-import UnclassifiedEntryEmail, { unclassifiedEntry } from "./unclassified-entry";
+import { emailTemplateDefaults } from "./defaults";
+import {
+  emailTemplateFields,
+  isEmailTemplateFor,
+  placeholdersIn,
+  sanitizeEmailHtml,
+  unknownPlaceholders,
+} from "../src/lib/email/templates";
 
-const codeLine = /Use this code to (?:reset your VolunTime password|accept the invite):\s*\{\{code\}\}/;
-
-const templates = [
-  {
-    ...accountWelcome,
-    element: createElement(AccountWelcomeEmail, {
-      organizationName: "{{organizationName}}",
-      username: "{{username}}",
-      password: "{{password}}",
-      url: "{{url}}",
-    }),
-  },
-  {
-    ...passwordReset,
-    element: createElement(PasswordResetEmail, { code: "{{code}}", url: "{{url}}" }),
-  },
-  {
-    ...invitation,
-    element: createElement(InvitationEmail, {
-      targetKind: "{{targetKind}}",
-      targetName: "{{targetName}}",
-      organizationName: "{{organizationName}}",
-      roleName: "{{roleName}}",
-      username: "{{username}}",
-      code: "{{code}}",
-      url: "{{url}}",
-    }),
-  },
-  {
-    ...feedbackReceived,
-    element: createElement(FeedbackReceivedEmail, {
-      firstName: "{{firstName}}",
-      title: "{{title}}",
-      typeLabel: "{{typeLabel}}",
-    }),
-  },
-  {
-    ...feedbackNotify,
-    element: createElement(FeedbackNotifyEmail, {
-      submitterName: "{{submitterName}}",
-      typeLabel: "{{typeLabel}}",
-      priorityLabel: "{{priorityLabel}}",
-      areaLabel: "{{areaLabel}}",
-      title: "{{title}}",
-      description: "{{description}}",
-      url: "{{url}}",
-    }),
-  },
-  {
-    ...volunteerMessage,
-    element: createElement(VolunteerMessageEmail, { body: "{{body}}", needName: "{{needName}}" }),
-  },
-  {
-    ...accessRequestReceived,
-    element: createElement(AccessRequestReceivedEmail, {
-      organizationName: "{{organizationName}}",
-      requesterEmail: "{{requesterEmail}}",
-    }),
-  },
-  {
-    ...accessRequestDecided,
-    element: createElement(AccessRequestDecidedEmail, {
-      organizationName: "{{organizationName}}",
-      decision: "{{decision}}",
-      name: "{{name}}",
-    }),
-  },
-  {
-    ...needSubmitted,
-    element: createElement(NeedSubmittedEmail, {
-      organizationName: "{{organizationName}}",
-      needName: "{{needName}}",
-      managerName: "{{managerName}}",
-    }),
-  },
-  {
-    ...needDecided,
-    element: createElement(NeedDecidedEmail, {
-      organizationName: "{{organizationName}}",
-      needName: "{{needName}}",
-      decision: "{{decision}}",
-    }),
-  },
-  {
-    ...unclassifiedEntry,
-    element: createElement(UnclassifiedEntryEmail, {
-      name: "{{name}}",
-      url: "{{url}}",
-    }),
-  },
-  {
-    ...feedbackCompleted,
-    element: createElement(FeedbackCompletedEmail, {
-      firstName: "{{firstName}}",
-      title: "{{title}}",
-      typeLabel: "{{typeLabel}}",
-      outcome: "{{outcome}}",
-      note: "{{note}}",
-    }),
-  },
-];
+const codeLine = /Use this code to (?:reset your VolunTime password|accept the invite):<\/p><p>\{\{(?:invite|reset)\.code\}\}<\/p>/;
 
 async function main() {
-  const messages: Record<string, { subject: string; html: string; text: string; variables: string[] }> = {};
-
-  for (const template of templates) {
-    const html = await render(template.element);
-    const text = await render(template.element, { plainText: true });
-    const rendered = `${template.subject}\n${html}\n${text}`;
-    for (const name of template.variables) {
-      if (!rendered.includes(`{{${name}}}`)) {
-        throw new Error(`Template ${template.id} is missing {{${name}}}.`);
-      }
+  const defaults = emailTemplateDefaults.map((item) => {
+    if (!isEmailTemplateFor(item.for)) throw new Error(`Unknown email template for ${item.for}.`);
+    if (sanitizeEmailHtml(item.html) !== item.html) throw new Error(`Default ${item.for} html is not sanitized.`);
+    const unknown = unknownPlaceholders(item.for, item.subject, item.heading, item.preview, item.html);
+    if (unknown.length > 0) throw new Error(`Default ${item.for} uses unknown fields ${unknown.join(", ")}.`);
+    if ((item.for === "Invite" || item.for === "PasswordReset") && !codeLine.test(item.html)) {
+      throw new Error(`Default ${item.for} must keep the mailed code line.`);
     }
-
-    if (template.variables.includes("code") && !codeLine.test(text)) {
-      throw new Error(`Template ${template.id} plain text does not keep the code line.\n${text}`);
-    }
-
-    messages[template.id] = {
-      subject: template.subject,
-      html,
-      text,
-      variables: template.variables,
-    };
-  }
+    return { ...item, variables: placeholdersIn(item.subject, item.heading, item.preview, item.html) };
+  });
+  const missing = Object.keys(emailTemplateFields).filter((key) => !defaults.some((item) => item.for === key));
+  if (missing.length > 0) throw new Error(`Missing email template defaults for ${missing.join(", ")}.`);
 
   const directory = path.dirname(fileURLToPath(import.meta.url));
-  const destination = path.join(directory, "dist", "messages.json");
+  const destination = path.join(directory, "dist", "defaults.json");
   await mkdir(path.dirname(destination), { recursive: true });
-  await writeFile(destination, `${JSON.stringify(messages, null, 2)}\n`);
+  await writeFile(destination, `${JSON.stringify(defaults, null, 2)}\n`);
   console.log(`Wrote ${destination}`);
 }
 

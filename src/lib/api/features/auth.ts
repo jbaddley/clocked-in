@@ -182,6 +182,17 @@ export async function logOut(access: Access, request: RefreshTokenRequest) {
   return { ok: true };
 }
 
+/** A reset uses an organization's template only when the person belongs to exactly one. */
+async function soleOrganizationId(userId: string) {
+  const memberships = await prisma.organizationMembership.findMany({
+    where: { userId, isActive: true },
+    select: { organizationId: true },
+    distinct: ["organizationId"],
+    take: 2,
+  });
+  return memberships.length === 1 ? memberships[0].organizationId : null;
+}
+
 export async function requestPasswordReset(emailValue: string | null) {
   if (!emailValue?.trim()) {
     validation("email is required.");
@@ -220,9 +231,11 @@ export async function requestPasswordReset(emailValue: string | null) {
     data: { userId: user.id, codeHash: hashCode(code), expiresAt: new Date(Date.now() + resetCodeMs) },
   });
   try {
-    await sendEmail(email, "password-reset", {
-      code,
-      url: appUrl(`/forgot-password?code=${encodeURIComponent(code)}`),
+    await sendEmail({
+      to: email,
+      organizationId: await soleOrganizationId(user.id),
+      for: "PasswordReset",
+      context: { reset: { code, url: appUrl(`/forgot-password?code=${encodeURIComponent(code)}`) } },
     });
   } catch (error) {
     await prisma.passwordResetCode.delete({ where: { id: created.id } });

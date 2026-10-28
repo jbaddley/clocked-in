@@ -35,6 +35,7 @@ public class ClockedInDbContext(DbContextOptions<ClockedInDbContext> options, Ti
     public DbSet<PlatformApiKey> PlatformApiKeys => Set<PlatformApiKey>();
     public DbSet<Report> Reports => Set<Report>();
     public DbSet<ReportTemplate> ReportTemplates => Set<ReportTemplate>();
+    public DbSet<EmailTemplate> EmailTemplates => Set<EmailTemplate>();
     public DbSet<VolunteerNeed> VolunteerNeeds => Set<VolunteerNeed>();
     public DbSet<Guest> Guests => Set<Guest>();
     public DbSet<VolunteerSignup> VolunteerSignups => Set<VolunteerSignup>();
@@ -306,6 +307,25 @@ public class ClockedInDbContext(DbContextOptions<ClockedInDbContext> options, Ti
             entity.ToTable(table => table.HasCheckConstraint(
                 "Report_name_check",
                 """char_length(btrim("name"::text)) BETWEEN 1 AND 80"""));
+        });
+
+        modelBuilder.Entity<EmailTemplate>(entity =>
+        {
+            entity.Property(template => template.For).HasConversion<string>();
+            entity.Property(template => template.Version).HasDefaultValue(1);
+            entity.Property(template => template.IsEnabled).HasDefaultValue(true);
+            entity.Property(template => template.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(template => template.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.HasIndex(template => new { template.OrganizationId, template.For })
+                .IsUnique()
+                .HasDatabaseName("EmailTemplate_organization_for");
+            entity.HasOne(template => template.Organization)
+                .WithMany(organization => organization.EmailTemplates)
+                .HasForeignKey(template => template.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.ToTable(table => table.HasCheckConstraint(
+                "EmailTemplate_name_check",
+                """char_length(btrim("name")) BETWEEN 1 AND 80 AND char_length(btrim("subject")) BETWEEN 1 AND 200"""));
         });
 
         modelBuilder.Entity<ReportTemplate>(entity =>

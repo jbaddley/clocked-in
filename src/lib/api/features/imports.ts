@@ -357,11 +357,15 @@ export async function importPeople(access: Access, organizationId: string, rows:
     const organizationName =
       (await prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true } }))?.name ?? "VolunTime";
     for (const item of result.passwords ?? []) {
-      await sendEmail(item.email, "account-welcome", {
-        organizationName,
-        username: item.username,
-        password: item.temporaryPassword,
-        url: appUrl("/login"),
+      await sendEmail({
+        to: item.email,
+        organizationId,
+        for: "Welcome",
+        context: {
+          organization: { name: organizationName },
+          user: { username: item.username, password: item.temporaryPassword },
+          account: { url: appUrl("/login") },
+        },
       }).catch(() => undefined);
     }
   }

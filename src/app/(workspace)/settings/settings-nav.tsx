@@ -1,6 +1,6 @@
 "use client";
 
-import { BuildingIcon, ImageIcon, ListTreeIcon, NetworkIcon, PaletteIcon, ShieldIcon, UploadIcon, UsersIcon } from "lucide-react";
+import { BuildingIcon, ImageIcon, ListTreeIcon, MailIcon, NetworkIcon, PaletteIcon, ShieldIcon, UploadIcon, UsersIcon } from "lucide-react";
 import { SectionNav } from "@/components/section-nav";
 import { useLabels } from "@/hooks/use-labels";
 import { useWorkspace } from "@/hooks/use-workspace";
@@ -17,6 +17,7 @@ export function SettingsNav() {
     { href: "/settings/import", label: "Import", icon: UploadIcon, admin: true },
     { href: "/settings/theme", label: "Themes", icon: PaletteIcon, admin: true },
     { href: "/settings/brand", label: "Brand", icon: ImageIcon, admin: true },
+    { href: "/settings/email-templates", label: "Email Templates", icon: MailIcon, admin: true },
   ];
   return <SectionNav items={items.filter((item) => !item.admin || isAdmin)} />;
 }

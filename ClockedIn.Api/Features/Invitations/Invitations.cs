@@ -254,18 +254,17 @@ public sealed class InvitationsService(
         {
             await mail.Send(
                 request.Email,
-                "invitation",
-                new Dictionary<string, string>
+                organizationId,
+                EmailTemplateFor.Invite,
+                new Dictionary<string, string?>
                 {
-                    ["targetKind"] = target.Kind,
-                    ["targetName"] = target.Name,
-                    ["organizationName"] = target.Name,
-                    ["roleName"] = invitation.Role.Name,
-                    ["username"] = username,
-                    ["firstName"] = request.FirstName,
-                    ["lastName"] = request.LastName,
-                    ["code"] = code,
-                    ["url"] = emailOptions.Value.Link($"/accept?code={Uri.EscapeDataString(code)}"),
+                    ["organization.name"] = target.Name,
+                    ["invite.targetKind"] = target.Kind,
+                    ["invite.targetName"] = target.Name,
+                    ["invite.roleName"] = invitation.Role.Name,
+                    ["user.username"] = username,
+                    ["invite.code"] = code,
+                    ["invite.url"] = emailOptions.Value.Link($"/accept?code={Uri.EscapeDataString(code)}"),
                 },
                 cancellationToken);
         }
