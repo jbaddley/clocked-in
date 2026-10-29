@@ -185,3 +185,29 @@ test("a long table splits across pages and repeats the header", () => {
     assert.ok(block.rows.length > 0);
   }
 });
+
+test("multiple charts fit on the same page when there is room", () => {
+  const makeChart = (id: string, legendCount: number) => ({
+    kind: "chart" as const,
+    id,
+    title: id,
+    card: chartCard(),
+    rows: [],
+    colors: ["#001836"],
+    legend: Array.from({ length: legendCount }, (_, i) => ({ label: `Item ${i}`, value: "10", color: "#001836" })),
+    image: null,
+    width: 540,
+    height: 160,
+  });
+  const blocks = [
+    { kind: "kpis" as const, items: [{ title: "Hours", value: "100" }] },
+    makeChart("c1", 5),
+    makeChart("c2", 4),
+    makeChart("c3", 10),
+    makeChart("c4", 12),
+  ];
+  const pages = paginatePdfBlocks(blocks, 580, 660);
+  assert.equal(pages.length, 2);
+  assert.equal(pages[0]?.filter((b) => b.kind === "chart").length, 2);
+  assert.equal(pages[1]?.filter((b) => b.kind === "chart").length, 2);
+});

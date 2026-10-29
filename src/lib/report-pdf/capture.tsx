@@ -96,7 +96,7 @@ async function captureChart(block: Extract<PdfBlock, { kind: "chart" }>) {
     if (!(svg instanceof SVGSVGElement)) return block;
     const captured = await svgToPng(svg);
     const pdfWidth = 540;
-    const pdfHeight = Math.min(200, Math.round((captured.height / captured.width) * pdfWidth));
+    const pdfHeight = Math.min(160, Math.round((captured.height / captured.width) * pdfWidth));
     return { ...block, image: captured.dataUrl, width: pdfWidth, height: pdfHeight };
   } finally {
     root.unmount();

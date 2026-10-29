@@ -12,7 +12,7 @@ export const pagePaddingBottom = pageMargin + footerBand + footerGap;
 export const pageContentHeight = letterHeight - pagePaddingTop - pagePaddingBottom;
 
 export const captureCssWidth = 720;
-export const captureCssHeight = 320;
+export const captureCssHeight = 256;
 
 /** Move a block to the next page when it cannot fit in the remaining space. */
 export function shouldStartNewPage(remaining: number, needed: number, pageHeight = pageContentHeight) {

@@ -121,7 +121,7 @@ export function reportPdfBlocks(cards: ReportCard[], data: unknown, theme: Chart
       })),
       image: null,
       width: 540,
-      height: 240,
+      height: 160,
     });
   }
 
@@ -138,7 +138,8 @@ export function estimatedBlockHeight(block: PdfBlock) {
   if (block.kind === "table") {
     return tableTitleHeight + tableHeaderHeight + block.rows.length * tableRowHeight;
   }
-  return 36 + block.height + Math.min(block.legend.length, 8) * 12;
+  const legendRows = Math.ceil(Math.min(block.legend.length, 12) / 2);
+  return 30 + block.height + legendRows * 13;
 }
 
 function rowsThatFit(remaining: number, pageHeight: number) {

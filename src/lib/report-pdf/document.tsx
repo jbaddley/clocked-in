@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
   filters: {
     fontSize: 9,
     color: "#4a4a4a",
-    marginBottom: 16,
+    marginBottom: 12,
     paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: "#e5e5e5",
@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
   kpiRow: {
     flexDirection: "row",
     gap: 10,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   kpi: {
     flex: 1,
@@ -97,12 +97,12 @@ const styles = StyleSheet.create({
     fontFamily: "Helvetica-Bold",
   },
   section: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
   sectionTitle: {
     fontSize: 11,
     fontFamily: "Helvetica-Bold",
-    marginBottom: 6,
+    marginBottom: 5,
   },
   tableHeader: {
     flexDirection: "row",
@@ -134,10 +134,14 @@ const styles = StyleSheet.create({
     objectFit: "contain",
   },
   legend: {
-    marginTop: 8,
-    gap: 3,
+    marginTop: 6,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    columnGap: 16,
+    rowGap: 3,
   },
   legendRow: {
+    width: "48%",
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
@@ -197,7 +201,7 @@ function KpiRow({ items }: { items: Extract<PdfBlock, { kind: "kpis" }>["items"]
 
 function TableBlock({ block }: { block: Extract<PdfBlock, { kind: "table" }> }) {
   return (
-    <View style={styles.section} wrap={false} minPresenceAhead={48}>
+    <View style={styles.section} wrap={false}>
       <Text style={styles.sectionTitle}>{block.title}</Text>
       {block.rows.length === 0 ? (
         <Text style={styles.empty}>No rows in this range.</Text>
@@ -228,7 +232,7 @@ function TableBlock({ block }: { block: Extract<PdfBlock, { kind: "table" }> }) 
 function ChartBlock({ block }: { block: Extract<PdfBlock, { kind: "chart" }> }) {
   const height = Math.min(block.height, pageContentHeight - 64);
   return (
-    <View style={styles.section} wrap={false} minPresenceAhead={height + 36}>
+    <View style={styles.section} wrap={false}>
       <Text style={styles.sectionTitle}>{block.title}</Text>
       {block.image ? (
         <Image src={block.image} style={{ ...styles.chartImage, height }} />
