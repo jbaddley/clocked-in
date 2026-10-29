@@ -111,6 +111,8 @@ Vercel sets `NODE_ENV=production` for both Production and Preview, so Next.js wo
 - **Production** — the values from `.env.production`: `APP_ENV=production`, `DATABASE_PROVIDER=postgresql`, and the production `postgres://` or `postgresql://` `DATABASE_URL`.
 - **Preview** — the values from `.env.staging`: `APP_ENV=staging`, `DATABASE_PROVIDER=postgresql`, and the staging Postgres URL. Preview is staging. A custom environment named `staging` is treated the same way.
 
+The **Staging views** Actions job runs after a successful non-production deployment of the `staging` branch. Vercel's GitHub integration must publish deployment statuses with an `environment_url`. The job checks out that deployment's commit, verifies `/health` reports the same commit, and runs Playwright against that deployment URL rather than the staging alias. Configure the repository secrets `VERCEL_AUTOMATION_BYPASS_SECRET` and `SEED_SUPERADMIN_PASSWORD` for these checks.
+
 Run `db:deploy` once per database in a serialized, controlled release step. Do not run migrations for arbitrary Preview branches against a shared staging database. See the [adoption and cutover runbook](docs/ops/prisma-adoption.md) before the first release of this change.
 
 ## License
