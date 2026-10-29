@@ -46,8 +46,8 @@ export function EmailTemplateEdit({ templateId }: { templateId: string }) {
         icon={MailIcon}
         title="That email template is not available"
         action={
-          <Link href="/settings/email-templates" className={buttonVariants({ variant: "outline" })}>
-            Back to email templates
+          <Link href="/settings/email" className={buttonVariants({ variant: "outline" })}>
+            Back to email settings
           </Link>
         }
       />
@@ -136,7 +136,7 @@ function TemplateForm({ template }: { template: EmailTemplateJson }) {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-2">
         <Link
-          href="/settings/email-templates"
+          href="/settings/email"
           className={buttonVariants({ variant: "ghost", size: "sm" })}
           onClick={(event) => {
             if (!dirty) return;
@@ -145,7 +145,7 @@ function TemplateForm({ template }: { template: EmailTemplateJson }) {
           }}
         >
           <ArrowLeftIcon />
-          Email templates
+          Email settings
         </Link>
         <span className="text-xs text-muted-foreground">
           {emailForLabels[template.for]} · v{template.version}
@@ -244,7 +244,7 @@ function TemplateForm({ template }: { template: EmailTemplateJson }) {
         title="Leave without saving?"
         description="Your changes to this email will be lost."
         confirmLabel="Leave"
-        onConfirm={() => router.push("/settings/email-templates")}
+        onConfirm={() => router.push("/settings/email")}
       />
     </div>
   );

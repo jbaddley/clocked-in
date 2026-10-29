@@ -2,7 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { XIcon } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createLookupAction } from "@/app/actions/lookups";
 import { EntitySelect } from "@/components/entity-forms/entity-select";
 import { CreateDepartmentDialog, CreateTaskCategoryDialog } from "@/components/entity-forms/name-entity-form";
@@ -54,7 +54,10 @@ export function PlacementFields({
   optional?: boolean;
 }) {
   const { lookups, value, set } = state;
-  const projects = useMemo(() => projectOptions(lookups.projects.filter((project) => project.isActive !== false)), [lookups.projects]);
+  const projects = useMemo(
+    () => projectOptions(lookups.projects.filter((project) => project.isActive !== false)),
+    [lookups.projects],
+  );
   const departments = departmentIds
     ? lookups.departments.filter((item) => departmentIds.includes(item.id))
     : lookups.departments;
@@ -67,9 +70,7 @@ export function PlacementFields({
     <>
       <div
         className={
-          embedded
-            ? "contents"
-            : "grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]"
+          embedded ? "contents" : "grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]"
         }
       >
         <EntitySelect
@@ -88,7 +89,10 @@ export function PlacementFields({
           onValueChange={(taskCategoryId) => set({ taskCategoryId: taskCategoryId === none ? "" : taskCategoryId })}
           options={
             optional
-              ? [{ value: none, label: "None" }, ...lookups.categories.map((item) => ({ value: item.id, label: item.name }))]
+              ? [
+                  { value: none, label: "None" },
+                  ...lookups.categories.map((item) => ({ value: item.id, label: item.name })),
+                ]
               : lookups.categories.map((item) => ({ value: item.id, label: item.name }))
           }
           placeholder={optional ? "Optional" : undefined}
@@ -111,8 +115,13 @@ export function PlacementFields({
           onCreate={departmentIds ? undefined : () => setCreating("department")}
         />
         {lookups.tags.length || isAdmin ? (
-          <Field label="Tags" className={tagClass}>
-            <TagInput tags={lookups.tags} selected={value.tagIds} onChange={(tagIds) => set({ tagIds })} canCreate={isAdmin} />
+          <Field label='Tags' className={tagClass}>
+            <TagInput
+              tags={lookups.tags}
+              selected={value.tagIds}
+              onChange={(tagIds) => set({ tagIds })}
+              canCreate={isAdmin}
+            />
           </Field>
         ) : null}
       </div>
@@ -152,7 +161,9 @@ function TagInput({
   const selectedRef = useRef(selected);
   const [draft, setDraft] = useState("");
   const [open, setOpen] = useState(false);
-  selectedRef.current = selected;
+  useEffect(() => {
+    selectedRef.current = selected;
+  }, [selected]);
 
   const create = useActionMutation((name: string) => createLookupAction("tags", organization.id, name), {
     invalidate: [keys.lookups(organization.id)],
@@ -161,7 +172,12 @@ function TagInput({
       if (!namedEntity(data)) return;
       rememberLookup(queryClient, organization.id, (current) => ({
         ...current,
-        tags: upsertNamed(current.tags, { id: data.id, organizationId: organization.id, name: data.name, isArchived: false }),
+        tags: upsertNamed(current.tags, {
+          id: data.id,
+          organizationId: organization.id,
+          name: data.name,
+          isArchived: false,
+        }),
       }));
       if (!selectedRef.current.includes(data.id)) {
         onChange([...selectedRef.current, data.id]);
@@ -206,7 +222,7 @@ function TagInput({
   return (
     <div>
       <div
-        className="flex min-h-9 w-full flex-wrap items-center gap-1 rounded-lg border border-input bg-transparent px-1.5 py-1 transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50"
+        className='flex min-h-9 w-full flex-wrap items-center gap-1 rounded-lg border border-input bg-transparent px-1.5 py-1 transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50'
         onMouseDown={(event) => {
           if (event.target === event.currentTarget) {
             event.preventDefault();
@@ -217,27 +233,27 @@ function TagInput({
         {chosen.map((tag) => (
           <span
             key={tag.id}
-            className="inline-flex h-6 max-w-full items-center gap-0.5 rounded-full bg-secondary pr-0.5 pl-2 text-xs text-secondary-foreground"
+            className='inline-flex h-6 max-w-full items-center gap-0.5 rounded-full bg-secondary pr-0.5 pl-2 text-xs text-secondary-foreground'
           >
-            <span className="truncate">{tag.name}</span>
+            <span className='truncate'>{tag.name}</span>
             <button
-              type="button"
-              className="rounded-full p-0.5 text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
+              type='button'
+              className='rounded-full p-0.5 text-muted-foreground hover:bg-foreground/10 hover:text-foreground'
               aria-label={`Remove ${tag.name}`}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => remove(tag.id)}
             >
-              <XIcon className="size-3" />
+              <XIcon className='size-3' />
             </button>
           </span>
         ))}
         <input
           ref={inputRef}
           value={draft}
-          aria-label="Add a tag"
+          aria-label='Add a tag'
           aria-expanded={open}
           placeholder={chosen.length ? "" : "Add a tag"}
-          className="h-6 min-w-24 flex-1 bg-transparent px-1 text-sm outline-none placeholder:text-muted-foreground"
+          className='h-6 min-w-24 flex-1 bg-transparent px-1 text-sm outline-none placeholder:text-muted-foreground'
           onFocus={() => setOpen(true)}
           onBlur={() => setOpen(false)}
           onChange={(event) => {
@@ -258,13 +274,13 @@ function TagInput({
         />
       </div>
       {open && (suggestions.length > 0 || showCreate) ? (
-        <ul className="mt-1 max-h-44 overflow-auto rounded-lg border bg-popover p-1 text-sm shadow-md" role="listbox">
+        <ul className='mt-1 max-h-44 overflow-auto rounded-lg border bg-popover p-1 text-sm shadow-md' role='listbox'>
           {suggestions.map((tag) => (
             <li key={tag.id}>
               <button
-                type="button"
-                role="option"
-                className="flex w-full rounded-md px-2 py-1.5 text-left hover:bg-muted"
+                type='button'
+                role='option'
+                className='flex w-full rounded-md px-2 py-1.5 text-left hover:bg-muted'
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => select(tag.id)}
               >
@@ -275,9 +291,9 @@ function TagInput({
           {showCreate ? (
             <li>
               <button
-                type="button"
-                role="option"
-                className="flex w-full rounded-md px-2 py-1.5 text-left hover:bg-muted"
+                type='button'
+                role='option'
+                className='flex w-full rounded-md px-2 py-1.5 text-left hover:bg-muted'
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={commit}
               >

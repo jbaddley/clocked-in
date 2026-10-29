@@ -1,7 +1,7 @@
 import { Prisma } from "@/generated/prisma/client";
 import { Access } from "@/lib/api/access";
 import { guard, lockUser, transaction } from "@/lib/api/db";
-import { ApiError, conflict, notFound, validation } from "@/lib/api/errors";
+import { ApiError, conflict, forbidden, notFound, validation } from "@/lib/api/errors";
 import { Body, has, list, normalizeEmail, normalizeRole, normalizeUsername, page, Page, personName, requireString, RoleCode } from "@/lib/api/json";
 import { usernameFromName } from "@/lib/import/username";
 import { sendEmail } from "@/lib/api/mail";
@@ -62,14 +62,25 @@ export function parseAcceptInvitation(body: Body): AcceptInvitationRequest {
   return { code: requireString(body, "code") };
 }
 
-function inviteUrl(code: string) {
-  return appUrl(`/accept?code=${encodeURIComponent(code)}`);
+function inviteUrl(code: string, slug?: string | null) {
+  return appUrl(`/accept?code=${encodeURIComponent(code)}`, slug);
 }
 
-function inviteContext(target: { targetKind: string; targetName: string }, roleName: string, username: string, code: string) {
+function inviteContext(
+  target: { targetKind: string; targetName: string; slug?: string | null },
+  roleName: string,
+  username: string,
+  code: string,
+) {
   return {
     organization: { name: target.targetName },
-    invite: { targetKind: target.targetKind, targetName: target.targetName, roleName, code, url: inviteUrl(code) },
+    invite: {
+      targetKind: target.targetKind,
+      targetName: target.targetName,
+      roleName,
+      code,
+      url: inviteUrl(code, target.slug),
+    },
     user: { username },
   };
 }
@@ -106,20 +117,20 @@ function mailedCode() {
 }
 
 function inviteTarget(
-  organization: { name: string; preferences?: Parameters<typeof readPreferences>[0] },
+  organization: { name: string; slug?: string | null; preferences?: Parameters<typeof readPreferences>[0] },
   departmentName?: string,
 ) {
   const copy = labels(readPreferences(organization.preferences));
   return departmentName
-    ? { targetKind: copy.department, targetName: departmentName }
-    : { targetKind: copy.organization, targetName: organization.name };
+    ? { targetKind: copy.department, targetName: departmentName, slug: organization.slug ?? null }
+    : { targetKind: copy.organization, targetName: organization.name, slug: organization.slug ?? null };
 }
 
 async function create(
   access: Access,
   organizationId: string,
   departmentId: string | null,
-  target: { targetKind: string; targetName: string },
+  target: { targetKind: string; targetName: string; slug?: string | null },
   request: CreateInvitationRequest,
 ) {
   const now = new Date();
@@ -221,7 +232,10 @@ export async function listDepartmentInvitations(access: Access, departmentId: st
   return listWhere({ departmentId }, paging);
 }
 
-async function resend(where: Prisma.InvitationWhereInput, target: { targetKind: string; targetName: string }) {
+async function resend(
+  where: Prisma.InvitationWhereInput,
+  target: { targetKind: string; targetName: string; slug?: string | null },
+) {
   const invitation = await prisma.invitation.findFirst({ where, include: invitationInclude });
   if (!invitation) {
     notFound();
@@ -304,7 +318,7 @@ export function acceptAuthRedirect(code: string, userExists: boolean) {
   return `${userExists ? "/login" : "/signup"}?next=${encodeURIComponent(next)}`;
 }
 
-export async function invitationAccount(code: string) {
+export async function invitationAccount(code: string, pinnedOrganizationId?: string | null) {
   const trimmed = code.trim();
   if (!trimmed) {
     return null;
@@ -315,9 +329,14 @@ export async function invitationAccount(code: string) {
     return null;
   }
 
+  if (pinnedOrganizationId && found.organizationId !== pinnedOrganizationId) {
+    return null;
+  }
+
   const user = await prisma.user.findUnique({ where: { email: found.email }, select: { id: true } });
   return {
     email: found.email,
+    organizationId: found.organizationId,
     userExists: user !== null,
     firstName: found.firstName,
     lastName: found.lastName,
@@ -327,11 +346,16 @@ export async function invitationAccount(code: string) {
 
 export async function acceptInvitation(access: Access, request: AcceptInvitationRequest) {
   const caller = access.requireHuman();
+  const pinned = await access.pinnedOrganization();
   const now = new Date();
   const codeHash = hashCode(request.code);
   const found = await prisma.invitation.findUnique({ where: { codeHash } });
   if (!found || !usable(found, now)) {
     validation("The code is not valid.");
+  }
+
+  if (pinned && found.organizationId !== pinned.id) {
+    throw new ApiError(403, "forbidden", "This invite belongs to another organization.");
   }
 
   if (found.email !== caller.email) {

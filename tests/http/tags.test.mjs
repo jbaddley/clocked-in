@@ -31,7 +31,7 @@ describe("tags", suite, () => {
   });
 
   test("create and list tags", async () => {
-    assertNamed(ctx.tag, { organizationId: ctx.org.id, name: ctx.name });
+    assertNamed(ctx.tag, { organizationId: ctx.org.id, name: ctx.name, isArchived: false });
     const listed = await callApi(`/organizations/${ctx.org.id}/tags`, { token: ctx.member.accessToken });
     assertList(listed.json);
     assert.ok(listed.json.items.some((item) => item.id === ctx.tag.id && item.name === ctx.name));

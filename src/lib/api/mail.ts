@@ -3,7 +3,9 @@ import { fail } from "@/lib/api/errors";
 import { prisma } from "@/lib/prisma";
 import {
   optionalEmailTemplates,
+  readEmailSettings,
   renderEmail,
+  shouldSendEmailImmediate,
   type EmailContext,
   type EmailTemplateContent,
   type EmailTemplateFor,
@@ -29,9 +31,24 @@ async function templateFor(organizationId: string | null, kind: EmailTemplateFor
     return content;
   }
 
-  const row = await prisma.emailTemplate.findUnique({
-    where: { organizationId_for: { organizationId, for: kind } },
-  });
+  const [organization, row] = await Promise.all([
+    prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { preferences: true },
+    }),
+    prisma.emailTemplate.findUnique({
+      where: { organizationId_for: { organizationId, for: kind } },
+    }),
+  ]);
+  const prefs =
+    organization?.preferences && typeof organization.preferences === "object" && !Array.isArray(organization.preferences)
+      ? (organization.preferences as Record<string, unknown>)
+      : null;
+  const emailSettings = readEmailSettings(prefs?.emailSettings);
+  if (!shouldSendEmailImmediate(emailSettings, kind)) {
+    return null;
+  }
+
   if (!row) {
     return content;
   }

@@ -30,7 +30,7 @@ export function missingId() {
   return randomUUID();
 }
 
-export async function callApi(path, { method = "GET", token, apiKey, body, query } = {}) {
+export async function callApi(path, { method = "GET", token, apiKey, tenant, body, query } = {}) {
   const url = new URL(path, apiBaseUrl);
   if (query) {
     for (const [key, value] of Object.entries(query)) {
@@ -49,6 +49,9 @@ export async function callApi(path, { method = "GET", token, apiKey, body, query
   }
   if (apiKey) {
     headers["x-api-key"] = apiKey;
+  }
+  if (tenant) {
+    headers["x-voluntime-tenant"] = tenant;
   }
 
   const response = await fetch(url, {
@@ -208,6 +211,18 @@ export function defaultPreferences(overrides = {}) {
     allowVolunteersToAddVolunteers: false,
     entityLabels: defaultEntityLabels,
     feedbackNotifyUserIds: [],
+    emailSettings: {
+      LoggedTime: "immediate",
+      UnclassifiedEntry: "immediate",
+      FeedbackReceived: true,
+      FeedbackNotify: true,
+      FeedbackCompleted: true,
+      AccessRequestReceived: true,
+      AccessRequestDecided: true,
+      NeedSubmitted: true,
+      NeedDecided: true,
+      VolunteerMessage: true,
+    },
     ...overrides,
   };
 }
@@ -216,6 +231,7 @@ export function assertOrganization(org, name) {
   assertKeys(org, [
     "id",
     "name",
+    "slug",
     "volunteerHourlyRate",
     "defaultRateType",
     "preferences",
@@ -227,9 +243,11 @@ export function assertOrganization(org, name) {
     "accentImageUrl",
     "description",
     "websiteUrl",
+    "publicSlug",
   ]);
   assertUuid(org.id);
   assert.equal(org.name, name);
+  assert.equal(org.slug, null);
   assertMoney(org.volunteerHourlyRate, 35.47);
   assert.equal(org.defaultRateType, "Volunteer");
   assert.deepEqual(org.preferences, defaultPreferences());
@@ -241,6 +259,7 @@ export function assertOrganization(org, name) {
   assert.equal(org.accentImageUrl, null);
   assert.equal(org.description, null);
   assert.equal(org.websiteUrl, null);
+  assert.equal(org.publicSlug, null);
 }
 
 export function assertHourlyRate(rate, expected) {
@@ -255,18 +274,19 @@ export function assertHourlyRate(rate, expected) {
   assert.equal(rate.source, expected.source ?? null);
 }
 
-export function assertNamed(entity, { organizationId, name }) {
-  assertKeys(entity, ["id", "organizationId", "name"]);
+export function assertNamed(entity, { organizationId, name, isArchived }) {
+  assertKeys(entity, ["id", "organizationId", "name", ...(isArchived === undefined ? [] : ["isArchived"])]);
   assertUuid(entity.id);
   assert.equal(entity.organizationId, organizationId);
   assert.equal(entity.name, name);
+  if (isArchived !== undefined) assert.equal(entity.isArchived, isArchived);
 }
 
 export function assertRole(role, code) {
   assertKeys(role, ["id", "code", "name"]);
   assertUuid(role.id);
   assert.equal(role.code, code);
-  const names = { ADMIN: "Admin", MEMBER: "Member", VOLUNTEER: "Volunteer" };
+  const names = { ADMIN: "Admin", MEMBER: "Staff", VOLUNTEER: "Volunteer" };
   assert.equal(role.name, names[code]);
 }
 
@@ -283,7 +303,7 @@ export function assertMembership(membership, { organizationId, departmentId, rol
     "isActive",
     "primaryDepartmentId",
     "departmentIds",
-    "managedDepartmentIds",
+    ...(departmentId === null ? ["managedDepartmentIds"] : []),
     "orgUserTitle",
     "orgUserDescription",
     "user",
@@ -314,6 +334,9 @@ export function assertInvitation(invitation, { email, organizationId, department
     "acceptedAt",
     "revokedAt",
     "createdAt",
+    "firstName",
+    "lastName",
+    "username",
   ]);
   assertUuid(invitation.id);
   assert.equal(invitation.email, email.toLowerCase());

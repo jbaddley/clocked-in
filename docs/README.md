@@ -4,7 +4,8 @@
 - [VolunTime Feedback for Jason — resolved](base/VolunTime%20Feedback%20for%20Jason%20%E2%80%94%20resolved.pdf) — Dillon’s Oct 27 letter with how each item was resolved and the five questions answered. HTML source: [voluntime-feedback-resolved.html](voluntime-feedback-resolved.html).
 - [VolunTime requirements and feedback audit](voluntime-audit.md) — internal status notes vs the same sources.
 - [Original goals assessment](original-goals-assessment.md) — Oct 21 snapshot against the brief. Historical only.
-- [HTTP contract](api/http.md) — shared Next.js and ClockedIn.Api API.
+- [HTTP contract](api/http.md) — Next.js REST and MCP API.
+- [Prisma adoption](ops/prisma-adoption.md) — data-preserving migration ownership and backend cutover.
 - [Domain schema](schema/domain.md) — entities, roles, rates, and time modes.
 - [CASWJ portal runbook](ops/caswj-portal.md) — subdomain install, ownership, and DNS.
 

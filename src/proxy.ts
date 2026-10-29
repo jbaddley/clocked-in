@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { refresh } from "@/lib/api/features/auth";
 import { accessCookie, refreshCookie, verifyAccessToken } from "@/lib/api/security";
-import { csharpApiUrl, forwardToCsharp, isCsharpApiPath } from "@/lib/server/csharp-api";
+import { classifyTenantHost, stripPort, tenantHeader } from "@/lib/portal";
 import { writeSession, type IssuedSession } from "@/lib/server/session-cookies";
 
 const protectedPrefixes = [
@@ -46,6 +46,28 @@ function matches(pathname: string, prefixes: string[]) {
   return prefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
+function resolveTenantSlug(request: NextRequest): string | null {
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  const configuredAppHost = process.env.APP_HOST?.trim();
+  if (configuredAppHost) {
+    return classifyTenantHost(host, configuredAppHost);
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    const localSubdomain = classifyTenantHost(host, "localhost");
+    if (localSubdomain) {
+      return localSubdomain;
+    }
+
+    const hostname = stripPort(host);
+    if (hostname === "127.0.0.1" || hostname === "localhost") {
+      return request.headers.get(tenantHeader)?.trim().toLowerCase() || null;
+    }
+  }
+
+  return null;
+}
+
 function rewriteFeedbackApi(request: NextRequest) {
   const { pathname } = request.nextUrl;
   if (pathname !== "/feedback" && !pathname.startsWith("/feedback/")) {
@@ -74,11 +96,7 @@ function rewriteFeedbackApi(request: NextRequest) {
 }
 
 export async function proxy(request: NextRequest) {
-  const csharp = csharpApiUrl();
-  if (csharp && isCsharpApiPath(request.nextUrl.pathname, request) && request.headers.has("authorization")) {
-    return forwardToCsharp(request, csharp);
-  }
-
+  const tenantSlug = resolveTenantSlug(request);
   const feedbackApi = rewriteFeedbackApi(request);
   if (feedbackApi) {
     return feedbackApi;
@@ -89,6 +107,17 @@ export async function proxy(request: NextRequest) {
   }
 
   const { pathname, search } = request.nextUrl;
+  if (tenantSlug && pathname === "/signup") {
+    const nextParam = request.nextUrl.searchParams.get("next") ?? "";
+    if (!/[?&]code=/.test(nextParam)) {
+      const login = new URL("/login", request.url);
+      if (nextParam) {
+        login.searchParams.set("next", nextParam);
+      }
+      return NextResponse.redirect(login);
+    }
+  }
+
   const accessToken = request.cookies.get(accessCookie)?.value;
   const refreshToken = request.cookies.get(refreshCookie)?.value;
   let signedIn = Boolean(accessToken && (await verifyAccessToken(accessToken)));
@@ -118,16 +147,6 @@ export async function proxy(request: NextRequest) {
 
   if (issued) {
     writeSession(response.cookies, issued);
-  }
-
-  if (csharp && isCsharpApiPath(request.nextUrl.pathname, request)) {
-    const token = issued?.accessToken ?? request.cookies.get(accessCookie)?.value;
-    const forwarded = await forwardToCsharp(request, csharp, token);
-    if (issued) {
-      writeSession(forwarded.cookies, issued);
-    }
-
-    return forwarded;
   }
 
   return response;

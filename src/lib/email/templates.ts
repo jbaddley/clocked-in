@@ -19,6 +19,114 @@ export type EmailTemplateFor = (typeof emailTemplateFors)[number];
 /** Only these mails can be turned off; the rest carry codes, passwords, or decisions people need. */
 export const optionalEmailTemplates: readonly EmailTemplateFor[] = ["LoggedTime", "UnclassifiedEntry"];
 
+export const timeEmailFrequencies = ["immediate", "weekly", "off"] as const;
+export type TimeEmailFrequency = (typeof timeEmailFrequencies)[number];
+
+export function isTimeEmailFrequency(value: unknown): value is TimeEmailFrequency {
+  return typeof value === "string" && (timeEmailFrequencies as readonly string[]).includes(value);
+}
+
+export const booleanEmailSettingKeys = [
+  "FeedbackReceived",
+  "FeedbackNotify",
+  "FeedbackCompleted",
+  "AccessRequestReceived",
+  "AccessRequestDecided",
+  "NeedSubmitted",
+  "NeedDecided",
+  "VolunteerMessage",
+] as const;
+
+export type BooleanEmailSettingKey = (typeof booleanEmailSettingKeys)[number];
+
+export type OrganizationEmailSettings = {
+  LoggedTime: TimeEmailFrequency;
+  UnclassifiedEntry: TimeEmailFrequency;
+  FeedbackReceived: boolean;
+  FeedbackNotify: boolean;
+  FeedbackCompleted: boolean;
+  AccessRequestReceived: boolean;
+  AccessRequestDecided: boolean;
+  NeedSubmitted: boolean;
+  NeedDecided: boolean;
+  VolunteerMessage: boolean;
+};
+
+export const defaultEmailSettings: OrganizationEmailSettings = {
+  LoggedTime: "immediate",
+  UnclassifiedEntry: "immediate",
+  FeedbackReceived: true,
+  FeedbackNotify: true,
+  FeedbackCompleted: true,
+  AccessRequestReceived: true,
+  AccessRequestDecided: true,
+  NeedSubmitted: true,
+  NeedDecided: true,
+  VolunteerMessage: true,
+};
+
+export function readEmailSettings(value: unknown): OrganizationEmailSettings {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { ...defaultEmailSettings };
+  }
+  const source = value as Record<string, unknown>;
+  return {
+    LoggedTime: isTimeEmailFrequency(source.LoggedTime) ? source.LoggedTime : defaultEmailSettings.LoggedTime,
+    UnclassifiedEntry: isTimeEmailFrequency(source.UnclassifiedEntry)
+      ? source.UnclassifiedEntry
+      : defaultEmailSettings.UnclassifiedEntry,
+    FeedbackReceived:
+      typeof source.FeedbackReceived === "boolean" ? source.FeedbackReceived : defaultEmailSettings.FeedbackReceived,
+    FeedbackNotify:
+      typeof source.FeedbackNotify === "boolean" ? source.FeedbackNotify : defaultEmailSettings.FeedbackNotify,
+    FeedbackCompleted:
+      typeof source.FeedbackCompleted === "boolean" ? source.FeedbackCompleted : defaultEmailSettings.FeedbackCompleted,
+    AccessRequestReceived:
+      typeof source.AccessRequestReceived === "boolean"
+        ? source.AccessRequestReceived
+        : defaultEmailSettings.AccessRequestReceived,
+    AccessRequestDecided:
+      typeof source.AccessRequestDecided === "boolean"
+        ? source.AccessRequestDecided
+        : defaultEmailSettings.AccessRequestDecided,
+    NeedSubmitted:
+      typeof source.NeedSubmitted === "boolean" ? source.NeedSubmitted : defaultEmailSettings.NeedSubmitted,
+    NeedDecided: typeof source.NeedDecided === "boolean" ? source.NeedDecided : defaultEmailSettings.NeedDecided,
+    VolunteerMessage:
+      typeof source.VolunteerMessage === "boolean" ? source.VolunteerMessage : defaultEmailSettings.VolunteerMessage,
+  };
+}
+
+export function shouldSendEmailImmediate(settings: OrganizationEmailSettings, kind: EmailTemplateFor): boolean {
+  if (kind === "Invite" || kind === "Welcome" || kind === "PasswordReset") {
+    return true;
+  }
+  if (kind === "LoggedTime" || kind === "UnclassifiedEntry") {
+    return settings[kind] === "immediate";
+  }
+  return settings[kind] === true;
+}
+
+export function emailTemplateBadge(
+  kind: EmailTemplateFor,
+  isEnabled: boolean,
+  settings: OrganizationEmailSettings,
+): { label: string; variant: "secondary" | "outline" } {
+  if (kind === "Invite" || kind === "Welcome" || kind === "PasswordReset") {
+    return { label: "Always on", variant: "secondary" };
+  }
+  if (!isEnabled) {
+    return { label: "Off", variant: "outline" };
+  }
+  if (kind === "LoggedTime" || kind === "UnclassifiedEntry") {
+    const freq = settings[kind];
+    if (freq === "off") return { label: "Off", variant: "outline" };
+    if (freq === "weekly") return { label: "Weekly digest", variant: "secondary" };
+    return { label: "Immediately", variant: "secondary" };
+  }
+  return settings[kind] ? { label: "On", variant: "secondary" } : { label: "Off", variant: "outline" };
+}
+
 export const emailForLabels: Record<EmailTemplateFor, string> = {
   Invite: "Invite",
   Welcome: "Welcome",

@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import defaults from "../emails/dist/defaults.json";
 import {
+  booleanEmailSettingKeys,
+  defaultEmailSettings,
   emailHtmlToText,
+  emailTemplateBadge,
+  readEmailSettings,
+  shouldSendEmailImmediate,
   emailTemplateFields,
   emailTemplateFors,
   fillEmailText,
@@ -120,4 +125,47 @@ test("LoggedTime default renders hours and date", () => {
   assert.equal(filled.subject, "Your hours for Harbor were saved");
   assert.match(filled.text, /2\.5 hours were saved on Tue, Oct 27, 2026\./);
   assert.match(filled.text, /Review your hours \(https:\/\/x\.example\/log\)/);
+});
+
+test("readEmailSettings normalizes values and shouldSendEmailImmediate enforces frequency and toggles", () => {
+  const defaults = readEmailSettings(null);
+  assert.deepEqual(defaults, defaultEmailSettings);
+  for (const kind of emailTemplateFors) {
+    assert.equal(shouldSendEmailImmediate(defaults, kind), true, kind);
+  }
+
+  const custom = readEmailSettings({
+    LoggedTime: "weekly",
+    UnclassifiedEntry: "off",
+    AccessRequestReceived: false,
+    NeedSubmitted: "invalid",
+  });
+  assert.equal(custom.LoggedTime, "weekly");
+  assert.equal(custom.UnclassifiedEntry, "off");
+  assert.equal(custom.AccessRequestReceived, false);
+  assert.equal(custom.NeedSubmitted, true);
+
+  assert.equal(shouldSendEmailImmediate(custom, "LoggedTime"), false);
+  assert.equal(shouldSendEmailImmediate(custom, "UnclassifiedEntry"), false);
+  assert.equal(shouldSendEmailImmediate(custom, "AccessRequestReceived"), false);
+  assert.equal(shouldSendEmailImmediate(custom, "NeedSubmitted"), true);
+  assert.equal(shouldSendEmailImmediate(custom, "Invite"), true);
+  assert.equal(shouldSendEmailImmediate(custom, "Welcome"), true);
+  assert.equal(shouldSendEmailImmediate(custom, "PasswordReset"), true);
+
+  assert.deepEqual(emailTemplateBadge("Invite", true, custom), { label: "Always on", variant: "secondary" });
+  assert.deepEqual(emailTemplateBadge("Welcome", false, custom), { label: "Always on", variant: "secondary" });
+  assert.deepEqual(emailTemplateBadge("PasswordReset", true, custom), { label: "Always on", variant: "secondary" });
+  assert.deepEqual(emailTemplateBadge("LoggedTime", true, custom), { label: "Weekly digest", variant: "secondary" });
+  assert.deepEqual(emailTemplateBadge("LoggedTime", false, custom), { label: "Off", variant: "outline" });
+  assert.deepEqual(emailTemplateBadge("UnclassifiedEntry", true, custom), { label: "Off", variant: "outline" });
+  assert.deepEqual(emailTemplateBadge("AccessRequestReceived", true, custom), { label: "Off", variant: "outline" });
+  assert.deepEqual(emailTemplateBadge("NeedSubmitted", true, custom), { label: "On", variant: "secondary" });
+
+  for (const key of booleanEmailSettingKeys) {
+    const toggledOff = readEmailSettings({ [key]: false });
+    assert.equal(toggledOff[key], false, `${key} should be false`);
+    assert.equal(shouldSendEmailImmediate(toggledOff, key), false, `${key} should not send when false`);
+    assert.deepEqual(emailTemplateBadge(key, true, toggledOff), { label: "Off", variant: "outline" });
+  }
 });

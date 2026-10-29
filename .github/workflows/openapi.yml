@@ -1,21 +1,13 @@
-name: OpenAPI snapshot
+name: OpenAPI contract
 
 on:
   pull_request:
-    paths:
-      - ClockedIn.Api/**
-      - scripts/export-openapi.mjs
-      - .github/workflows/openapi.yml
   push:
     branches: [main, staging]
-    paths:
-      - ClockedIn.Api/**
-      - scripts/export-openapi.mjs
-      - .github/workflows/openapi.yml
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: openapi-${{ github.ref }}
@@ -23,7 +15,7 @@ concurrency:
 
 jobs:
   snapshot:
-    name: Refresh snapshot
+    name: Validate Next.js contract
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -35,27 +27,5 @@ jobs:
         with:
           node-version: 22
 
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "10.0.x"
-
-      - name: Export OpenAPI
-        env:
-          EF_DATABASE_URL: postgres://openapi:openapi@127.0.0.1:5432/openapi
-          JWT_SIGNING_KEY: openapi-snapshot-signing-key-32b
-          JWT_ISSUER: clocked-in
-          JWT_AUDIENCE: clocked-in
-          API_KEY_PEPPER: openapi-snapshot-pepper-32-characters
-        run: npm run openapi
-
-      - name: Commit snapshot
-        run: |
-          if git diff --quiet -- src/lib/developer/openapi.json; then
-            echo "OpenAPI snapshot is current."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/lib/developer/openapi.json
-          git commit -m "Update the OpenAPI snapshot."
-          git push
+      - run: npm ci
+      - run: npm run openapi

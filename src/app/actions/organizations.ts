@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import {
   createOrganization,
   getOrganization,
+  parseEmailSettings,
   parseName,
   parseUpdateOrganization,
   updateOrganization,
@@ -73,6 +74,7 @@ export async function updateOrganizationSettingsAction(
 ): Promise<ActionResult> {
   return run(async () => {
     const access = await requireAccess();
+    const current = await getOrganization(access, organizationId);
     const preferences: OrganizationPreferences = {
       allowTimeEntryEditing: formData.get("allowTimeEntryEditing") === "on",
       allowVolunteersToAddVolunteers: formData.get("allowVolunteersToAddVolunteers") === "on",
@@ -86,6 +88,7 @@ export async function updateOrganizationSettingsAction(
         .split(",")
         .map((item) => item.trim())
         .filter(Boolean),
+      emailSettings: current.preferences.emailSettings,
     };
     await updateOrganization(
       access,
@@ -97,6 +100,60 @@ export async function updateOrganizationSettingsAction(
     );
     refresh();
   }, "Organization saved.");
+}
+
+export async function updateOrganizationEmailSettingsAction(
+  organizationId: string,
+  _: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  return run(async () => {
+    const access = await requireAccess();
+    const current = await getOrganization(access, organizationId);
+    const emailSettings = parseEmailSettings({
+      LoggedTime: text(formData, "LoggedTime") || "immediate",
+      UnclassifiedEntry: text(formData, "UnclassifiedEntry") || "immediate",
+      FeedbackReceived: formData.get("FeedbackReceived") === "on",
+      FeedbackNotify: formData.get("FeedbackNotify") === "on",
+      FeedbackCompleted: formData.get("FeedbackCompleted") === "on",
+      AccessRequestReceived: formData.get("AccessRequestReceived") === "on",
+      AccessRequestDecided: formData.get("AccessRequestDecided") === "on",
+      NeedSubmitted: formData.get("NeedSubmitted") === "on",
+      NeedDecided: formData.get("NeedDecided") === "on",
+      VolunteerMessage: formData.get("VolunteerMessage") === "on",
+    });
+    const preferences: OrganizationPreferences = {
+      ...current.preferences,
+      emailSettings,
+    };
+    await updateOrganization(
+      access,
+      organizationId,
+      parseUpdateOrganization({
+        preferences,
+      }),
+    );
+    refresh();
+  }, "Email settings saved.");
+}
+
+export async function updateOrganizationSlugAction(
+  organizationId: string,
+  _: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  return run(async () => {
+    const access = await requireAccess();
+    const rawSlug = text(formData, "slug");
+    await updateOrganization(
+      access,
+      organizationId,
+      parseUpdateOrganization({
+        slug: rawSlug ? rawSlug : null,
+      }),
+    );
+    refresh();
+  }, "Organization address saved.");
 }
 
 export async function applyThemeAction(organizationId: string, themeId: string) {

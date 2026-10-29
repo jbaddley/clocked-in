@@ -10,6 +10,7 @@ import {
   suite,
   waitForMatchingEmails,
 } from "./client.mjs";
+import { mailSinkUrl } from "./fixture.mjs";
 
 const kinds = [
   "Invite",
@@ -153,5 +154,124 @@ describe("email templates", suite, () => {
     });
     const [mail] = await waitForMatchingEmails(ctx.member.email, /Logged for .*: 1\.5h/);
     assert.match(mail.text, /1\.5 hours were saved on/);
+    ctx.category = category;
+    ctx.project = project;
+  });
+
+  test("organization emailSettings control when LoggedTime, UnclassifiedEntry, and optional notifications are sent", async () => {
+    const badFreq = await callApi(`/organizations/${ctx.org.id}`, {
+      method: "PATCH",
+      token: ctx.admin.accessToken,
+      body: {
+        preferences: {
+          allowTimeEntryEditing: false,
+          emailSettings: { LoggedTime: "daily" },
+        },
+      },
+    });
+    assertError(badFreq, 400, "validation_error", "LoggedTime must be immediate, weekly, or off.");
+
+    const badObj = await callApi(`/organizations/${ctx.org.id}`, {
+      method: "PATCH",
+      token: ctx.admin.accessToken,
+      body: {
+        preferences: {
+          allowTimeEntryEditing: false,
+          emailSettings: null,
+        },
+      },
+    });
+    assertError(badObj, 400, "validation_error", "emailSettings must be an object.");
+
+    const badBool = await callApi(`/organizations/${ctx.org.id}`, {
+      method: "PATCH",
+      token: ctx.admin.accessToken,
+      body: {
+        preferences: {
+          allowTimeEntryEditing: false,
+          emailSettings: { NeedSubmitted: "nope" },
+        },
+      },
+    });
+    assertError(badBool, 400, "validation_error", "NeedSubmitted must be a boolean.");
+
+    const updated = await callApi(`/organizations/${ctx.org.id}`, {
+      method: "PATCH",
+      token: ctx.admin.accessToken,
+      body: {
+        preferences: {
+          allowTimeEntryEditing: false,
+          emailSettings: {
+            LoggedTime: "weekly",
+            UnclassifiedEntry: "off",
+            AccessRequestReceived: false,
+            AccessRequestDecided: false,
+          },
+        },
+      },
+    });
+    assert.equal(updated.status, 200, updated.text);
+    assert.equal(updated.json.preferences.emailSettings.LoggedTime, "weekly");
+    assert.equal(updated.json.preferences.emailSettings.UnclassifiedEntry, "off");
+    assert.equal(updated.json.preferences.emailSettings.AccessRequestReceived, false);
+    assert.equal(updated.json.preferences.emailSettings.AccessRequestDecided, false);
+    assert.equal(updated.json.preferences.emailSettings.NeedSubmitted, true);
+
+    const getEmails = async (email) => (await fetch(`${mailSinkUrl}/emails?to=${encodeURIComponent(email)}`)).json();
+    const beforeEmails = await getEmails(ctx.member.email);
+    await createJson(ctx.member.accessToken, "/time/duration", {
+      organizationId: ctx.org.id,
+      projectId: ctx.project.id,
+      taskCategoryId: ctx.category.id,
+      durationMinutes: 60,
+      occurredOn: "2026-10-06",
+    });
+    const afterLogged = await getEmails(ctx.member.email);
+    assert.equal(afterLogged.length, beforeEmails.length);
+
+    await createJson(ctx.member.accessToken, "/time/clock-in", {
+      organizationId: ctx.org.id,
+    });
+    await createJson(ctx.member.accessToken, "/time/clock-out", {}, 200);
+    const afterUnclassified = await getEmails(ctx.member.email);
+    assert.equal(afterUnclassified.length, beforeEmails.length);
+
+    const beforeAdminEmails = await getEmails(ctx.admin.email);
+    const reqRes = await createJson(ctx.member.accessToken, `/organizations/${ctx.org.id}/access-requests`, {
+      message: "Need admin access",
+    });
+    const afterAdminEmails = await getEmails(ctx.admin.email);
+    assert.equal(afterAdminEmails.length, beforeAdminEmails.length);
+
+    const decideRes = await callApi(`/organizations/${ctx.org.id}/access-requests/${reqRes.id}`, {
+      method: "PATCH",
+      token: ctx.admin.accessToken,
+      body: { status: "declined" },
+    });
+    assert.equal(decideRes.status, 200, decideRes.text);
+    const afterDecidedEmails = await getEmails(ctx.member.email);
+    assert.equal(afterDecidedEmails.length, beforeEmails.length);
+
+    const reenabled = await callApi(`/organizations/${ctx.org.id}`, {
+      method: "PATCH",
+      token: ctx.admin.accessToken,
+      body: {
+        preferences: {
+          allowTimeEntryEditing: false,
+          emailSettings: {
+            LoggedTime: "immediate",
+            UnclassifiedEntry: "immediate",
+          },
+        },
+      },
+    });
+    assert.equal(reenabled.status, 200, reenabled.text);
+
+    await createJson(ctx.member.accessToken, "/time/clock-in", {
+      organizationId: ctx.org.id,
+    });
+    await createJson(ctx.member.accessToken, "/time/clock-out", {}, 200);
+    const [unclassifiedMail] = await waitForMatchingEmails(ctx.member.email, /Please classify your volunteer time/);
+    assert.match(unclassifiedMail.text, /Review unclassified entries/);
   });
 });

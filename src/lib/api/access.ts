@@ -20,10 +20,12 @@ import {
   type Permission,
   type RoleScope,
 } from "@/lib/permissions";
+import { tenantHeader } from "@/lib/portal";
 import { prisma } from "@/lib/prisma";
 
 export const accountInclude = { profile: true } as const;
 export type Account = Prisma.UserGetPayload<{ include: typeof accountInclude }>;
+type OrganizationWithTheme = Prisma.OrganizationGetPayload<{ include: { theme: true } }>;
 
 type CallerOrganization = { isActive: boolean; role: RoleCode | null; roleId: string | null; scope: RoleScope };
 type CallerDepartment = { departmentId: string; organizationId: string; isAdmin: boolean };
@@ -39,10 +41,12 @@ export class Access {
   private organizations?: Map<string, CallerOrganization>;
   private departments?: CallerDepartment[];
   private permissionSets?: Map<string, Set<Permission>>;
+  private pinnedOrg?: OrganizationWithTheme | null;
 
   constructor(
     private readonly account: Account | null,
     private readonly apiKey: ApiKeyPrincipal | null = null,
+    readonly tenantSlug: string | null = null,
   ) {}
 
   get caller(): Account {
@@ -69,11 +73,33 @@ export class Access {
     return this.apiKey !== null && this.apiKey.organizationId === organizationId && this.apiKey.canWrite;
   }
 
+  async pinnedOrganization(): Promise<OrganizationWithTheme | null> {
+    if (!this.tenantSlug) {
+      return null;
+    }
+
+    if (this.pinnedOrg === undefined) {
+      this.pinnedOrg = await prisma.organization.findFirst({
+        where: { slug: this.tenantSlug },
+        include: { theme: true },
+      });
+    }
+
+    return this.pinnedOrg ?? notFound();
+  }
+
   async requireOrganization(organizationId: string, admin: boolean) {
-    const organization = await prisma.organization.findUnique({
-      where: { id: organizationId },
-      include: { theme: true },
-    });
+    const pinned = await this.pinnedOrganization();
+    if (pinned && pinned.id !== organizationId) {
+      notFound();
+    }
+
+    const organization =
+      pinned ??
+      (await prisma.organization.findUnique({
+        where: { id: organizationId },
+        include: { theme: true },
+      }));
     if (!organization) {
       notFound();
     }
@@ -90,12 +116,15 @@ export class Access {
       return organization;
     }
 
-    if (this.isSuperAdmin) {
+    if (this.isSuperAdmin && !pinned) {
       return organization;
     }
 
     const membership = (await this.organizationMemberships()).get(organizationId);
     if (!membership || !membership.isActive || (admin && !(await this.can(organizationId, "manage_organization")))) {
+      if (!membership?.isActive && this.isSuperAdmin && !pinned) {
+        return organization;
+      }
       forbidden();
     }
 
@@ -127,8 +156,13 @@ export class Access {
       notFound();
     }
 
+    const pinned = await this.pinnedOrganization();
+    if (pinned && pinned.id !== department.organizationId) {
+      notFound();
+    }
+
     if (
-      !this.isSuperAdmin &&
+      !(this.isSuperAdmin && !pinned) &&
       !(await this.can(department.organizationId, "manage_organization")) &&
       !(await this.can(department.organizationId, "invite_members", departmentId)) &&
       !(await this.isDepartmentAdmin(departmentId))
@@ -140,7 +174,7 @@ export class Access {
   }
 
   async can(organizationId: string, permission: Permission, departmentId?: string | null) {
-    if (this.isSuperAdmin) {
+    if (this.isSuperAdmin && !this.tenantSlug) {
       return true;
     }
 
@@ -153,7 +187,11 @@ export class Access {
 
     const membership = (await this.organizationMemberships()).get(organizationId);
     if (!membership?.isActive) {
-      return false;
+      return this.isSuperAdmin && !this.tenantSlug;
+    }
+
+    if (this.isSuperAdmin) {
+      return true;
     }
 
     const granted = await this.permissionsFor(organizationId);
@@ -199,7 +237,8 @@ export class Access {
       return cached;
     }
 
-    if (this.isSuperAdmin) {
+    const membership = (await this.organizationMemberships()).get(organizationId);
+    if (this.isSuperAdmin && (!this.tenantSlug || membership?.isActive)) {
       const all = new Set(apiKeyPermissions(true, true));
       this.permissionSets.set(organizationId, all);
       return all;
@@ -211,7 +250,12 @@ export class Access {
       return granted;
     }
 
-    const membership = (await this.organizationMemberships()).get(organizationId);
+    if (!membership?.isActive) {
+      const none = new Set<Permission>();
+      this.permissionSets.set(organizationId, none);
+      return none;
+    }
+
     const granted = new Set<Permission>(defaultPermissionsForCode(membership?.role));
     if (membership?.roleId) {
       const rows = await prisma.rolePermission.findMany({
@@ -420,17 +464,17 @@ export class Access {
   }
 }
 
-export async function accessForSubject(subject: string) {
+export async function accessForSubject(subject: string, tenantSlug?: string | null) {
   const id = parseGuid(subject);
   if (!id) {
     return null;
   }
 
   const user = await prisma.user.findUnique({ where: { id }, include: accountInclude });
-  return user ? new Access(user) : null;
+  return user ? new Access(user, null, tenantSlug?.trim().toLowerCase() || null) : null;
 }
 
-async function authenticateApiKey(raw: string) {
+async function authenticateApiKey(raw: string, tenantSlug: string | null) {
   const prefix = prefixOf(raw);
   if (!prefix) {
     verifyDummyApiKey(raw);
@@ -454,13 +498,14 @@ async function authenticateApiKey(raw: string) {
     console.warn("Could not record API key last-used time.", error);
   }
 
-  return new Access(null, principalFromScopes(match, parseScopes(match.scopes)));
+  return new Access(null, principalFromScopes(match, parseScopes(match.scopes)), tenantSlug);
 }
 
 export async function authenticate(request: Request, options?: { allowPasswordChange?: boolean }) {
+  const tenantSlug = request.headers.get(tenantHeader)?.trim().toLowerCase() || null;
   const rawKey = presentedApiKey(request);
   if (rawKey) {
-    return authenticateApiKey(rawKey);
+    return authenticateApiKey(rawKey, tenantSlug);
   }
 
   const subject = await readAccessSubject(request);
@@ -468,7 +513,8 @@ export async function authenticate(request: Request, options?: { allowPasswordCh
     unauthorized();
   }
 
-  const access = (await accessForSubject(subject)) ?? unauthorized("This token is not valid for this server.");
+  const access =
+    (await accessForSubject(subject, tenantSlug)) ?? unauthorized("This token is not valid for this server.");
   if (access.caller.mustChangePassword && !options?.allowPasswordChange) {
     passwordChangeRequired();
   }

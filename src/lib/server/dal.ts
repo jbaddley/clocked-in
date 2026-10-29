@@ -8,9 +8,10 @@ import { listOrgMemberships } from "@/lib/api/features/memberships";
 import { listOrganizations } from "@/lib/api/features/organizations";
 import { report } from "@/lib/api/features/reports";
 import { listTimeEntries } from "@/lib/api/features/time-entries";
-import { defaultOrganizationId } from "@/lib/portal";
+import { appHost } from "@/lib/portal";
 import { organizationCookie } from "@/lib/server/session-cookies";
 import { getAccess, requireAccess } from "@/lib/server/session";
+import { getPinnedOrganization, requirePinnedOrganizationOrApex } from "@/lib/server/tenant";
 import { isCoordinator } from "@/lib/roles";
 import type { DateRange, GroupDepartments, Lookups, Viewer } from "@/lib/types";
 
@@ -48,22 +49,32 @@ export const getViewer = cache(async (): Promise<Viewer> => {
 });
 
 export const getOrganizations = cache(async () => {
+  await requirePinnedOrganizationOrApex();
   const access = await requireAccess();
   return (await listOrganizations(access, searchParamsFor({ limit: 100 }))).items;
 });
 
 export const getWorkspace = cache(async () => {
   const access = await requireAccess();
-  const [viewer, organizations, store] = await Promise.all([getViewer(), getOrganizations(), cookies()]);
-  const stored = store.get(organizationCookie)?.value || defaultOrganizationId();
-  const organization = organizations.find((item) => item.id === stored) ?? organizations[0] ?? null;
+  const [viewer, organizations, store, pinned] = await Promise.all([
+    getViewer(),
+    getOrganizations(),
+    cookies(),
+    requirePinnedOrganizationOrApex(),
+  ]);
+  const stored = store.get(organizationCookie)?.value;
+  const organization = pinned.pinned
+    ? (organizations.find((item) => item.id === pinned.organization?.id) ?? null)
+    : (organizations.find((item) => item.id === stored) ?? organizations[0] ?? null);
   const role = organization ? await access.organizationRole(organization.id) : null;
   const permissions = organization ? [...(await access.permissionsFor(organization.id))] : [];
-  const isAdmin = organization ? viewer.isSuperAdmin || (await access.can(organization.id, "manage_organization")) : false;
-  const canSelectRate = organization ? viewer.isSuperAdmin || role === "ADMIN" || role === "MEMBER" || isAdmin : false;
+  const isAdmin = organization
+    ? (!pinned.pinned && viewer.isSuperAdmin) || (await access.can(organization.id, "manage_organization"))
+    : false;
+  const canSelectRate = organization ? role === "ADMIN" || role === "MEMBER" || isAdmin : false;
   const groupDepartments: GroupDepartments = !organization
     ? []
-    : viewer.isSuperAdmin || isAdmin
+    : isAdmin
       ? "all"
       : await access.adminDepartmentIds(organization.id);
   return {
@@ -76,6 +87,9 @@ export const getWorkspace = cache(async () => {
     role,
     permissions,
     groupDepartments,
+    isTenantHost: pinned.pinned,
+    pinnedOrganizationName: pinned.organization?.name ?? null,
+    appHost: appHost() || "voluntime.app",
   };
 });
 
@@ -85,11 +99,20 @@ export const getCurrentOrganization = cache(async () => {
     return null;
   }
 
-  const [organizations, store] = await Promise.all([
+  const [organizations, store, pinned] = await Promise.all([
     listOrganizations(access, searchParamsFor({ limit: 100 })),
     cookies(),
+    getPinnedOrganization(),
   ]);
-  const stored = store.get(organizationCookie)?.value || defaultOrganizationId();
+  if (pinned.pinned) {
+    if (!pinned.organization) {
+      return null;
+    }
+
+    return organizations.items.find((item) => item.id === pinned.organization?.id) ?? null;
+  }
+
+  const stored = store.get(organizationCookie)?.value;
   return organizations.items.find((item) => item.id === stored) ?? organizations.items[0] ?? null;
 });
 

@@ -25,7 +25,7 @@ const shellHeading: Record<string, RegExp | string> = {
   "/settings/members": "Settings",
   "/settings/theme": "Settings",
   "/settings/brand": "Settings",
-  "/settings/email-templates": "Settings",
+  "/settings/email": "Settings",
   "/profile": "Profile",
 };
 
@@ -49,7 +49,7 @@ const viewCopy: Record<string, RegExp | string> = {
   "/settings/members": "Invite someone",
   "/settings/theme": /Chart palettes stay/,
   "/settings/brand": "Square mark for the browser tab",
-  "/settings/email-templates": /Every email .* sends/,
+  "/settings/email": /Every email .* sends/,
   "/profile": "Name, contact, and sign-in are saved together.",
   "/accept": "Accept an invite",
 };
@@ -71,7 +71,7 @@ const signedInPaths = [
   "/settings/members",
   "/settings/theme",
   "/settings/brand",
-  "/settings/email-templates",
+  "/settings/email",
   "/profile",
   "/accept",
 ];
@@ -185,13 +185,24 @@ async function showLink(page: Page, href: string) {
   const visible = () => page.locator(`a[href="${href}"]`).filter({ visible: true });
   if (await visible().count()) return;
 
-  if (href === "/profile" || href === "/accept") {
+  if (href === "/profile" || href === "/accept" || href === "/organization") {
     await page.getByRole("button", { name: "Account menu" }).click();
     await expect(visible().first(), href).toBeVisible();
     return;
   }
 
-  const host = href.startsWith("/settings/") ? "/settings/organization" : href.startsWith("/log/") ? "/log/own" : "/dashboard";
+  const nestedSetting = /^\/settings\/[^/]+\/./.test(href) ? href.split("/").slice(0, 3).join("/") : null;
+  const host = nestedSetting
+    ? nestedSetting
+    : href.startsWith("/settings/")
+    ? "/settings/organization"
+    : href.startsWith("/log/")
+      ? "/log/own"
+      : href.startsWith("/developer/")
+        ? href === "/developer/api-keys"
+          ? "/developer/mcp"
+          : "/developer/api-keys"
+        : "/dashboard";
   if (new URL(page.url()).pathname !== host) {
     await page.goto(host);
     await expectView(page, new URL(page.url()).pathname);

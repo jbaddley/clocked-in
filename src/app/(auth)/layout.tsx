@@ -2,6 +2,7 @@ import { BarChart3Icon, HandCoinsIcon, TimerIcon } from "lucide-react";
 import { Suspense } from "react";
 import { brandCss } from "@/lib/brand";
 import { getAuthBrand } from "@/lib/server/auth-brand";
+import { requirePinnedOrganizationOrApex } from "@/lib/server/tenant";
 import { AuthBrand } from "./auth-brand";
 
 const highlights = [
@@ -19,11 +20,13 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
 }
 
 async function AuthShell({ children }: { children: React.ReactNode }) {
+  await requirePinnedOrganizationOrApex();
   const organization = await getAuthBrand();
   const css = brandCss(organization?.theme ?? null);
 
   return (
     <div className="grid min-h-svh lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+      {organization?.isTenantHost ? <title>{organization.name}</title> : null}
       {css ? <style dangerouslySetInnerHTML={{ __html: css }} /> : null}
       <aside className="brand-hero-navy relative hidden overflow-hidden p-10 text-white lg:flex lg:flex-col">
         <div className="brand-rule absolute inset-x-0 top-0" />

@@ -1,6 +1,6 @@
 import { Access, Account, accountInclude } from "@/lib/api/access";
 import { Db, guard, transaction } from "@/lib/api/db";
-import { ApiError, unauthorized, validation } from "@/lib/api/errors";
+import { ApiError, forbidden, notFound, unauthorized, validation } from "@/lib/api/errors";
 import {
   assertTimezone,
   Body,
@@ -31,8 +31,6 @@ import {
   verifyPassword,
 } from "@/lib/api/security";
 import { userJson } from "@/lib/api/features/users";
-import { forbidden } from "@/lib/api/errors";
-import { publicSignupEnabled } from "@/lib/portal";
 
 export type SignUpRequest = {
   username: string;
@@ -101,13 +99,21 @@ async function issueSession(user: Account, db: Db = prisma) {
   return { accessToken, refreshToken, expiresAt: expiresAt.toISOString(), user: userJson(user) };
 }
 
-export async function signUp(request: SignUpRequest, options?: { invitationEmail?: string }) {
+export async function signUp(
+  request: SignUpRequest,
+  options?: { invitationEmail?: string; tenantSlug?: string | null },
+) {
   const invitationEmail = options?.invitationEmail;
   if (invitationEmail && invitationEmail !== request.email) {
     validation("Use the email address the invitation was sent to.");
   }
 
-  if (!publicSignupEnabled() && !invitationEmail) {
+  const tenantSlug = options?.tenantSlug?.trim().toLowerCase() || null;
+  if (tenantSlug && !invitationEmail) {
+    const pinned = await prisma.organization.findFirst({ where: { slug: tenantSlug }, select: { id: true } });
+    if (!pinned) {
+      notFound();
+    }
     forbidden();
   }
 
@@ -182,18 +188,28 @@ export async function logOut(access: Access, request: RefreshTokenRequest) {
   return { ok: true };
 }
 
-/** A reset uses an organization's template only when the person belongs to exactly one. */
-async function soleOrganizationId(userId: string) {
+/** A reset uses an organization's template and host only when pinned or the person belongs to one. */
+async function resetOrganization(userId: string, tenantSlug?: string | null) {
+  if (tenantSlug) {
+    const pinned = await prisma.organization.findFirst({
+      where: { slug: tenantSlug },
+      select: { id: true, slug: true },
+    });
+    if (pinned) {
+      return pinned;
+    }
+  }
+
   const memberships = await prisma.organizationMembership.findMany({
     where: { userId, isActive: true },
-    select: { organizationId: true },
+    select: { organization: { select: { id: true, slug: true } } },
     distinct: ["organizationId"],
     take: 2,
   });
-  return memberships.length === 1 ? memberships[0].organizationId : null;
+  return memberships.length === 1 ? memberships[0].organization : null;
 }
 
-export async function requestPasswordReset(emailValue: string | null) {
+export async function requestPasswordReset(emailValue: string | null, options?: { tenantSlug?: string | null }) {
   if (!emailValue?.trim()) {
     validation("email is required.");
   }
@@ -231,11 +247,12 @@ export async function requestPasswordReset(emailValue: string | null) {
     data: { userId: user.id, codeHash: hashCode(code), expiresAt: new Date(Date.now() + resetCodeMs) },
   });
   try {
+    const org = await resetOrganization(user.id, options?.tenantSlug?.trim().toLowerCase() || null);
     await sendEmail({
       to: email,
-      organizationId: await soleOrganizationId(user.id),
+      organizationId: org?.id ?? null,
       for: "PasswordReset",
-      context: { reset: { code, url: appUrl(`/forgot-password?code=${encodeURIComponent(code)}`) } },
+      context: { reset: { code, url: appUrl(`/forgot-password?code=${encodeURIComponent(code)}`, org?.slug) } },
     });
   } catch (error) {
     await prisma.passwordResetCode.delete({ where: { id: created.id } });

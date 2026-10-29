@@ -390,11 +390,11 @@ describe("hardening / responses and errors", suite, () => {
     });
     const tag = await createJson(ctx.admin.accessToken, `/organizations/${ctx.org.id}/tags`, { name: "Shape tag" });
     assertNamed(department, { organizationId: ctx.org.id, name: "Shape dept" });
-    assertNamed(tag, { organizationId: ctx.org.id, name: "Shape tag" });
+    assertNamed(tag, { organizationId: ctx.org.id, name: "Shape tag", isArchived: false });
     const departments = await callApi(`/organizations/${ctx.org.id}/departments`, { token: ctx.admin.accessToken });
     const tags = await callApi(`/organizations/${ctx.org.id}/tags`, { token: ctx.admin.accessToken });
     assertNamed(departments.json.items[0], { organizationId: ctx.org.id, name: "Shape dept" });
-    assertNamed(tags.json.items[0], { organizationId: ctx.org.id, name: "Shape tag" });
+    assertNamed(tags.json.items[0], { organizationId: ctx.org.id, name: "Shape tag", isArchived: false });
     const renamed = await callApi(`/departments/${department.id}`, {
       method: "PATCH",
       token: ctx.admin.accessToken,

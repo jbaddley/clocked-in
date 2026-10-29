@@ -8,7 +8,7 @@ const nextConfig: NextConfig = {
   /* config options here */
   cacheComponents: true,
   partialPrefetching: true,
-  allowedDevOrigins: ["127.0.0.1"],
+  allowedDevOrigins: ["127.0.0.1", "localhost", "*.localhost"],
   devIndicators: false,
   // A new deployment id busts asset URLs and turns a skewed client navigation
   // into a full page load on the first click.

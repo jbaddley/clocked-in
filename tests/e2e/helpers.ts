@@ -46,9 +46,10 @@ export function adminPassword() {
 }
 
 export async function loginAs(page: Page, username: string, password: string) {
+  await page.context().clearCookies();
   await page.goto("/login");
-  await page.locator("#username").fill(username);
-  await page.locator("#password").fill(password);
+  await page.locator("#username").filter({ visible: true }).fill(username);
+  await page.locator("#password").filter({ visible: true }).fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
   const formError = page.locator("form").getByRole("alert").filter({ hasText: /.+/ });
   await Promise.race([
@@ -97,22 +98,36 @@ export async function createOrgPerson(
       displayName: `${input.firstName} ${input.lastName}`,
       email: input.email,
       username: input.username,
-      password: input.password,
+      password: `${input.password}-temporary`,
       role: input.role ?? "VOLUNTEER",
       departmentIds: input.departmentIds ?? [],
     },
   });
   expect(created.ok(), await created.text()).toBeTruthy();
+  const initialLogin = await request.post("/auth/login", {
+    data: { username: input.username, password: `${input.password}-temporary` },
+  });
+  expect(initialLogin.ok(), await initialLogin.text()).toBeTruthy();
+  const initialSession = await initialLogin.json() as { accessToken: string };
+  const activated = await request.patch("/users/me", {
+    headers: { authorization: `Bearer ${initialSession.accessToken}` },
+    data: { currentPassword: `${input.password}-temporary`, password: input.password },
+  });
+  expect(activated.ok(), await activated.text()).toBeTruthy();
   return { membership: (await created.json()) as { id: string; userId: string; user: { email: string } }, organization, session };
 }
 
 export async function makeCoordinator(request: APIRequestContext, userId: string, departmentId: string) {
   const session = await loginBearer(request);
   const headers = { authorization: `Bearer ${session.accessToken}` };
-  const listed = await request.get(`/departments/${departmentId}/memberships?limit=100`, { headers });
-  expect(listed.ok(), await listed.text()).toBeTruthy();
-  const body = (await listed.json()) as { items: { id: string; userId: string }[] };
-  const membership = body.items.find((item) => item.userId === userId);
+  let membership: { id: string; userId: string } | undefined;
+  for (let offset = 0; !membership; offset += 100) {
+    const listed = await request.get(`/departments/${departmentId}/memberships?limit=100&offset=${offset}`, { headers });
+    expect(listed.ok(), await listed.text()).toBeTruthy();
+    const body = (await listed.json()) as { items: { id: string; userId: string }[] };
+    membership = body.items.find((item) => item.userId === userId);
+    if (body.items.length < 100) break;
+  }
   expect(membership, "department membership").toBeTruthy();
   const updated = await request.patch(`/departments/${departmentId}/memberships/${membership!.id}`, {
     headers,
@@ -206,23 +221,18 @@ export async function deleteE2eEntries(request: APIRequestContext) {
   const session = await loginBearer(request);
   const headers = { authorization: `Bearer ${session.accessToken}` };
   const organization = await sessionOrganization(request, session.accessToken);
-  const listed = await request.get(`/users/${session.user.id}/time-entries?organizationId=${organization.id}&limit=100`, {
-    headers,
-  });
-  expect(listed.ok(), await listed.text()).toBeTruthy();
-  const body = (await listed.json()) as {
-    items: { id: string; description: string | null; sourceRef: string | null }[];
-  };
-  for (const entry of body.items) {
-    if (entry.sourceRef?.startsWith(caswjSourceRefPrefix)) {
-      continue;
+  const entryIds: string[] = [];
+  for (let offset = 0; ; offset += 100) {
+    const listed = await request.get(`/organizations/${organization.id}/time-entries?limit=100&offset=${offset}`, { headers });
+    expect(listed.ok(), await listed.text()).toBeTruthy();
+    const body = await listed.json() as { items: { id: string; description: string | null; sourceRef: string | null }[] };
+    for (const entry of body.items) {
+      if (!entry.sourceRef?.startsWith(caswjSourceRefPrefix) && (entry.description ?? "").startsWith("e2e-")) entryIds.push(entry.id);
     }
-
-    if (!(entry.description ?? "").startsWith("e2e-")) {
-      continue;
-    }
-
-    const deleted = await request.delete(`/time-entries/${entry.id}`, { headers });
+    if (body.items.length < 100) break;
+  }
+  for (const id of entryIds) {
+    const deleted = await request.delete(`/time-entries/${id}`, { headers });
     expect(deleted.ok(), await deleted.text()).toBeTruthy();
   }
 }
@@ -305,10 +315,9 @@ export function expectGroups(
 
 export async function openReports(page: Page) {
   const organization = await loginAsAdmin(page);
-  await page.goto("/reports");
+  await page.goto("/reports/summary");
   await expect(page.getByRole("heading", { name: "Reports" })).toBeVisible();
-  await expect(page.getByText(/valued at \$35\.47\/h \(2025\)/)).toBeVisible();
-  await expect(page.getByRole("tab", { name: "Summary" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Reports menu" })).toBeVisible();
   await expect(page.getByText("Updating…")).toHaveCount(0);
   return organization;
 }
@@ -322,8 +331,7 @@ export function cardTitle(page: Page, title: string) {
 }
 
 export async function selectReportsTab(page: Page, name: string) {
-  const tab = page.getByRole("tablist").getByRole("tab", { name, exact: true });
-  await expect(tab).toBeVisible();
-  await tab.click();
-  await expect(tab).toHaveAttribute("aria-selected", "true");
+  const slugs: Record<string, string> = { Summary: "summary", People: "people", "Group sessions": "group-sessions", Staff: "staff" };
+  await page.goto(`/reports/${slugs[name] ?? name}`);
+  await expect(page.getByRole("button", { name: "Reports menu" })).toBeVisible();
 }

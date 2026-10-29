@@ -63,13 +63,12 @@ function InlineEmail({
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(email);
   const skipSave = useRef(false);
-  const editingRef = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  editingRef.current = editing;
-
-  useEffect(() => {
-    if (!editingRef.current) setValue(email);
-  }, [email]);
+  const [previousEmail, setPreviousEmail] = useState(email);
+  if (email !== previousEmail) {
+    setPreviousEmail(email);
+    if (!editing) setValue(email);
+  }
 
   useEffect(() => {
     if (!editing) return;
@@ -110,9 +109,9 @@ function InlineEmail({
       <Input
         ref={inputRef}
         autoFocus
-        type="email"
-        inputMode="email"
-        autoComplete="off"
+        type='email'
+        inputMode='email'
+        autoComplete='off'
         spellCheck={false}
         aria-label={`Email for ${name}`}
         value={value}
@@ -130,19 +129,19 @@ function InlineEmail({
             event.currentTarget.blur();
           }
         }}
-        className="h-8"
+        className='h-8'
       />
     );
   }
 
   return (
-    <div className="flex w-full min-w-0 items-center gap-2">
-      <span className="min-w-0 truncate text-sm text-muted-foreground">{value}</span>
+    <div className='flex w-full min-w-0 items-center gap-2'>
+      <span className='min-w-0 truncate text-sm text-muted-foreground'>{value}</span>
       <Button
-        type="button"
-        variant="ghost"
-        size="icon-xs"
-        className="ml-auto shrink-0 text-muted-foreground"
+        type='button'
+        variant='ghost'
+        size='icon-xs'
+        className='ml-auto shrink-0 text-muted-foreground'
         aria-label={`Edit email for ${name}`}
         disabled={pending}
         onClick={() => {
@@ -157,24 +156,24 @@ function InlineEmail({
 }
 
 function DepartmentSummary({ names }: { names: string[] }) {
-  if (names.length === 0) return <span className="text-muted-foreground">—</span>;
-  if (names.length === 1) return <span className="truncate text-muted-foreground">{names[0]}</span>;
+  if (names.length === 0) return <span className='text-muted-foreground'>—</span>;
+  if (names.length === 1) return <span className='truncate text-muted-foreground'>{names[0]}</span>;
 
   return (
     <Tooltip>
       <TooltipTrigger
         render={
           <button
-            type="button"
-            className="text-muted-foreground underline decoration-dotted underline-offset-2"
+            type='button'
+            className='text-muted-foreground underline decoration-dotted underline-offset-2'
             aria-label={`${names.length} departments: ${names.join(", ")}`}
           />
         }
       >
         {names.length} departments
       </TooltipTrigger>
-      <TooltipContent className="max-w-xs">
-        <ul className="flex flex-col gap-0.5 text-left">
+      <TooltipContent className='max-w-xs'>
+        <ul className='flex flex-col gap-0.5 text-left'>
           {names.map((name) => (
             <li key={name}>{name}</li>
           ))}
@@ -221,10 +220,10 @@ export function MembersView() {
       setEmailSavingId((current) => (current === membershipId ? null : current));
     }
   }
-  const remove = useActionMutation(
-    (membershipId: string) => removeMemberAction(organization.id, membershipId),
-    { invalidate, onSuccess: () => setRemoveMember(null) },
-  );
+  const remove = useActionMutation((membershipId: string) => removeMemberAction(organization.id, membershipId), {
+    invalidate,
+    onSuccess: () => setRemoveMember(null),
+  });
   const removeMany = useActionMutation(
     (membershipIds: string[]) => removeMembersAction(organization.id, membershipIds),
     {
@@ -241,7 +240,7 @@ export function MembersView() {
   if (membersPending || lookupsPending) return <PageSkeleton rows={8} />;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className='flex flex-col gap-6'>
       <InviteForm />
       {isAdmin ? <AccessRequestsCard /> : null}
       {isAdmin ? <ConnectionsCard /> : null}
@@ -252,19 +251,19 @@ export function MembersView() {
             Volunteers log their own time, and time for people they are connected to. Admins can log time for others.
             Removing someone leaves the account and their history.
           </CardDescription>
-          <CardAction className="flex flex-col items-end gap-2">
+          <CardAction className='flex flex-col items-end gap-2'>
             {isAdmin ? (
-              <Button type="button" className="h-9" onClick={() => setAddOpen(true)}>
+              <Button type='button' className='h-9' onClick={() => setAddOpen(true)}>
                 Add person
               </Button>
             ) : null}
             {selected.length > 0 ? (
               <DropdownMenu>
-                <DropdownMenuTrigger render={<Button type="button" variant="outline" className="h-9" />}>
+                <DropdownMenuTrigger render={<Button type='button' variant='outline' className='h-9' />}>
                   Actions
-                  <ChevronDownIcon data-icon="inline-end" />
+                  <ChevronDownIcon data-icon='inline-end' />
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                <DropdownMenuContent align='end'>
                   <DropdownMenuItem
                     onClick={() =>
                       setTimeFor(members.filter((member) => selectedIds.has(member.id)).map((member) => member.userId))
@@ -273,7 +272,7 @@ export function MembersView() {
                     Add time
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    variant="destructive"
+                    variant='destructive'
                     onClick={() => setPendingRemoval(members.filter((member) => selectedIds.has(member.id)))}
                   >
                     Delete
@@ -283,18 +282,18 @@ export function MembersView() {
             ) : null}
           </CardAction>
         </CardHeader>
-        <CardContent className="px-0">
-          <div className="hidden md:block">
+        <CardContent className='px-0'>
+          <div className='hidden md:block'>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-10">
+                  <TableHead className='w-10'>
                     <Checkbox
                       checked={allSelected}
                       onCheckedChange={(checked) => {
                         setSelected(checked === true ? members.map((member) => member.id) : []);
                       }}
-                      aria-label="Select all people"
+                      aria-label='Select all people'
                     />
                   </TableHead>
                   <TableHead>Name</TableHead>
@@ -302,7 +301,7 @@ export function MembersView() {
                   <TableHead>Role</TableHead>
                   <TableHead>{copy.departments}</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="w-12 text-right">Actions</TableHead>
+                  <TableHead className='w-12 text-right'>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -319,16 +318,16 @@ export function MembersView() {
                         aria-label={`Select ${formatPersonName(member.user)}`}
                       />
                     </TableCell>
-                    <TableCell className="whitespace-nowrap">
+                    <TableCell className='whitespace-nowrap'>
                       <button
-                        type="button"
-                        className="font-medium hover:underline"
+                        type='button'
+                        className='font-medium hover:underline'
                         onClick={() => setProfileMember(member)}
                       >
                         {formatPersonName(member.user)}
                       </button>
                       {member.userId === viewer.id ? (
-                        <span className="ml-1.5 text-xs font-normal text-muted-foreground">you</span>
+                        <span className='ml-1.5 text-xs font-normal text-muted-foreground'>you</span>
                       ) : null}
                     </TableCell>
                     <TableCell>
@@ -340,7 +339,7 @@ export function MembersView() {
                       />
                     </TableCell>
                     <TableCell>{roleLabel(member.role.code, member.role.name)}</TableCell>
-                    <TableCell className="whitespace-nowrap">
+                    <TableCell className='whitespace-nowrap'>
                       <DepartmentSummary names={departmentNames(member, lookups.departments)} />
                     </TableCell>
                     <TableCell>
@@ -348,7 +347,7 @@ export function MembersView() {
                         {member.isActive === false ? "Inactive" : "Active"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className='text-right'>
                       <PersonActions
                         member={member}
                         onEdit={() => setEditMember(member)}
@@ -364,27 +363,27 @@ export function MembersView() {
               </TableBody>
             </Table>
           </div>
-          <div className="flex flex-col gap-3 px-4 md:hidden">
-            <label className="flex items-center gap-2 text-sm">
+          <div className='flex flex-col gap-3 px-4 md:hidden'>
+            <label className='flex items-center gap-2 text-sm'>
               <Checkbox
                 checked={allSelected}
                 onCheckedChange={(checked) => {
                   setSelected(checked === true ? members.map((member) => member.id) : []);
                 }}
-                aria-label="Select all people"
+                aria-label='Select all people'
               />
               Select all
             </label>
-            <ul className="flex flex-col gap-2">
+            <ul className='flex flex-col gap-2'>
               {members.map((member) => (
                 <li
                   key={member.id}
-                  className="rounded-xl border bg-background p-3 ring-1 ring-foreground/10 data-[state=selected]:bg-muted/40"
+                  className='rounded-xl border bg-background p-3 ring-1 ring-foreground/10 data-[state=selected]:bg-muted/40'
                   data-state={selectedIds.has(member.id) ? "selected" : undefined}
                 >
-                  <div className="flex items-start gap-3">
+                  <div className='flex items-start gap-3'>
                     <Checkbox
-                      className="mt-0.5"
+                      className='mt-0.5'
                       checked={selectedIds.has(member.id)}
                       onCheckedChange={(checked) => {
                         setSelected((current) =>
@@ -393,18 +392,18 @@ export function MembersView() {
                       }}
                       aria-label={`Select ${formatPersonName(member.user)}`}
                     />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-2">
+                    <div className='min-w-0 flex-1'>
+                      <div className='flex items-start justify-between gap-2'>
                         <p>
                           <button
-                            type="button"
-                            className="font-medium hover:underline"
+                            type='button'
+                            className='font-medium hover:underline'
                             onClick={() => setProfileMember(member)}
                           >
                             {formatPersonName(member.user)}
                           </button>
                           {member.userId === viewer.id ? (
-                            <span className="ml-1.5 text-xs font-normal text-muted-foreground">you</span>
+                            <span className='ml-1.5 text-xs font-normal text-muted-foreground'>you</span>
                           ) : null}
                         </p>
                         <PersonActions
@@ -423,7 +422,7 @@ export function MembersView() {
                         pending={emailSavingId === member.id}
                         onSave={(email) => saveMemberEmail(member.id, email)}
                       />
-                      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                      <div className='mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm'>
                         <span>{roleLabel(member.role.code, member.role.name)}</span>
                         <Badge variant={member.isActive === false ? "outline" : "secondary"}>
                           {member.isActive === false ? "Inactive" : "Active"}
@@ -478,7 +477,7 @@ export function MembersView() {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={removeMany.isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              variant="destructive"
+              variant='destructive'
               disabled={removeMany.isPending || !pendingRemoval?.length}
               onClick={() => {
                 if (pendingRemoval?.length) removeMany.mutate(pendingRemoval.map((member) => member.id));
@@ -489,7 +488,12 @@ export function MembersView() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <AlertDialog open={Boolean(removeMember)} onOpenChange={(open) => { if (!open) setRemoveMember(null); }}>
+      <AlertDialog
+        open={Boolean(removeMember)}
+        onOpenChange={(open) => {
+          if (!open) setRemoveMember(null);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remove from organization?</AlertDialogTitle>
@@ -502,7 +506,7 @@ export function MembersView() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              variant="destructive"
+              variant='destructive'
               disabled={remove.isPending}
               onClick={() => {
                 if (removeMember) remove.mutate(removeMember.id);
@@ -533,11 +537,11 @@ function PersonActions({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        render={<Button type="button" variant="ghost" size="icon-sm" className="shrink-0" aria-label="Actions" />}
+        render={<Button type='button' variant='ghost' size='icon-sm' className='shrink-0' aria-label='Actions' />}
       >
         <MoreVerticalIcon />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align='end'>
         <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>
         <DropdownMenuItem onClick={onRemove}>Remove</DropdownMenuItem>
         <DropdownMenuItem onClick={onToggleActive}>

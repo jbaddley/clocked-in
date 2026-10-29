@@ -45,6 +45,10 @@ test("coordinator logs for a group member and sees only that group on Reports", 
   const catalog = (await lookups.json()) as { departments: { id: string; name: string }[] };
   const department = catalog.departments.find((item) => item.name === "Visual Arts Society") ?? catalog.departments[0];
   expect(department, "department").toBeTruthy();
+  const assigned = await request.patch(`/organizations/${created.organization.id}/memberships/${created.membership.id}`, {
+    headers, data: { departmentIds: [department.id] },
+  });
+  expect(assigned.ok(), await assigned.text()).toBeTruthy();
   await makeCoordinator(request, created.membership.userId, department.id);
   await createOrgPerson(request, { ...member, departmentIds: [department.id] });
 
@@ -52,12 +56,12 @@ test("coordinator logs for a group member and sees only that group on Reports", 
   await page.getByRole("button", { name: "Account menu" }).click();
   await expect(page.getByText("Group manager")).toBeVisible();
   await page.goto("/log/member");
-  await expect(page.getByText("Add time for a member")).toBeVisible();
+  await expect(page.getByText("Add time for a member").filter({ visible: true })).toBeVisible();
   await page.getByRole("combobox", { name: /person/i }).click();
   await page.getByRole("option", { name: "E2e Grouped" }).click();
   await page.getByRole("button", { name: "Total hours" }).click();
-  await page.getByLabel("Hours").fill("1:00");
-  await page.getByLabel("Notes").fill(`e2e-coord ${stamp}`);
+  await page.getByLabel("Hours", { exact: true }).filter({ visible: true }).fill("1:00");
+  await page.getByLabel("Notes", { exact: true }).filter({ visible: true }).fill(`e2e-coord ${stamp}`);
   await page.getByRole("button", { name: "Save time" }).click();
   await expect(page.getByText("Time saved.")).toBeVisible();
 
@@ -67,7 +71,7 @@ test("coordinator logs for a group member and sees only that group on Reports", 
   await page.getByRole("button", { name: "Choose report" }).click();
   await expect(page.getByRole("menuitem", { name: "Summary" })).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(page.getByText(department.name)).toBeVisible();
+  await expect(page.getByText(department.name, { exact: true }).first()).toBeVisible();
   const other = catalog.departments.find((item) => item.id !== department.id);
   if (other) {
     await expect(page.getByText(other.name, { exact: true })).toHaveCount(0);

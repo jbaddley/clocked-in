@@ -15,12 +15,14 @@ Next.js app with Tailwind CSS, shadcn/ui, and Prisma. Local, staging, and produc
 npm install
 cp .env.example .env
 docker compose up -d
-dotnet ef database update --project ClockedIn.Api
-npx prisma generate
+npm run db:deploy
+npm run db:generate
 npm run dev
 ```
 
 Open [http://localhost:3025](http://localhost:3025).
+
+These setup commands are for an **empty database**. Existing EF-managed databases must follow the [Prisma adoption runbook](docs/ops/prisma-adoption.md) before `db:deploy`. Never reset an existing database to adopt Prisma.
 
 ## Environments
 
@@ -30,7 +32,7 @@ Open [http://localhost:3025](http://localhost:3025).
 | Staging    | `.env.staging`    | PostgreSQL | Next.js |
 | Production | `.env.production` | PostgreSQL | Next.js |
 
-`APP_ENV` is `local`, `staging`, or `production`. `DATABASE_PROVIDER` is `postgresql`. `API_TARGET` is `next` for the Next.js API and `csharp` when the contract tests call the .NET API.
+`APP_ENV` is `local`, `staging`, or `production`. `DATABASE_PROVIDER` is `postgresql`. Next.js is the only backend.
 
 ```bash
 npm run dev
@@ -40,27 +42,25 @@ npm run build:production
 npm run env:print
 ```
 
-The Prisma schema uses the PostgreSQL provider. Prisma and the .NET API both read a `postgres://` or `postgresql://` URL.
+The Prisma schema uses the PostgreSQL provider and reads a `postgres://` or `postgresql://` `DATABASE_URL`.
 
 ## Database
 
-One local Postgres database runs in Docker on port 5435. Both apps use it:
-
-- `DATABASE_URL` is what Prisma and the Next.js API read.
-- `EF_DATABASE_URL` is what the .NET API reads. Locally it is the same connection. The .NET host reads `.env`, or `.env.staging` / `.env.production` when `APP_ENV` is set.
-
-Entity Framework owns DDL. Apply schema changes with `dotnet ef migrations add` and `dotnet ef database update --project ClockedIn.Api`. After an EF migration, refresh Prisma types with `npm run db:pull`. Do not run Prisma migrations.
-
-The Prisma schema is `prisma/schema.prisma`. Connection settings are in `prisma7.config.ts`. `prisma generate` runs after install and before `next build`.
-
-The .NET API is in `ClockedIn.Api`. It reads `EF_DATABASE_URL` from the repo `.env`.
+One local Postgres database runs in Docker on port 5435. Prisma owns DDL and migration history. The schema is `prisma/schema.prisma`, connection settings are in `prisma7.config.ts`, and SQL migrations are in `prisma/migrations`.
 
 ```bash
-dotnet ef database update --project ClockedIn.Api
-dotnet run --project ClockedIn.Api --launch-profile http
+npm run db:status
+npm run db:migrate -- --name describe_change
+npm run db:generate
+APP_ENV=staging npm run db:deploy
+APP_ENV=production npm run db:deploy
 ```
 
-Both servers implement the HTTP contract in [docs/api/http.md](docs/api/http.md). The Next.js routes are on port 3025. The .NET API listens on port 5103. They share `JWT_SIGNING_KEY`, `JWT_ISSUER`, `JWT_AUDIENCE`, `API_KEY_PEPPER`, the Resend settings, and optional `GITHUB_TOKEN` / `GITHUB_REPO` in `.env`.
+`db:migrate` is restricted to local loopback databases. Review generated SQL and add explicit SQL for CHECK constraints or reference-data changes, which Prisma cannot infer. Commit migrations and apply them with `db:deploy` in a controlled release step before the compatible app release. Builds and installation generate client code but never migrate or baseline databases.
+
+The baseline preserves the effective EF schema, 18 CHECK constraints, and required roles, themes, permissions, and report templates. Existing databases must pass adoption checks before recording it. Do not edit the baseline after any environment adopts it.
+
+Next.js implements the [HTTP contract](docs/api/http.md) on port 3025. `JWT_SIGNING_KEY`, `JWT_ISSUER`, `JWT_AUDIENCE`, `API_KEY_PEPPER`, Resend settings, and optional `GITHUB_TOKEN` / `GITHUB_REPO` configure the backend.
 
 Docs live in [docs/README.md](docs/README.md). Brand files and seed workbooks are in [docs/base/](docs/base/). The [original goals assessment](docs/original-goals-assessment.md) tracks brief vs shipped.
 
@@ -73,33 +73,9 @@ npm run db:seed:caswj:anon
 
 `db:seed:caswj` imports `docs/base/2026 Volunteer Hours.xlsx` (real names) and is **local-only**. It no-ops on staging/production unless `SEED_ALLOW_REAL_NAMES=1`. Staging uses the anonymized Clockify sample. The Playwright golden suite (`tests/e2e/caswj-hours.spec.ts`) needs that named local seed and must never run against production. Production e2e is the read-only cache-bust crawl.
 
-Set `CSHARP_API_URL` (for example `http://127.0.0.1:5103` or the App Service origin) to make Next.js a BFF that forwards REST calls to ClockedIn.Api. Leave it unset to keep the Next.js API. `/health` stays on Next.js.
+## MCP and API reference
 
-## Deploy the .NET API
-
-Publish to **Azure App Service on Linux** (no container):
-
-```bash
-dotnet publish ClockedIn.Api -c Release -o ./publish
-```
-
-`.github/workflows/deploy-api.yml` publishes that folder with `azure/webapps-deploy` and runs `dotnet ef database update --project ClockedIn.Api` first. Startup does not migrate. Set GitHub secrets `AZURE_WEBAPP_NAME`, `AZURE_WEBAPP_PUBLISH_PROFILE`, and `EF_DATABASE_URL`.
-
-Give the web app a system-assigned managed identity and store secrets in Key Vault. Point App Settings at Key Vault with `@Microsoft.KeyVault(SecretUri=https://<vault>.vault.azure.net/secrets/<name>/)`. Use `/health` as the health path.
-
-| App Setting                                     | Role                                                                                         |
-| ----------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `EF_DATABASE_URL`                               | Postgres URL (`postgres://` or `postgresql://`)                                              |
-| `JWT_SIGNING_KEY`, `JWT_ISSUER`, `JWT_AUDIENCE` | Same values as the Next.js app                                                               |
-| `API_KEY_PEPPER`                                | HMAC pepper for organization and platform API keys (at least 32 characters)                  |
-| `APP_URL`                                       | Public site URL used in invite and reset emails                                              |
-| `RESEND_API_KEY`, `EMAIL_FROM`                  | Outbound mail                                                                                |
-| `GITHUB_TOKEN`, `GITHUB_REPO`                   | Optional. Create a GitHub issue for each feedback item (`owner/name`)                        |
-| `ASPNETCORE_ENVIRONMENT`                        | `Production` or `Staging`                                                                    |
-| `CORS_ORIGINS`                                  | Optional comma-separated browser origins (Vercel and MCP web clients). Defaults to `APP_URL` |
-| `APPLICATIONINSIGHTS_CONNECTION_STRING`         | Optional Application Insights                                                                |
-
-MCP is Streamable HTTP at `/mcp` on both hosts. ClockedIn.Api accepts organization API keys on REST and MCP. The Next.js app accepts the same keys on `/mcp` (Bearer or `X-Api-Key`); Next.js REST routes still require a user JWT. Clients change only the URL:
+MCP is Streamable HTTP at `/mcp` on Next.js. Organization API keys work on REST and MCP (Bearer or `X-Api-Key`), subject to their scopes. Key management requires a human admin JWT. C#-only platform-key endpoints are retired; existing key records remain in the database.
 
 ```json
 {
@@ -120,7 +96,11 @@ A SuperAdmin is a user flag, not a membership role. Set the first one in the sha
 UPDATE "User" SET "isSuperAdmin" = true WHERE "email" = 'you@example.com';
 ```
 
-HTTP contract tests (`npm run test:http:next` and `npm run test:http:csharp`) share this database. Run one target at a time.
+HTTP contract tests (`npm run test:http`) target Next.js. Use a disposable database and the mail/GitHub sinks under `tests/http`; tests create and change records. `API_BASE_URL` overrides the default origin.
+
+`npm run test:migrations` needs an explicit `MIGRATION_TEST_DATABASE_URL` with permission to create disposable databases. It checks fresh deployment, adoption without data changes, drift rejection, and migration replay. CI runs it against an isolated PostgreSQL service.
+
+`npm run openapi` checks the maintained Next.js snapshot against route exports. After changing routes, `npm run openapi -- --write` reconciles paths; maintain request/response schemas in `src/lib/developer/openapi.json`. No .NET tooling is needed.
 
 ## Deploy
 
@@ -128,10 +108,10 @@ Import this repo in [Vercel](https://vercel.com/new). The build command is `npm 
 
 Vercel sets `NODE_ENV=production` for both Production and Preview, so Next.js would load `.env.production` for a staging deploy if that file were in the repo. Leave `.env`, `.env.staging`, and `.env.production` uncommitted. Set the variables in the Vercel project instead:
 
-- **Production** — the values from `.env.production`: `APP_ENV=production`, `DATABASE_PROVIDER=postgresql`, `API_TARGET=next`, and the production `postgres://` or `postgresql://` `DATABASE_URL`.
-- **Preview** — the values from `.env.staging`: `APP_ENV=staging`, `DATABASE_PROVIDER=postgresql`, `API_TARGET=next`, and the staging Postgres URL. Preview is staging. A custom environment named `staging` is treated the same way.
+- **Production** — the values from `.env.production`: `APP_ENV=production`, `DATABASE_PROVIDER=postgresql`, and the production `postgres://` or `postgresql://` `DATABASE_URL`.
+- **Preview** — the values from `.env.staging`: `APP_ENV=staging`, `DATABASE_PROVIDER=postgresql`, and the staging Postgres URL. Preview is staging. A custom environment named `staging` is treated the same way.
 
-Once ClockedIn.Api is the public API and MCP host, set `CSHARP_API_URL` on Vercel to the App Service origin so the Next.js app is a BFF. Keep `JWT_SIGNING_KEY`, `JWT_ISSUER`, and `JWT_AUDIENCE` in sync. Organization and platform API keys live only on ClockedIn.Api.
+Run `db:deploy` once per database in a serialized, controlled release step. Do not run migrations for arbitrary Preview branches against a shared staging database. See the [adoption and cutover runbook](docs/ops/prisma-adoption.md) before the first release of this change.
 
 ## License
 

@@ -23,6 +23,8 @@ const localSeedOnly = [
   "**/invite-accept.spec.ts",
   "**/admin-member-time.spec.ts",
   "**/coordinator-report.spec.ts",
+  "**/tenant-host.spec.ts",
+  "**/email-settings.spec.ts",
 ];
 
 export default defineConfig({

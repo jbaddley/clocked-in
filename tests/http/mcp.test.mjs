@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { before, describe, test } from "node:test";
 import { apiBaseUrl } from "./fixture.mjs";
-import { assertError, callApi, signUp, suite } from "./client.mjs";
+import { assertError, callApi, createJson, label, signUp, suite } from "./client.mjs";
 
 const toolNames = [
   "clock_in",
@@ -17,6 +17,7 @@ const toolNames = [
   "create_task_category",
   "create_theme",
   "create_time_entry",
+  "create_volunteer_need",
   "delete_collective_entry",
   "delete_connection",
   "delete_department",
@@ -28,6 +29,7 @@ const toolNames = [
   "delete_task_category",
   "delete_theme",
   "delete_time_entry",
+  "delete_volunteer_need",
   "export_summary_csv",
   "export_time_entries_csv",
   "get_collective_entry",
@@ -35,6 +37,7 @@ const toolNames = [
   "get_project",
   "get_report",
   "get_time_entry",
+  "get_volunteer_need",
   "list_collective_entries",
   "list_connections",
   "list_departments",
@@ -47,6 +50,7 @@ const toolNames = [
   "list_task_categories",
   "list_themes",
   "list_time_entries",
+  "list_volunteer_needs",
   "revoke_invitation",
   "update_collective_entry",
   "update_connection",
@@ -59,6 +63,7 @@ const toolNames = [
   "update_task_category",
   "update_theme",
   "update_time_entry",
+  "update_volunteer_need",
 ];
 
 function rpcMessage(text) {
@@ -108,7 +113,7 @@ describe("mcp", suite, () => {
     assertError(missing, 401, "unauthorized", "Authentication is required.");
   });
 
-  test("lists the same tools as the C# server", async () => {
+  test("lists the retained Next.js tool catalog", async () => {
     const listed = await mcp(ctx.user.accessToken, {
       jsonrpc: "2.0",
       id: 1,
@@ -137,5 +142,22 @@ describe("mcp", suite, () => {
     assert.equal(called.json.result.isError, undefined);
     const text = called.json.result.content[0].text;
     assert.deepEqual(JSON.parse(text), rest.json);
+  });
+
+  test("organization API keys authenticate MCP tool calls", async () => {
+    const org = await createJson(ctx.user.accessToken, "/organizations", { name: label("MCP key org") });
+    const key = await createJson(ctx.user.accessToken, `/organizations/${org.id}/api-keys`, {
+      name: "MCP reader",
+      scopes: ["org:read"],
+    });
+    const called = await mcp(key.key, {
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "get_organization", arguments: { organizationId: org.id } },
+    });
+    assert.equal(called.status, 200);
+    assert.equal(called.json.result.isError, undefined);
+    assert.equal(JSON.parse(called.json.result.content[0].text).id, org.id);
   });
 });

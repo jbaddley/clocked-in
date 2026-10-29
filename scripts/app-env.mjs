@@ -66,7 +66,6 @@ export function loadAppEnv({ appEnv, forceFile = false } = {}) {
   }
 
   process.env.APP_ENV = resolved;
-  process.env.API_TARGET ||= "next";
   process.env.DATABASE_PROVIDER = normalizeProvider(process.env.DATABASE_PROVIDER);
 
   return resolved;
@@ -75,11 +74,6 @@ export function loadAppEnv({ appEnv, forceFile = false } = {}) {
 export function assertAppEnv() {
   const appEnv = requireAppEnv(process.env.APP_ENV?.trim() || detectAppEnv(), "APP_ENV");
   process.env.DATABASE_PROVIDER = normalizeProvider(process.env.DATABASE_PROVIDER);
-  const api = process.env.API_TARGET?.trim() || "next";
-  if (api !== "next" && api !== "csharp") {
-    throw new Error(`API_TARGET must be "next" or "csharp"${seen(api)}.`);
-  }
-
   if (process.env.VERCEL && !isPostgresUrl(process.env.DATABASE_URL)) {
     throw new Error(
       `${label(appEnv)} DATABASE_URL must be a postgresql:// or postgres:// URL. Set it in the Vercel ${appEnv === "production" ? "Production" : "Preview"} environment.`,
@@ -99,15 +93,7 @@ function requireAppEnv(value, source) {
 }
 
 function protectedKeys() {
-  return new Set([
-    "PATH",
-    "HOME",
-    "USER",
-    "SHELL",
-    "TMPDIR",
-    "NODE_OPTIONS",
-    "npm_config_user_agent",
-  ]);
+  return new Set(["PATH", "HOME", "USER", "SHELL", "TMPDIR", "NODE_OPTIONS", "npm_config_user_agent"]);
 }
 
 function parseEnv(text) {

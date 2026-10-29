@@ -1,8 +1,8 @@
 # VolunTime domain schema
 
-This document is the source of truth for the VolunTime domain. The Next.js app queries it with Prisma, and the .NET app queries it with Entity Framework. Both backends share one Postgres database. Entity Framework owns migrations. This document does not define HTTP routes.
+This document describes the VolunTime domain. Next.js is the only backend and uses Prisma with PostgreSQL. Prisma owns migrations in `prisma/migrations`; `prisma/schema.prisma` defines modeled objects and migration SQL preserves additional database constraints and reference data. This document does not define HTTP routes.
 
-An environment variable will later choose which API the Next.js server actions call. Both APIs use the same request and response contracts and the same JWT rules (shared issuer, audience, and signing key). Users and refresh tokens live in the shared database.
+Next.js server actions and REST routes use the same feature services. Users and refresh tokens live in PostgreSQL. Existing databases adopt Prisma without recreating tables; see the [adoption runbook](../ops/prisma-adoption.md).
 
 Identifiers are UUIDs. Instants are `timestamptz`. `username` and `email` are stored lowercase and are unique. Money rates use `decimal(10,2)`. In-kind totals use `decimal(12,2)`.
 
@@ -43,6 +43,8 @@ classDiagram
   class Organization {
     uuid id
     string name
+    string slug
+    string publicSlug
     string description
     string websiteUrl
     string defaultRateType
@@ -264,29 +266,31 @@ One profile per user. `timezone` is an IANA name and defaults to `UTC`. `display
 
 Lookup shared by organization and department memberships. Seed three system rows: `VOLUNTEER` (Volunteer), `MEMBER` (Staff), and `ADMIN` (Admin). Group manager is not a role row — it is `DepartmentMembership` with `ADMIN`.
 
-| Field | Required | Notes                                              |
-| ----- | -------- | -------------------------------------------------- |
-| id    | yes      | UUID primary key                                   |
-| code  | yes      | Unique. `VOLUNTEER`, `MEMBER`, or `ADMIN`          |
-| name  | yes      | Display name: Volunteer, Staff, or Admin           |
+| Field | Required | Notes                                     |
+| ----- | -------- | ----------------------------------------- |
+| id    | yes      | UUID primary key                          |
+| code  | yes      | Unique. `VOLUNTEER`, `MEMBER`, or `ADMIN` |
+| name  | yes      | Display name: Volunteer, Staff, or Admin  |
 
 ### Organization
 
 In-kind valuation catalogs live on `HourlyRate`. Creating an organization seeds `defaultRateType` `Volunteer` and one default volunteer `HourlyRate` named `Volunteer` at `35.47`. The HTTP organization still exposes `volunteerHourlyRate` as that default rate.
 
-| Field              | Required | Notes                                                                                                                                                                                                                                                                                                                        |
-| ------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| id                 | yes      | UUID primary key                                                                                                                                                                                                                                                                                                             |
-| name               | yes      |                                                                                                                                                                                                                                                                                                                              |
-| description        | no       | Organization about information in Markdown                                                                                                                                                                                                                                                                                   |
-| websiteUrl         | no       |                                                                                                                                                                                                                                                                                                                              |
-| defaultRateType    | yes      | `Volunteer` or `Professional`, default `Volunteer`                                                                                                                                                                                                                                                                           |
+| Field              | Required | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ------------------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id                 | yes      | UUID primary key                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| name               | yes      |                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| slug               | no       | Unique case-insensitive (`citext`) subdomain label for `{slug}.{APP_HOST}` white-label hosting (1–63 lowercase letters, digits, or hyphens, not starting or ending with a hyphen, and not in the reserved host list). Null when not launched.                                                                                                                                                                                                                        |
+| publicSlug         | no       | Unique case-insensitive slug for `/openings/{publicSlug}`.                                                                                                                                                                                                                                                                                                                                                                                                           |
+| description        | no       | Organization about information in Markdown                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| websiteUrl         | no       |                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| defaultRateType    | yes      | `Volunteer` or `Professional`, default `Volunteer`                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | preferences        | yes      | jsonb. `allowTimeEntryEditing` defaults to false. When false, a time entry update cannot change `startedAt`, `endedAt`, `durationMinutes`, or `occurredOn`. `allowVolunteersToAddVolunteers` defaults to false. When true, a volunteer can create another volunteer and must record a relationship. `entityLabels` holds display names for `organization`, `project`, `department`, and `taskCategory` (defaults: Organization, Project, Department, Task category). |
-| themeId            | yes      | Foreign key to Theme. Defaults to the seeded VolunTime global theme.                                                                                                                                                                                                                                                         |
-| wordmarkUrl        | no       | Light-on-dark sidebar wordmark. Stays on the organization so switching themes does not wipe marks. Uploads are resized to fit 800×200, stored privately, and served at `/brand/wordmark` for members.                                                                                                                        |
-| wordmarkOnLightUrl | no       | Dark-on-light wordmark for light surfaces. Same resize and private storage as `wordmarkUrl`, served at `/brand/wordmarkOnLight`.                                                                                                                                                                                             |
-| markUrl            | no       | Compact mark for favicon-sized use. Uploads are cropped to 64×64, stored privately, and served at `/brand/mark` for members.                                                                                                                                                                                                 |
-| accentImageUrl     | no       | Decorative image for login, enrollment, empty states, and header bands, never behind tables or forms                                                                                                                                                                                                                         |
+| themeId            | yes      | Foreign key to Theme. Defaults to the seeded VolunTime global theme.                                                                                                                                                                                                                                                                                                                                                                                                 |
+| wordmarkUrl        | no       | Light-on-dark sidebar wordmark. Stays on the organization so switching themes does not wipe marks. Uploads are resized to fit 800×200, stored privately, and served at `/brand/wordmark` for members.                                                                                                                                                                                                                                                                |
+| wordmarkOnLightUrl | no       | Dark-on-light wordmark for light surfaces. Same resize and private storage as `wordmarkUrl`, served at `/brand/wordmarkOnLight`.                                                                                                                                                                                                                                                                                                                                     |
+| markUrl            | no       | Compact mark for favicon-sized use. Uploads are cropped to 64×64, stored privately, and served at `/brand/mark` for members.                                                                                                                                                                                                                                                                                                                                         |
+| accentImageUrl     | no       | Decorative image for login, enrollment, empty states, and header bands, never behind tables or forms                                                                                                                                                                                                                                                                                                                                                                 |
 
 ### Theme
 
@@ -349,66 +353,66 @@ A user has at most one membership in a given organization. A person may belong t
 
 One relationship between two members of an organization. `userAId` is the lower user id as text. `relationship` is how user B relates to user A. Callers send the label from one person's point of view (`Child` means the other person is their child) and the API stores the inverse when it swaps the pair. A pair can be connected once. Turning off `allowVolunteersToAddVolunteers` does not remove connections.
 
-| Field           | Required | Notes                                                                                                                                          |
-| --------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| id              | yes      | UUID primary key                                                                                                                               |
-| organizationId  | yes      | Foreign key to Organization                                                                                                                    |
-| userAId         | yes      | Foreign key to User. Lower than `userBId`                                                                                                      |
-| userBId         | yes      | Foreign key to User                                                                                                                            |
-| relationship    | yes      | `Parent`, `Child`, `Spouse`, `Sibling`, `Grandparent`, `Grandchild`, `Guardian`, `Dependent`, `Friend`, `Colleague`, or `Associate`            |
-| createdByUserId | yes      | Foreign key to User. The person who recorded the connection                                                                                    |
-| createdAt       | yes      |                                                                                                                                                |
+| Field           | Required | Notes                                                                                                                               |
+| --------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| id              | yes      | UUID primary key                                                                                                                    |
+| organizationId  | yes      | Foreign key to Organization                                                                                                         |
+| userAId         | yes      | Foreign key to User. Lower than `userBId`                                                                                           |
+| userBId         | yes      | Foreign key to User                                                                                                                 |
+| relationship    | yes      | `Parent`, `Child`, `Spouse`, `Sibling`, `Grandparent`, `Grandchild`, `Guardian`, `Dependent`, `Friend`, `Colleague`, or `Associate` |
+| createdByUserId | yes      | Foreign key to User. The person who recorded the connection                                                                         |
+| createdAt       | yes      |                                                                                                                                     |
 
 ### Report
 
 A named report design for one organization. `layout` is the card grid. `filters` is the saved report query (`departmentId`, `taskCategoryId`, `projectId`, `userId`, `from`, `to`). Names are unique within the organization, compared case-insensitively. At most one report per organization has `isDefault` true.
 
-| Field          | Required | Notes                                                                                  |
-| -------------- | -------- | -------------------------------------------------------------------------------------- |
-| id             | yes      | UUID primary key                                                                       |
-| organizationId | yes      | Foreign key to Organization. Cascade delete                                            |
-| name           | yes      | Unique per organization, case-insensitive. 1–80 characters                             |
-| isDefault      | yes      | Default false. Partial unique index allows one default per organization               |
-| layout         | yes      | jsonb. Versioned card grid                                                             |
-| filters        | yes      | jsonb. Saved report query. Empty object means no extra filter                         |
-| createdAt      | yes      |                                                                                        |
-| updatedAt      | yes      |                                                                                        |
+| Field          | Required | Notes                                                                   |
+| -------------- | -------- | ----------------------------------------------------------------------- |
+| id             | yes      | UUID primary key                                                        |
+| organizationId | yes      | Foreign key to Organization. Cascade delete                             |
+| name           | yes      | Unique per organization, case-insensitive. 1–80 characters              |
+| isDefault      | yes      | Default false. Partial unique index allows one default per organization |
+| layout         | yes      | jsonb. Versioned card grid                                              |
+| filters        | yes      | jsonb. Saved report query. Empty object means no extra filter           |
+| createdAt      | yes      |                                                                         |
+| updatedAt      | yes      |                                                                         |
 
 ### ReportTemplate
 
 A reusable card layout. `organizationId` null is a global template. A row with `baseTemplateId` is one organization's override of that global and is shown instead of the global for that organization. Org-owned templates have an organization and no base. Templates store a layout only, not filters. Names are unique among globals, and unique within an organization, compared case-insensitively.
 
-| Field          | Required | Notes                                                                                          |
-| -------------- | -------- | ---------------------------------------------------------------------------------------------- |
-| id             | yes      | UUID primary key                                                                               |
-| organizationId | no       | Null for a global template. Foreign key to Organization. Cascade delete                        |
-| key            | no       | `summary`, `people`, `groups`, or `staff` on a global. Null on organization rows               |
-| name           | yes      | 1–80 characters                                                                                |
-| layout         | yes      | jsonb. Versioned card grid                                                                     |
-| baseTemplateId | no       | Null, or the global template this row overrides. One override per organization per global      |
-| createdAt      | yes      |                                                                                                |
-| updatedAt      | yes      |                                                                                                |
+| Field          | Required | Notes                                                                                     |
+| -------------- | -------- | ----------------------------------------------------------------------------------------- |
+| id             | yes      | UUID primary key                                                                          |
+| organizationId | no       | Null for a global template. Foreign key to Organization. Cascade delete                   |
+| key            | no       | `summary`, `people`, `groups`, or `staff` on a global. Null on organization rows          |
+| name           | yes      | 1–80 characters                                                                           |
+| layout         | yes      | jsonb. Versioned card grid                                                                |
+| baseTemplateId | no       | Null, or the global template this row overrides. One override per organization per global |
+| createdAt      | yes      |                                                                                           |
+| updatedAt      | yes      |                                                                                           |
 
 ### EmailTemplate
 
 One organization's copy of a transactional email. Every organization gets one row per `for` when it is created; the `EmailTemplates` migration backfilled existing organizations. Defaults come from [emails/defaults.ts](../../emails/defaults.ts), built into `emails/dist/defaults.json` by `npm run email:render`. Mail falls back to that default when an organization has no row (and always for a password reset when the person belongs to zero or several organizations, or feedback with no organization).
 
-| Field          | Required | Notes                                                                                                         |
-| -------------- | -------- | ------------------------------------------------------------------------------------------------------------- |
-| id             | yes      | UUID primary key                                                                                              |
-| organizationId | yes      | Foreign key to Organization. Cascade delete. Unique with `for`                                                |
-| name           | yes      | 1–80 characters. Admin label                                                                                  |
-| version        | yes      | Starts at 1. Each patch or reset adds 1                                                                       |
+| Field          | Required | Notes                                                                                                                                                                                                                                                     |
+| -------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id             | yes      | UUID primary key                                                                                                                                                                                                                                          |
+| organizationId | yes      | Foreign key to Organization. Cascade delete. Unique with `for`                                                                                                                                                                                            |
+| name           | yes      | 1–80 characters. Admin label                                                                                                                                                                                                                              |
+| version        | yes      | Starts at 1. Each patch or reset adds 1                                                                                                                                                                                                                   |
 | for            | yes      | `Invite`, `Welcome`, `PasswordReset`, `LoggedTime`, `UnclassifiedEntry`, `FeedbackReceived`, `FeedbackNotify`, `FeedbackCompleted`, `AccessRequestReceived`, `AccessRequestDecided`, `NeedSubmitted`, `NeedDecided`, `VolunteerMessage`. Fixed after seed |
-| subject        | yes      | 1–200 characters. May use `{{field.name}}`                                                                    |
-| heading        | yes      | Title in the navy header                                                                                      |
-| preview        | yes      | Inbox preview text. May be empty                                                                              |
-| template       | yes      | Sanitized HTML body (`p`, `h1`–`h3`, `strong`, `em`, `a`, `ul`, `ol`, `li`, `br`, `span`)                     |
-| isEnabled      | yes      | Only `LoggedTime` and `UnclassifiedEntry` can be turned off; a disabled one sends nothing                    |
-| createdAt      | yes      |                                                                                                               |
-| updatedAt      | yes      |                                                                                                               |
+| subject        | yes      | 1–200 characters. May use `{{field.name}}`                                                                                                                                                                                                                |
+| heading        | yes      | Title in the navy header                                                                                                                                                                                                                                  |
+| preview        | yes      | Inbox preview text. May be empty                                                                                                                                                                                                                          |
+| template       | yes      | Sanitized HTML body (`p`, `h1`–`h3`, `strong`, `em`, `a`, `ul`, `ol`, `li`, `br`, `span`)                                                                                                                                                                 |
+| isEnabled      | yes      | Only `LoggedTime` and `UnclassifiedEntry` can be turned off; a disabled one sends nothing                                                                                                                                                                 |
+| createdAt      | yes      |                                                                                                                                                                                                                                                           |
+| updatedAt      | yes      |                                                                                                                                                                                                                                                           |
 
-Placeholders are `{{path.to.field}}`. Each `for` has a fixed field catalog in [src/lib/email/templates.ts](../../src/lib/email/templates.ts) (mirrored in `ClockedIn.Api/Email/EmailRenderer.cs`). Saving rejects a field outside that catalog. Sending fails if the template uses a field the sender did not provide. Values are HTML-encoded in the body, and line breaks become `<br>`. A paragraph that holds only a `*.code` field renders as the gold code box.
+Placeholders are `{{path.to.field}}`. Each `for` has a fixed field catalog in [src/lib/email/templates.ts](../../src/lib/email/templates.ts). Saving rejects a field outside that catalog. Sending fails if the template uses a field the sender did not provide. Values are HTML-encoded in the body, and line breaks become `<br>`. A paragraph that holds only a `*.code` field renders as the gold code box.
 
 ### Department
 
@@ -476,56 +480,56 @@ Editors are a many-to-many with User. The join table is not a domain entity.
 
 A request for volunteers inside one organization. `departmentId` is the optional group. `projectId` and `taskCategoryId` are optional and, when set, belong to the same organization. `questions` is a jsonb form (`version` 1 and `items`). Each item has `id`, `prompt`, `kind` (`single` or `multi`), `choices` (`id`, `label`), and `correctChoiceIds`. A single question has one required choice. A multi question has the exact set that must be selected. Questions are not a separate table. `countVetted` is the number of vetted signups and is maintained with those signups. `publicToken` is the unguessable token in `/volunteer/{token}`.
 
-| Field           | Required | Notes                                                                 |
-| --------------- | -------- | --------------------------------------------------------------------- |
-| id              | yes      | UUID primary key                                                      |
-| organizationId  | yes      | Foreign key to Organization                                           |
-| createdByUserId | yes      | Foreign key to User                                                   |
-| publicToken     | yes      | Unique 32-character lowercase hex token                               |
-| name            | yes      | 1 to 200 characters                                                   |
-| description     | no       | Up to 4000 characters                                                 |
-| type            | yes      | `Position` or `Task`                                                  |
-| countNeeded     | yes      | Integer, 1 to 10000                                                   |
-| countVetted     | yes      | Integer, 0 through countNeeded. Not edited directly                   |
-| startDate       | no       | Calendar date                                                         |
-| endDate         | no       | Calendar date. When both dates are set, on or after startDate         |
-| requiredBy      | no       | Signup deadline                                                       |
-| allowPublic     | yes      | Default false. Public signup exists only while this is true           |
+| Field           | Required | Notes                                                                  |
+| --------------- | -------- | ---------------------------------------------------------------------- |
+| id              | yes      | UUID primary key                                                       |
+| organizationId  | yes      | Foreign key to Organization                                            |
+| createdByUserId | yes      | Foreign key to User                                                    |
+| publicToken     | yes      | Unique 32-character lowercase hex token                                |
+| name            | yes      | 1 to 200 characters                                                    |
+| description     | no       | Up to 4000 characters                                                  |
+| type            | yes      | `Position` or `Task`                                                   |
+| countNeeded     | yes      | Integer, 1 to 10000                                                    |
+| countVetted     | yes      | Integer, 0 through countNeeded. Not edited directly                    |
+| startDate       | no       | Calendar date                                                          |
+| endDate         | no       | Calendar date. When both dates are set, on or after startDate          |
+| requiredBy      | no       | Signup deadline                                                        |
+| allowPublic     | yes      | Default false. Public signup exists only while this is true            |
 | requireVetting  | yes      | Default false. When true, a correct signup is not vetted automatically |
-| questions       | yes      | jsonb form. Default `{ "version": 1, "items": [] }`                   |
-| projectId       | no       | Foreign key to Project. Cleared if the project is deleted             |
-| taskCategoryId  | no       | Foreign key to TaskCategory. Cleared if the category is deleted       |
-| departmentId    | no       | Foreign key to Department. Cleared if the department is deleted       |
-| createdAt       | yes      |                                                                       |
-| updatedAt       | yes      |                                                                       |
+| questions       | yes      | jsonb form. Default `{ "version": 1, "items": [] }`                    |
+| projectId       | no       | Foreign key to Project. Cleared if the project is deleted              |
+| taskCategoryId  | no       | Foreign key to TaskCategory. Cleared if the category is deleted        |
+| departmentId    | no       | Foreign key to Department. Cleared if the department is deleted        |
+| createdAt       | yes      |                                                                        |
+| updatedAt       | yes      |                                                                        |
 
 ### Guest
 
 A person who signs up for a public need without an account. `email` is unique and stored lowercase. When that email belongs to a user, or a user is later created with it, `userId` is set. Signup rows stay on the guest.
 
-| Field  | Required | Notes                                      |
-| ------ | -------- | ------------------------------------------ |
-| id     | yes      | UUID primary key                           |
-| name   | yes      | 1 to 120 characters                        |
-| email  | yes      | Unique, stored lowercase                   |
-| phone  | yes      | 1 to 40 characters                         |
-| userId | no       | Unique when set. Foreign key to User       |
+| Field  | Required | Notes                                |
+| ------ | -------- | ------------------------------------ |
+| id     | yes      | UUID primary key                     |
+| name   | yes      | 1 to 120 characters                  |
+| email  | yes      | Unique, stored lowercase             |
+| phone  | yes      | 1 to 40 characters                   |
+| userId | no       | Unique when set. Foreign key to User |
 
 ### VolunteerSignup
 
 One person signed up for one need. Exactly one of `userId` or `guestId` is set. `answers` is a jsonb snapshot written at submit time: `questionId`, `prompt`, `choiceIds`, and `labels`. `passed` is whether that snapshot matched the form then. Later edits to the form do not regrade it.
 
-| Field           | Required | Notes                                                                 |
-| --------------- | -------- | --------------------------------------------------------------------- |
-| id              | yes      | UUID primary key                                                      |
-| volunteerNeedId | yes      | Foreign key to VolunteerNeed. Signups delete with the need            |
-| userId          | no       | Foreign key to User. Set for a member signup                          |
-| guestId         | no       | Foreign key to Guest. Set for a guest signup                          |
-| comment         | no       | Up to 2000 characters                                                 |
-| answers         | yes      | jsonb array. Default `[]`                                             |
-| passed          | yes      | Default false                                                         |
-| vetted          | yes      | Default false. Counts toward `countVetted` while true                 |
-| createdAt       | yes      |                                                                       |
+| Field           | Required | Notes                                                      |
+| --------------- | -------- | ---------------------------------------------------------- |
+| id              | yes      | UUID primary key                                           |
+| volunteerNeedId | yes      | Foreign key to VolunteerNeed. Signups delete with the need |
+| userId          | no       | Foreign key to User. Set for a member signup               |
+| guestId         | no       | Foreign key to Guest. Set for a guest signup               |
+| comment         | no       | Up to 2000 characters                                      |
+| answers         | yes      | jsonb array. Default `[]`                                  |
+| passed          | yes      | Default false                                              |
+| vetted          | yes      | Default false. Counts toward `countVetted` while true      |
+| createdAt       | yes      |                                                            |
 
 ### UserTimeEntry
 
@@ -661,12 +665,12 @@ A user entry always has an organization. `departmentId` is empty for organizatio
 - Projects cascade with their organization or department when no time entries remain.
 - Inactive membership (`isActive` false) does not delete historical entries.
 
-## Mapping to Prisma and EF
+## Prisma Migrations
 
-- Entity Framework owns DDL. Schema changes go through `ClockedInDbContext` and `dotnet ef migrations add` / `database update`.
-- Prisma does not migrate. After an EF migration, run `npm run db:pull` so [prisma/schema.prisma](../../prisma/schema.prisma) matches the live database, then `prisma generate`.
-- Locally both apps use the same Postgres. `DATABASE_URL` (Prisma / Next.js) and `EF_DATABASE_URL` (.NET) point at that instance.
-- Entity names, field names, and nullability stay aligned so HTTP contracts can match.
+- Prisma owns DDL. Edit [prisma/schema.prisma](../../prisma/schema.prisma), create a migration with `npm run db:migrate -- --name describe_change`, and review the SQL before applying it elsewhere with `npm run db:deploy`.
+- Add SQL explicitly for CHECK constraints and reference-data changes. Preserve existing mapped constraint/index names and partial-index predicates. Generate client types with `npm run db:generate`; do not overwrite the owned schema through routine introspection.
+- `DATABASE_URL` is the only database connection setting. Environment selection uses `APP_ENV`.
+- Existing EF-managed databases must pass baseline verification first. Leave the inactive EF migration-history schema intact; never run two DDL owners concurrently.
 - Use UUID primary keys and `timestamptz` for instants.
 - Enforce the unique pairs in the database: `(username)`, `(email)`, `(Role.code)`, `(userId, organizationId)`, `(userId, departmentId)`, department name per organization, tag name per organization, task category name per organization, project title per organization, hourly rate name per organization, one default volunteer `HourlyRate` per organization, report name per organization, one default `Report` per organization, `UserTimeEntry.sourceRef` when set, one pending invitation per email and target, `Guest.email`, `Guest.userId` when set, `VolunteerNeed.publicToken`, one `VolunteerSignup` per need and user, and one `VolunteerSignup` per need and guest.
 - Index user entries on `(organizationId, occurredOn)` and `(userId, occurredOn)`. Index collective entries on `(organizationId, startedAt)`.

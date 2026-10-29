@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { before, describe, test } from "node:test";
-import { callApi, createJson, identity, label, signUp, suite } from "./client.mjs";
+import { callApi, createJson, label, signUp, suite } from "./client.mjs";
 
 describe("voluntime gaps", suite, () => {
   const ctx = {};
@@ -122,6 +122,12 @@ describe("voluntime gaps", suite, () => {
     const count = await callApi(`/organizations/${ctx.org.id}/unclassified-count`, { token: ctx.volunteer.accessToken });
     assert.equal(count.status, 200, count.text);
     assert.ok(count.json.count >= 1);
+    await createJson(ctx.admin.accessToken, "/time/clock-in", { organizationId: ctx.org.id });
+    const otherClosed = await callApi("/time/clock-out", { method: "POST", token: ctx.admin.accessToken, body: {} });
+    assert.equal(otherClosed.status, 200, otherClosed.text);
+    const privateCount = await callApi(`/organizations/${ctx.org.id}/unclassified-count`, { token: ctx.volunteer.accessToken });
+    assert.equal(privateCount.status, 200, privateCount.text);
+    assert.equal(privateCount.json.count, count.json.count);
     const report = await callApi(`/organizations/${ctx.org.id}/report`, { token: ctx.admin.accessToken });
     assert.ok(report.json.user.byProject.some((row) => row.id === "unclassified" && row.entries >= 1));
   });
@@ -174,7 +180,7 @@ describe("voluntime gaps", suite, () => {
   });
 
   test("import near-match Skip does not create a second user", async () => {
-    const person = identity("gapskip");
+    const person = await signUp("gapskip");
     await createJson(ctx.admin.accessToken, `/organizations/${ctx.org.id}/memberships`, {
       email: person.email,
       firstName: person.firstName,

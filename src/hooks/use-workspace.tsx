@@ -15,6 +15,9 @@ export type Workspace = {
   role: RoleCode | null;
   permissions: string[];
   groupDepartments: GroupDepartments;
+  isTenantHost?: boolean;
+  pinnedOrganizationName?: string | null;
+  appHost?: string;
 };
 
 const WorkspaceContext = createContext<Workspace | null>(null);

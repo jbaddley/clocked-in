@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.1",
   "info": {
-    "title": "ClockedIn.Api | v1",
+    "title": "Voluntime Next.js API",
     "version": "1.0.0"
   },
   "servers": [
@@ -641,9 +641,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
           }
         ]
       }
@@ -2897,9 +2894,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
           }
         ]
       }
@@ -2969,9 +2963,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
           }
         ]
       },
@@ -3140,9 +3131,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
           }
         ]
       }
@@ -3245,9 +3233,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
           }
         ]
       },
@@ -3449,9 +3434,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
           }
         ]
       },
@@ -3589,9 +3571,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
           }
         ]
       }
@@ -3945,6 +3924,9 @@
                   "name": {
                     "type": "string"
                   },
+                  "slug": {
+                    "type": "string"
+                  },
                   "volunteerHourlyRate": {
                     "type": "number",
                     "format": "decimal"
@@ -4023,6 +4005,9 @@
                     "type": "string"
                   },
                   "websiteUrl": {
+                    "type": "string"
+                  },
+                  "publicSlug": {
                     "type": "string"
                   }
                 }
@@ -12400,9 +12385,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
           }
         ]
       },
@@ -12707,9 +12689,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
           }
         ]
       }
@@ -16378,9 +16357,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
           }
         ]
       },
@@ -16558,9 +16534,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
           }
         ]
       }
@@ -16663,9 +16636,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
           }
         ]
       },
@@ -16897,9 +16867,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
           }
         ]
       }
@@ -18590,7 +18557,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "apiKeyAuth": []
+          }
+        ]
       }
     },
     "/volunteer-needs/public/{token}/signups": {
@@ -18735,7 +18710,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "apiKeyAuth": []
+          }
+        ]
       }
     },
     "/organizations/{id}/api-keys": {
@@ -18850,9 +18833,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
           }
         ]
       },
@@ -19029,9 +19009,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
           }
         ]
       }
@@ -19215,9 +19192,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
           }
         ]
       },
@@ -19364,9 +19338,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
           }
         ]
       }
@@ -19522,709 +19493,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
-          }
-        ]
-      }
-    },
-    "/platform/api-keys": {
-      "get": {
-        "tags": [
-          "Platform"
-        ],
-        "operationId": "get_platform_api-keys",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "offset",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ListResponseOfPlatformApiKeyDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "required": [
-                    "code",
-                    "message"
-                  ],
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "required": [
-                    "code",
-                    "message"
-                  ],
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
-          }
-        ]
-      },
-      "post": {
-        "tags": [
-          "Platform"
-        ],
-        "operationId": "post_platform_api-keys",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "required": [
-                  "name",
-                  "scopes"
-                ],
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string"
-                  },
-                  "scopes": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "expiresAt": {
-                    "type": [
-                      "null",
-                      "string"
-                    ],
-                    "format": "date-time"
-                  }
-                }
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PlatformApiKeyDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Validation error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "required": [
-                    "code",
-                    "message"
-                  ],
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "required": [
-                    "code",
-                    "message"
-                  ],
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "required": [
-                    "code",
-                    "message"
-                  ],
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "required": [
-                    "code",
-                    "message"
-                  ],
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
-          }
-        ]
-      }
-    },
-    "/platform/api-keys/{keyId}": {
-      "patch": {
-        "tags": [
-          "Platform"
-        ],
-        "operationId": "patch_platform_api-keys_keyId",
-        "parameters": [
-          {
-            "name": "keyId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string"
-                  },
-                  "scopes": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "expiresAt": {
-                    "type": [
-                      "null",
-                      "string"
-                    ],
-                    "format": "date-time"
-                  }
-                }
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PlatformApiKeyDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Validation error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "required": [
-                    "code",
-                    "message"
-                  ],
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "required": [
-                    "code",
-                    "message"
-                  ],
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "required": [
-                    "code",
-                    "message"
-                  ],
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "required": [
-                    "code",
-                    "message"
-                  ],
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "required": [
-                    "code",
-                    "message"
-                  ],
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
-          }
-        ]
-      },
-      "delete": {
-        "tags": [
-          "Platform"
-        ],
-        "operationId": "delete_platform_api-keys_keyId",
-        "parameters": [
-          {
-            "name": "keyId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "400": {
-            "description": "Validation error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "required": [
-                    "code",
-                    "message"
-                  ],
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "required": [
-                    "code",
-                    "message"
-                  ],
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "required": [
-                    "code",
-                    "message"
-                  ],
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "required": [
-                    "code",
-                    "message"
-                  ],
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "required": [
-                    "code",
-                    "message"
-                  ],
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
-          }
-        ]
-      }
-    },
-    "/platform/api-keys/{keyId}/rotate": {
-      "post": {
-        "tags": [
-          "Platform"
-        ],
-        "operationId": "post_platform_api-keys_keyId_rotate",
-        "parameters": [
-          {
-            "name": "keyId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PlatformApiKeyDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Validation error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "required": [
-                    "code",
-                    "message"
-                  ],
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "required": [
-                    "code",
-                    "message"
-                  ],
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "required": [
-                    "code",
-                    "message"
-                  ],
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "required": [
-                    "code",
-                    "message"
-                  ],
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "required": [
-                    "code",
-                    "message"
-                  ],
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
           }
         ]
       }
@@ -20255,6 +19523,229 @@
             }
           }
         }
+      }
+    },
+    "/organizations/{id}/lookups": {
+      "get": {
+        "operationId": "get__organizations_id_lookups",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Response from the Next.js handler."
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "apiKeyAuth": []
+          }
+        ]
+      }
+    },
+    "/organizations/{id}/unclassified-count": {
+      "get": {
+        "operationId": "get__organizations_id_unclassified_count",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Response from the Next.js handler."
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "apiKeyAuth": []
+          }
+        ]
+      }
+    },
+    "/organizations/{id}/view.csv": {
+      "get": {
+        "operationId": "get__organizations_id_view_csv",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Response from the Next.js handler."
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "apiKeyAuth": []
+          }
+        ]
+      }
+    },
+    "/public/openings/{slug}": {
+      "get": {
+        "operationId": "get__public_openings_slug_",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Response from the Next.js handler."
+          }
+        }
+      }
+    },
+    "/time/batch": {
+      "post": {
+        "operationId": "post__time_batch",
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Response from the Next.js handler."
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "apiKeyAuth": []
+          }
+        ]
+      }
+    },
+    "/usernames/preview": {
+      "get": {
+        "operationId": "get__usernames_preview",
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Response from the Next.js handler."
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "apiKeyAuth": []
+          }
+        ]
+      }
+    },
+    "/users/{id}/time-entries/batch": {
+      "post": {
+        "operationId": "post__users_id_time_entries_batch",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Response from the Next.js handler."
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/volunteer-needs/{id}/decision": {
+      "post": {
+        "operationId": "post__volunteer_needs_id_decision",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Response from the Next.js handler."
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "apiKeyAuth": []
+          }
+        ]
+      }
+    },
+    "/avatar/{userId}": {
+      "get": {
+        "operationId": "get__avatar_userId_",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Response from the Next.js handler."
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "apiKeyAuth": []
+          }
+        ]
       }
     }
   },
@@ -22245,6 +21736,12 @@
           "name": {
             "type": "string"
           },
+          "slug": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "volunteerHourlyRate": {
             "type": "number",
             "format": "decimal"
@@ -22297,6 +21794,12 @@
               "null",
               "string"
             ]
+          },
+          "publicSlug": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -22305,7 +21808,8 @@
           "allowTimeEntryEditing",
           "allowVolunteersToAddVolunteers",
           "entityLabels",
-          "feedbackNotifyUserIds"
+          "feedbackNotifyUserIds",
+          "emailSettings"
         ],
         "type": "object",
         "properties": {
@@ -22323,6 +21827,27 @@
             "items": {
               "type": "string",
               "format": "uuid"
+            }
+          },
+          "emailSettings": {
+            "type": "object",
+            "properties": {
+              "LoggedTime": {
+                "type": "string",
+                "enum": ["immediate", "weekly", "off"]
+              },
+              "UnclassifiedEntry": {
+                "type": "string",
+                "enum": ["immediate", "weekly", "off"]
+              },
+              "FeedbackReceived": { "type": "boolean" },
+              "FeedbackNotify": { "type": "boolean" },
+              "FeedbackCompleted": { "type": "boolean" },
+              "AccessRequestReceived": { "type": "boolean" },
+              "AccessRequestDecided": { "type": "boolean" },
+              "NeedSubmitted": { "type": "boolean" },
+              "NeedDecided": { "type": "boolean" },
+              "VolunteerMessage": { "type": "boolean" }
             }
           }
         }

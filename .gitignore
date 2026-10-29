@@ -45,10 +45,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# .NET
-**/bin/
-**/obj/
-
 /src/generated/prisma
 
 # feature workflow (local only)

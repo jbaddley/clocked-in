@@ -3,24 +3,39 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { acceptCodeFromNext, invitationAccount } from "@/lib/api/features/invitations";
-import { portalName, publicSignupEnabled } from "@/lib/portal";
+import { portalName } from "@/lib/portal";
 import { safeNext } from "@/lib/server/action";
+import { requirePinnedOrganizationOrApex } from "@/lib/server/tenant";
 import { AuthCard, AuthFormSkeleton } from "../auth-card";
 import { SignupForm } from "./signup-form";
 
 export const metadata: Metadata = { title: "Create an account" };
 
-export default async function SignupPage({ searchParams }: PageProps<"/signup">) {
-  const search = await searchParams;
+export default function SignupPage({ searchParams }: PageProps<"/signup">) {
+  return (
+    <Suspense
+      fallback={
+        <AuthCard title="Create your account" description="Start tracking hours for your organization in a minute.">
+          <AuthFormSkeleton fields={5} />
+        </AuthCard>
+      }
+    >
+      <SignupContent searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function SignupContent({ searchParams }: { searchParams: PageProps<"/signup">["searchParams"] }) {
+  const [search, pinned] = await Promise.all([searchParams, requirePinnedOrganizationOrApex()]);
   const next = safeNext(typeof search.next === "string" ? search.next : "");
   const code = acceptCodeFromNext(next);
-  const invite = code ? await invitationAccount(code) : null;
+  const invite = code ? await invitationAccount(code, pinned.organization?.id) : null;
   if (invite?.userExists) {
     redirect(`/login?next=${encodeURIComponent(next)}`);
   }
 
   const invitedEmail = invite?.email;
-  if (!publicSignupEnabled() && !invitedEmail) {
+  if (pinned.pinned && !invitedEmail) {
     redirect(next === "/dashboard" ? "/login" : `/login?next=${encodeURIComponent(next)}`);
   }
 

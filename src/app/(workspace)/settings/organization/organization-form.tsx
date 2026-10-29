@@ -2,7 +2,7 @@
 
 import { useActionState, useRef, useState } from "react";
 import { XIcon } from "lucide-react";
-import { updateOrganizationSettingsAction } from "@/app/actions/organizations";
+import { updateOrganizationSettingsAction, updateOrganizationSlugAction } from "@/app/actions/organizations";
 import { Field, FormMessage } from "@/components/field";
 import { SubmitButton } from "@/components/submit-button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { useLabels } from "@/hooks/use-labels";
 import { useMembers } from "@/hooks/use-members";
-import { useOrganization } from "@/hooks/use-workspace";
+import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
 import type { Membership } from "@/lib/types";
 import { HourlyRatesCard } from "./hourly-rates-card";
 import { formatPersonName } from "@/lib/format";
@@ -20,8 +20,73 @@ export function OrganizationForm() {
   return (
     <>
       <OrganizationFields key={`${organization.id}:${JSON.stringify(organization.preferences)}`} />
+      <LaunchCard key={`${organization.id}:${organization.slug ?? ""}`} />
       <HourlyRatesCard />
     </>
+  );
+}
+
+function LaunchCard() {
+  const organization = useOrganization();
+  const { isTenantHost, appHost = "voluntime.app" } = useWorkspace();
+  const [slug, setSlug] = useState(organization.slug ?? "");
+  const [result, action] = useActionState(updateOrganizationSlugAction.bind(null, organization.id), null);
+  const previewSlug = slug.trim().toLowerCase();
+
+  if (isTenantHost) {
+    const currentSlug = organization.slug ?? previewSlug;
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>White-label address</CardTitle>
+          <CardDescription>
+            This organization is launched on its own address. Manage subdomain settings from the main {appHost} workspace.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm font-medium">
+            {currentSlug ? `https://${currentSlug}.${appHost}` : `https://${appHost}`}
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Launch white-label address</CardTitle>
+        <CardDescription>
+          Choose a subdomain so volunteers and staff can sign in directly at your organization&apos;s address. Leave blank to unpublish.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form action={action} className="grid gap-4">
+          <Field
+            label="Subdomain slug"
+            htmlFor="slug"
+            hint={
+              previewSlug
+                ? `Preview: https://${previewSlug}.${appHost}`
+                : `Your organization will only be accessible from https://${appHost}.`
+            }
+          >
+            <Input
+              id="slug"
+              name="slug"
+              value={slug}
+              onChange={(event) => setSlug(event.target.value)}
+              placeholder="caswj"
+              className="h-9"
+            />
+          </Field>
+          <div className="flex items-end justify-between gap-3">
+            <FormMessage result={result} />
+            <SubmitButton className="h-9 ml-auto">Save address</SubmitButton>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 

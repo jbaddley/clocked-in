@@ -17,7 +17,7 @@ export function SettingsNav() {
     { href: "/settings/import", label: "Import", icon: UploadIcon, admin: true },
     { href: "/settings/theme", label: "Themes", icon: PaletteIcon, admin: true },
     { href: "/settings/brand", label: "Brand", icon: ImageIcon, admin: true },
-    { href: "/settings/email-templates", label: "Email Templates", icon: MailIcon, admin: true },
+    { href: "/settings/email", label: "Email", icon: MailIcon, admin: true },
   ];
   return <SectionNav items={items.filter((item) => !item.admin || isAdmin)} />;
 }

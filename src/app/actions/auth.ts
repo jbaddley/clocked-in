@@ -22,17 +22,17 @@ import {
 } from "@/lib/api/features/invitations";
 import { run, safeNext, text } from "@/lib/server/action";
 import { clearSessionCookies, currentRefreshToken, getAccess, setSessionCookies } from "@/lib/server/session";
-import { defaultOrganizationId } from "@/lib/portal";
 import { writeOrganization } from "@/lib/server/session-cookies";
+import { getTenantSlug, requirePinnedOrganizationOrApex } from "@/lib/server/tenant";
 import type { ActionResult } from "@/lib/types";
 
 export async function logInAction(_: ActionResult | null, formData: FormData): Promise<ActionResult> {
   const result = await run(async () => {
+    const pinned = await requirePinnedOrganizationOrApex();
     const session = await logIn(parseLogIn({ username: text(formData, "username"), password: text(formData, "password") }));
     await setSessionCookies(session);
-    const portalOrg = defaultOrganizationId();
-    if (portalOrg) {
-      writeOrganization(await cookies(), portalOrg);
+    if (pinned.pinned && pinned.organization) {
+      writeOrganization(await cookies(), pinned.organization.id);
     }
     return { mustChangePassword: session.user.mustChangePassword };
   });
@@ -42,9 +42,10 @@ export async function logInAction(_: ActionResult | null, formData: FormData): P
 }
 
 export async function signUpAction(_: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  const pinned = await requirePinnedOrganizationOrApex();
   const next = safeNext(text(formData, "next"));
   const code = acceptCodeFromNext(next);
-  const invite = code ? await invitationAccount(code) : null;
+  const invite = code ? await invitationAccount(code, pinned.organization?.id) : null;
   if (code && !invite) {
     return { ok: false, error: "The code is not valid." };
   }
@@ -63,9 +64,15 @@ export async function signUpAction(_: ActionResult | null, formData: FormData): 
         password: text(formData, "password"),
         timezone: text(formData, "timezone") || undefined,
       }),
-      invite ? { invitationEmail: invite.email } : undefined,
+      {
+        invitationEmail: invite?.email,
+        tenantSlug: pinned.slug,
+      },
     );
     await setSessionCookies(session);
+    if (pinned.pinned && pinned.organization) {
+      writeOrganization(await cookies(), pinned.organization.id);
+    }
   });
   if (!result.ok) return result;
   redirect(next);
@@ -93,7 +100,7 @@ export async function logOutStayOnAcceptAction(code: string) {
 
 export async function requestResetAction(_: ActionResult | null, formData: FormData): Promise<ActionResult> {
   return run(
-    () => requestPasswordReset(text(formData, "email")),
+    async () => requestPasswordReset(text(formData, "email"), { tenantSlug: await getTenantSlug() }),
     "If that email has an account, a code is on its way.",
   );
 }
@@ -113,10 +120,11 @@ export async function confirmResetAction(_: ActionResult | null, formData: FormD
 }
 
 export async function acceptInviteAction(_: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  const pinned = await requirePinnedOrganizationOrApex();
   const code = text(formData, "code").trim();
   const access = await getAccess();
   if (!access) {
-    const invite = await invitationAccount(code);
+    const invite = await invitationAccount(code, pinned.organization?.id);
     if (!invite) {
       return { ok: false, error: "The code is not valid." };
     }

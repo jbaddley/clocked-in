@@ -1,7 +1,7 @@
 import { Prisma } from "@/generated/prisma/client";
 import { Access } from "@/lib/api/access";
 import { guard, transaction, type Db } from "@/lib/api/db";
-import { conflict, notFound, validation } from "@/lib/api/errors";
+import { conflict, forbidden, notFound, validation } from "@/lib/api/errors";
 import { parseGuid } from "@/lib/api/guid";
 import {
     Body,
@@ -25,7 +25,14 @@ import { defaultEmailTemplateRows } from "@/lib/api/features/email-templates";
 import { defaultVolunteerRate } from "@/lib/api/features/hourly-rates";
 import { roleId } from "@/lib/api/features/memberships";
 import { clockedInThemeId, themeJson, type ThemeJson } from "@/lib/api/features/themes";
+import {
+  defaultEmailSettings,
+  isTimeEmailFrequency,
+  readEmailSettings,
+  type OrganizationEmailSettings,
+} from "@/lib/email/templates";
 import { defaultEntityLabels, type EntityLabels } from "@/lib/labels";
+import { isValidTenantSlug, reservedTenantSlugs } from "@/lib/portal";
 import { prisma } from "@/lib/prisma";
 
 export type OrganizationPreferences = {
@@ -33,6 +40,7 @@ export type OrganizationPreferences = {
   allowVolunteersToAddVolunteers: boolean;
   entityLabels: EntityLabels;
   feedbackNotifyUserIds: string[];
+  emailSettings: OrganizationEmailSettings;
 };
 
 const themeInclude = { theme: true } as const;
@@ -48,6 +56,7 @@ export function readPreferences(value: Prisma.JsonValue | null | undefined): Org
       allowVolunteersToAddVolunteers: false,
       entityLabels: defaultEntityLabels,
       feedbackNotifyUserIds: [],
+      emailSettings: { ...defaultEmailSettings },
     };
   }
 
@@ -64,6 +73,7 @@ export function readPreferences(value: Prisma.JsonValue | null | undefined): Org
       taskCategory: labelValue(source.taskCategory, defaultEntityLabels.taskCategory),
     },
     feedbackNotifyUserIds: readNotifyUserIds(record.feedbackNotifyUserIds),
+    emailSettings: readEmailSettings(record.emailSettings),
   };
 }
 
@@ -108,6 +118,42 @@ function parseEntityLabels(value: unknown): EntityLabels {
   };
 }
 
+export function parseEmailSettings(value: unknown): OrganizationEmailSettings {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    validation("emailSettings must be an object.");
+  }
+
+  const body = value as Body;
+  const readFreq = (key: "LoggedTime" | "UnclassifiedEntry") => {
+    if (!has(body, key)) return defaultEmailSettings[key];
+    const freq = body[key];
+    if (!isTimeEmailFrequency(freq)) {
+      validation(`${key} must be immediate, weekly, or off.`);
+    }
+    return freq;
+  };
+
+  const settings: OrganizationEmailSettings = {
+    LoggedTime: readFreq("LoggedTime"),
+    UnclassifiedEntry: readFreq("UnclassifiedEntry"),
+    FeedbackReceived: has(body, "FeedbackReceived") ? requireBool(body, "FeedbackReceived") : defaultEmailSettings.FeedbackReceived,
+    FeedbackNotify: has(body, "FeedbackNotify") ? requireBool(body, "FeedbackNotify") : defaultEmailSettings.FeedbackNotify,
+    FeedbackCompleted: has(body, "FeedbackCompleted") ? requireBool(body, "FeedbackCompleted") : defaultEmailSettings.FeedbackCompleted,
+    AccessRequestReceived: has(body, "AccessRequestReceived")
+      ? requireBool(body, "AccessRequestReceived")
+      : defaultEmailSettings.AccessRequestReceived,
+    AccessRequestDecided: has(body, "AccessRequestDecided")
+      ? requireBool(body, "AccessRequestDecided")
+      : defaultEmailSettings.AccessRequestDecided,
+    NeedSubmitted: has(body, "NeedSubmitted") ? requireBool(body, "NeedSubmitted") : defaultEmailSettings.NeedSubmitted,
+    NeedDecided: has(body, "NeedDecided") ? requireBool(body, "NeedDecided") : defaultEmailSettings.NeedDecided,
+    VolunteerMessage: has(body, "VolunteerMessage")
+      ? requireBool(body, "VolunteerMessage")
+      : defaultEmailSettings.VolunteerMessage,
+  };
+  return settings;
+}
+
 function parsePreferences(value: unknown): OrganizationPreferences {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     validation("preferences must be an object.");
@@ -123,6 +169,7 @@ function parsePreferences(value: unknown): OrganizationPreferences {
     feedbackNotifyUserIds: has(body, "feedbackNotifyUserIds")
       ? [...new Set(ids(body, "feedbackNotifyUserIds", false))]
       : [],
+    emailSettings: has(body, "emailSettings") ? parseEmailSettings(body.emailSettings) : { ...defaultEmailSettings },
   };
 }
 
@@ -139,10 +186,28 @@ function brandUrl(body: Body, key: string) {
   return value;
 }
 
+export function parseTenantSlug(body: Body, key: string): string | null {
+  const value = optionalString(body, key);
+  if (value === null || value === undefined || value.trim().length === 0) {
+    return null;
+  }
+
+  const slug = value.trim().toLowerCase();
+  if (reservedTenantSlugs.has(slug)) {
+    validation("slug is reserved.");
+  }
+  if (!isValidTenantSlug(slug)) {
+    validation("slug must be 1 to 63 lowercase letters, digits, or hyphens, and cannot start or end with a hyphen.");
+  }
+
+  return slug;
+}
+
 export function organizationJson(
   organization: {
     id: string;
     name: string;
+    slug?: string | null;
     defaultRateType: string;
     preferences?: Prisma.JsonValue | null;
     themeId: string;
@@ -160,6 +225,7 @@ export function organizationJson(
   return {
     id: organization.id,
     name: organization.name,
+    slug: organization.slug ? organization.slug.toLowerCase() : null,
     volunteerHourlyRate,
     defaultRateType: organization.defaultRateType,
     preferences: readPreferences(organization.preferences),
@@ -183,6 +249,7 @@ export function parseName(body: Body): NameRequest {
 
 export type UpdateOrganizationRequest = {
   name: Optional<string>;
+  slug: Optional<string | null>;
   volunteerHourlyRate: Optional<number>;
   defaultRateType: Optional<RateType>;
   preferences: Optional<OrganizationPreferences>;
@@ -199,6 +266,7 @@ export type UpdateOrganizationRequest = {
 export function parseUpdateOrganization(body: Body): UpdateOrganizationRequest {
   const request: UpdateOrganizationRequest = {
     name: optional(body, "name", (b, k) => requireName(requireString(b, k))),
+    slug: optional(body, "slug", parseTenantSlug),
     volunteerHourlyRate: optional(body, "volunteerHourlyRate", (b, k) => {
       const rate = requireDecimal(b, k);
       if (rate <= 0) {
@@ -228,6 +296,7 @@ export function parseUpdateOrganization(body: Body): UpdateOrganizationRequest {
   };
   if (
     !request.name.set &&
+    !request.slug.set &&
     !request.volunteerHourlyRate.set &&
     !request.defaultRateType.set &&
     !request.preferences.set &&
@@ -248,6 +317,11 @@ export function parseUpdateOrganization(body: Body): UpdateOrganizationRequest {
 
 export async function createOrganization(access: Access, request: NameRequest) {
   const caller = access.requireHuman();
+  if (access.tenantSlug) {
+    await access.pinnedOrganization();
+    forbidden();
+  }
+
   const adminRoleId = await roleId("ADMIN");
   const organization = await guard(
     prisma.organization.create({
@@ -269,11 +343,26 @@ export async function createOrganization(access: Access, request: NameRequest) {
 
 export async function listOrganizations(access: Access, params: URLSearchParams) {
   const paging = page(params);
-  const where = access.isApiKey
-    ? { id: { in: await access.activeOrganizationIds() } }
-    : access.isSuperAdmin
-      ? {}
-      : { memberships: { some: { userId: access.actorUserId, isActive: true } } };
+  const pinned = await access.pinnedOrganization();
+  let where: Prisma.OrganizationWhereInput;
+  if (pinned) {
+    if (access.isApiKey) {
+      const allowed = await access.activeOrganizationIds();
+      where = { id: { in: allowed.filter((id) => id === pinned.id) } };
+    } else {
+      where = {
+        id: pinned.id,
+        memberships: { some: { userId: access.actorUserId, isActive: true } },
+      };
+    }
+  } else if (access.isApiKey) {
+    where = { id: { in: await access.activeOrganizationIds() } };
+  } else if (access.isSuperAdmin) {
+    where = {};
+  } else {
+    where = { memberships: { some: { userId: access.actorUserId, isActive: true } } };
+  }
+
   const organizations = await prisma.organization.findMany({
     where,
     include: { ...themeInclude, hourlyRates: { where: { isDefault: true }, take: 1 } },
@@ -296,6 +385,10 @@ export async function getOrganization(access: Access, organizationId: string) {
 
 export async function updateOrganization(access: Access, organizationId: string, request: UpdateOrganizationRequest) {
   await access.requireOrganizationAdmin(organizationId);
+  if (request.slug.set && access.tenantSlug) {
+    forbidden();
+  }
+
   const organization = await transaction(async (tx) => {
     const current = await tx.organization.findUniqueOrThrow({
       where: { id: organizationId },
@@ -321,12 +414,14 @@ export async function updateOrganization(access: Access, organizationId: string,
           allowVolunteersToAddVolunteers: request.preferences.value.allowVolunteersToAddVolunteers,
           entityLabels: request.preferences.value.entityLabels,
           feedbackNotifyUserIds: request.preferences.value.feedbackNotifyUserIds,
+          emailSettings: request.preferences.value.emailSettings,
         }
       : undefined;
     await tx.organization.update({
       where: { id: organizationId },
       data: {
         name: request.name.set ? request.name.value : undefined,
+        slug: request.slug.set ? request.slug.value : undefined,
         defaultRateType: request.defaultRateType.set ? request.defaultRateType.value : undefined,
         themeId: request.themeId.set ? request.themeId.value : undefined,
         wordmarkUrl: request.wordmarkUrl.set ? request.wordmarkUrl.value : undefined,

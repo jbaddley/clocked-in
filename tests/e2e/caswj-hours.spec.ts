@@ -17,7 +17,7 @@ import {
   loadCaswjWorkbook,
   type ExpectedCaswjReport,
 } from "../../scripts/caswj-workbook";
-import { formatCompactCurrency, formatCompactNumber, formatCurrency, formatNumber } from "../../src/lib/format";
+import { formatCurrency, formatNumber } from "../../src/lib/format";
 import {
   cardNamed,
   cardTitle,
@@ -67,6 +67,10 @@ test.beforeAll(async () => {
   );
 });
 
+test.beforeEach(async ({ request }) => {
+  await deleteE2eEntries(request);
+});
+
 test.afterEach(async ({ request }) => {
   await deleteE2eEntries(request);
 });
@@ -100,16 +104,16 @@ test("report JSON matches the seed mapping", async ({ page }) => {
 
 test("Summary tab shows seed totals, labels, and volunteer hours", async ({ page }) => {
   await openReports(page);
-  await expect(page.getByRole("tab", { name: "Summary" })).toHaveAttribute("aria-selected", "true");
-  await expect(page.getByText("Hours", { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Choose report" })).toHaveText("Summary");
+  await expect(page.getByText("Total volunteer hours", { exact: true }).first()).toBeVisible();
   await expect(page.getByText(formatNumber(expected.hours), { exact: true }).first()).toBeVisible();
   await expect(page.getByText(formatCurrency(expected.inKind), { exact: true }).first()).toBeVisible();
   await expect(page.getByText(String(expected.volunteers), { exact: true }).first()).toBeVisible();
   await expect(page.getByText(String(expected.entries), { exact: true }).first()).toBeVisible();
-  await expect(cardTitle(page, "Hours by group")).toBeVisible();
+  await expect(cardTitle(page, "Hours by department")).toBeVisible();
   await expect(cardTitle(page, "Hours by task category")).toBeVisible();
   await expect(cardTitle(page, "Hours by volunteer")).toBeVisible();
-  await expect(cardTitle(page, "Hours by project / event")).toBeVisible();
+  await expect(cardTitle(page, "Hours by project")).toBeVisible();
   await expect(cardTitle(page, "Hours by month")).toBeVisible();
   await expect(cardTitle(page, "In-kind by month")).toBeVisible();
 
@@ -123,9 +127,9 @@ test("People tab tables match seed rollups by label", async ({ page }) => {
   await openReports(page);
   await selectReportsTab(page, "People");
   await expect(cardTitle(page, "By person")).toBeVisible();
-  await expectTable(page, "By project / event", expected.byProject, true);
+  await expectTable(page, "By project", expected.byProject, true);
   await expectTable(page, "By person", expected.byPerson, false);
-  await expectTable(page, "By group", expected.byDepartment, true);
+  await expectTable(page, "By department", expected.byDepartment, true);
   await expectTable(page, "By task category", expected.byCategory, true);
 });
 
@@ -146,7 +150,7 @@ test("Volunteer Log CSV matches labeled columns and 249 seed rows", async ({ pag
   expect(rows).toHaveLength(expected.entries);
   for (const row of rows) {
     expect(row[5]).toBe("Total Hours");
-    expect(row[10]).toBe("Utah Volunteer Rate");
+    expect(row[10]).toBe(Number(row[11]) === 0 ? "" : "Utah Volunteer Rate");
     expect(row[16]).toBe("");
     const volunteer = row[2];
     if (!volunteer) {
@@ -177,19 +181,20 @@ test("log form can add an e2e- Duration row that cleanup removes", async ({ page
   const before = await getReport(page.request, organization.id);
   expect(before.user.entries).toBe(expected.entries);
   await page.goto("/log/own");
-  await expect(page.locator("header h1")).toHaveText("Log time");
+  await expect(page.getByRole("heading", { name: "Log time", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Log Own Time" })).toHaveAttribute("aria-current", "page");
-  await expect(page.getByText("Add time manually")).toBeVisible();
+  await expect(page.getByText("Add time manually").filter({ visible: true })).toBeVisible();
   await page.getByRole("link", { name: "Log Member Time" }).click();
   await expect(page).toHaveURL(/\/log\/member$/);
-  await expect(page.getByText("Add time for a member")).toBeVisible();
+  await expect(page.getByText("Add time for a member").filter({ visible: true })).toBeVisible();
   await page.getByRole("link", { name: "Log Group Time" }).click();
   await expect(page).toHaveURL(/\/log\/group$/);
-  await expect(page.getByText("Record a session")).toBeVisible();
+  await expect(page.getByText("Record a session").filter({ visible: true })).toBeVisible();
   await page.getByRole("link", { name: "Log Own Time" }).click();
   await expect(page).toHaveURL(/\/log\/own$/);
   const notes = page.getByLabel("Notes").filter({ visible: true });
   const save = page.getByRole("button", { name: "Save time" }).filter({ visible: true });
+  await page.getByLabel("Duration", { exact: true }).filter({ visible: true }).fill("1:00");
   await expect(save).toBeEnabled();
   await notes.fill(extraNotes);
   await save.click();
@@ -215,8 +220,8 @@ async function expectTable(
   for (const row of rows) {
     const line = card.getByRole("row").filter({ hasText: row.label });
     await expect(line.first()).toBeVisible();
-    await expect(line.first()).toContainText(formatCompactNumber(row.hours));
-    await expect(line.first()).toContainText(formatCompactCurrency(row.inKind));
+    await expect(line.first()).toContainText(formatNumber(row.hours));
+    await expect(line.first()).toContainText(formatCurrency(row.inKind));
     if (showVolunteers) {
       await expect(line.first()).toContainText(String(row.volunteers));
     }

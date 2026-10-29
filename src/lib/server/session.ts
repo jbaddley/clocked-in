@@ -5,11 +5,13 @@ import { cache } from "react";
 import { accessForSubject } from "@/lib/api/access";
 import { accessCookie, refreshCookie, verifyAccessToken } from "@/lib/api/security";
 import { eraseSession, writeSession, type IssuedSession } from "@/lib/server/session-cookies";
+import { getTenantSlug } from "@/lib/server/tenant";
 
 export const getAccess = cache(async () => {
-  const token = (await cookies()).get(accessCookie)?.value;
+  const [store, tenantSlug] = await Promise.all([cookies(), getTenantSlug()]);
+  const token = store.get(accessCookie)?.value;
   const subject = token ? await verifyAccessToken(token) : null;
-  return subject ? accessForSubject(subject) : null;
+  return subject ? accessForSubject(subject, tenantSlug) : null;
 });
 
 export async function requireAccess(options?: { allowPasswordChange?: boolean }) {

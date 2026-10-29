@@ -24,7 +24,7 @@ export default function FeedbackCompletedEmail({
     <EmailLayout preview={`An update on ${title}.`} title='Your feedback is complete'>
       <Text style={bodyText}>Hi {firstName},</Text>
       <Text style={bodyText}>
-        About your {typeLabel} "{title}": {outcome}.
+        About your {typeLabel} &quot;{title}&quot;: {outcome}.
       </Text>
       <Text style={bodyText}>{note}</Text>
       <Text style={quietText}>Thank you for helping us improve VolunTime.</Text>

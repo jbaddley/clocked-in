@@ -34,18 +34,18 @@ test("admin logs member time and Entered By is not the volunteer", async ({ page
   const created = await createOrgPerson(request, person);
   await loginAsAdmin(page);
   await page.goto("/log/member");
-  await expect(page.getByText("Add time for a member")).toBeVisible();
+  await expect(page.getByText("Add time for a member").filter({ visible: true })).toBeVisible();
   await page.getByRole("combobox", { name: /person/i }).click();
   await page.getByRole("option", { name: "E2e Memberlog" }).click();
   await page.getByRole("button", { name: "Total hours" }).click();
-  await page.getByLabel("Hours").fill("1:30");
-  await page.getByLabel("Notes").fill(`e2e-member-log ${stamp}`);
+  await page.getByLabel("Hours", { exact: true }).filter({ visible: true }).fill("1:30");
+  await page.getByLabel("Notes", { exact: true }).filter({ visible: true }).fill(`e2e-member-log ${stamp}`);
   await page.getByRole("button", { name: "Save time" }).click();
   await expect(page.getByText("Time saved.")).toBeVisible();
 
   await loginAs(page, person.username, person.password);
   await page.goto("/log/own");
-  await expect(page.getByText(`e2e-member-log ${stamp}`)).toBeVisible();
+  await expect(page.getByText(`e2e-member-log ${stamp}`).filter({ visible: true })).toBeVisible();
   await expect(page.getByText("entered by an admin")).toBeVisible();
 
   const session = await loginBearer(request);

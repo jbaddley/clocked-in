@@ -15,9 +15,11 @@ import {
   label,
   logIn,
   missingId,
+  identity,
   remove,
   signUp,
   suite,
+  waitForEmails,
 } from "./client.mjs";
 
 describe("organizations", suite, () => {
@@ -144,6 +146,7 @@ describe("organizations", suite, () => {
       allowVolunteersToAddVolunteers: false,
       entityLabels: labels,
       feedbackNotifyUserIds: [],
+      emailSettings: defaultPreferences().emailSettings,
     });
 
     const globals = await callApi(`/organizations/${ctx.org.id}/themes`, { token: ctx.member.accessToken });
@@ -218,5 +221,130 @@ describe("organizations", suite, () => {
     await remove(ctx.admin.accessToken, `/organizations/${org.id}`);
     const missing = await callApi(`/organizations/${org.id}`, { token: ctx.admin.accessToken });
     assertError(missing, 404, "not_found", "Not found.");
+  });
+
+  test("validates organization slug and pins requests with x-voluntime-tenant", async () => {
+    const slugA = `org-${Date.now().toString(36)}-a`;
+    const slugB = `org-${Date.now().toString(36)}-b`;
+    const orgA = await createJson(ctx.admin.accessToken, "/organizations", { name: label("Tenant A") });
+    const orgB = await createJson(ctx.admin.accessToken, "/organizations", { name: label("Tenant B") });
+
+    for (const reserved of ["www", "staging", "admin", "api"]) {
+      const res = await callApi(`/organizations/${orgA.id}`, {
+        method: "PATCH",
+        token: ctx.admin.accessToken,
+        body: { slug: reserved },
+      });
+      assertError(res, 400, "validation_error", "slug is reserved.");
+    }
+
+    for (const malformed of ["-bad", "bad-", "bad_slug", "bad.slug", "a".repeat(64)]) {
+      const res = await callApi(`/organizations/${orgA.id}`, {
+        method: "PATCH",
+        token: ctx.admin.accessToken,
+        body: { slug: malformed },
+      });
+      assertError(
+        res,
+        400,
+        "validation_error",
+        "slug must be 1 to 63 lowercase letters, digits, or hyphens, and cannot start or end with a hyphen.",
+      );
+    }
+
+    const launched = await callApi(`/organizations/${orgA.id}`, {
+      method: "PATCH",
+      token: ctx.admin.accessToken,
+      body: { slug: slugA.toUpperCase() },
+    });
+    assert.equal(launched.status, 200, launched.text);
+    assert.equal(launched.json.slug, slugA);
+
+    const duplicate = await callApi(`/organizations/${orgB.id}`, {
+      method: "PATCH",
+      token: ctx.admin.accessToken,
+      body: { slug: slugA },
+    });
+    assertError(duplicate, 409, "conflict", "That value is already in use.");
+
+    const launchedB = await callApi(`/organizations/${orgB.id}`, {
+      method: "PATCH",
+      token: ctx.admin.accessToken,
+      body: { slug: slugB },
+    });
+    assert.equal(launchedB.status, 200, launchedB.text);
+    assert.equal(launchedB.json.slug, slugB);
+
+    const listedPinned = await callApi("/organizations", {
+      token: ctx.admin.accessToken,
+      tenant: slugA,
+    });
+    assert.equal(listedPinned.status, 200, listedPinned.text);
+    assert.deepEqual(
+      listedPinned.json.items.map((item) => item.id),
+      [orgA.id],
+    );
+
+    const outsiderListed = await callApi("/organizations", {
+      token: ctx.outsider.accessToken,
+      tenant: slugA,
+    });
+    assert.equal(outsiderListed.status, 200, outsiderListed.text);
+    assert.deepEqual(outsiderListed.json.items, []);
+
+    const createBlocked = await callApi("/organizations", {
+      method: "POST",
+      token: ctx.admin.accessToken,
+      tenant: slugA,
+      body: { name: label("Blocked on tenant") },
+    });
+    assertError(createBlocked, 403, "forbidden", "Forbidden.");
+
+    const signupCandidate = identity("tenantsignup");
+    const signupBlocked = await callApi("/auth/user", {
+      method: "POST",
+      tenant: slugA,
+      body: signupCandidate,
+    });
+    assertError(signupBlocked, 403, "forbidden", "Forbidden.");
+
+    const otherOrgNotFound = await callApi(`/organizations/${orgB.id}`, {
+      token: ctx.admin.accessToken,
+      tenant: slugA,
+    });
+    assertError(otherOrgNotFound, 404, "not_found", "Not found.");
+
+    const unknownTenant = await callApi(`/organizations/${orgA.id}`, {
+      token: ctx.admin.accessToken,
+      tenant: "unknown-tenant-slug-xyz",
+    });
+    assertError(unknownTenant, 404, "not_found", "Not found.");
+
+    const slugChangeOnTenant = await callApi(`/organizations/${orgA.id}`, {
+      method: "PATCH",
+      token: ctx.admin.accessToken,
+      tenant: slugA,
+      body: { slug: null },
+    });
+    assertError(slugChangeOnTenant, 403, "forbidden", "Forbidden.");
+
+    const invitee = identity("tenantinv");
+    const invited = await callApi(`/organizations/${orgA.id}/invitations`, {
+      method: "POST",
+      token: ctx.admin.accessToken,
+      tenant: slugA,
+      body: { email: invitee.email, role: "VOLUNTEER" },
+    });
+    assert.equal(invited.status, 201, invited.text);
+    const messages = await waitForEmails(invitee.email, 1);
+    assert.match(messages[0].text, new RegExp(`https?://${slugA}\\.[a-z0-9.-]+(?::\\d+)?/accept\\?code=\\d{6}`));
+
+    const cleared = await callApi(`/organizations/${orgA.id}`, {
+      method: "PATCH",
+      token: ctx.admin.accessToken,
+      body: { slug: null },
+    });
+    assert.equal(cleared.status, 200, cleared.text);
+    assert.equal(cleared.json.slug, null);
   });
 });

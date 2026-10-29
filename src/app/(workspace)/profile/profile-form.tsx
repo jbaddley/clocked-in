@@ -62,17 +62,17 @@ export function ProfileForm({ user }: { user: EditableProfile }) {
       nav={<ProfileNav section={section} onSection={setSection} />}
       footer={
         <div
-          role="group"
+          role='group'
           aria-label={section === "password" ? "Password actions" : "Profile actions"}
-          className="flex flex-col gap-3 rounded-xl bg-card px-4 py-3 ring-1 ring-foreground/10 sm:flex-row sm:items-center"
+          className='flex flex-col gap-3 rounded-xl bg-card px-4 py-3 ring-1 ring-foreground/10 sm:flex-row sm:items-center'
         >
           <SaveBar result={status.result}>
             {section === "password" ? (
-              <SubmitButton form="password-form" pending={status.pending} className="h-9 w-full sm:ml-auto sm:w-auto">
+              <SubmitButton form='password-form' pending={status.pending} className='h-9 w-full sm:ml-auto sm:w-auto'>
                 Update password
               </SubmitButton>
             ) : (
-              <SubmitButton form="profile-form" pending={status.pending} className="h-9 w-full sm:ml-auto sm:w-auto">
+              <SubmitButton form='profile-form' pending={status.pending} className='h-9 w-full sm:ml-auto sm:w-auto'>
                 Save profile
               </SubmitButton>
             )}
@@ -93,20 +93,26 @@ export function ProfileForm({ user }: { user: EditableProfile }) {
 
 function FieldGroup({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
-    <section className="grid gap-4 border-t pt-6 first:border-t-0 first:pt-0 sm:grid-cols-2">
-      <div className="sm:col-span-2">
-        <h3 className="font-heading text-sm font-medium">{title}</h3>
-        {hint ? <p className="mt-1 text-sm text-muted-foreground">{hint}</p> : null}
+    <section className='grid gap-4 border-t pt-6 first:border-t-0 first:pt-0 sm:grid-cols-2'>
+      <div className='sm:col-span-2'>
+        <h3 className='font-heading text-sm font-medium'>{title}</h3>
+        {hint ? <p className='mt-1 text-sm text-muted-foreground'>{hint}</p> : null}
       </div>
       {children}
     </section>
   );
 }
 
-function SaveBar({ result, children }: { result: { ok: boolean; error?: string; message?: string } | null; children: React.ReactNode }) {
+function SaveBar({
+  result,
+  children,
+}: {
+  result: { ok: boolean; error?: string; message?: string } | null;
+  children: React.ReactNode;
+}) {
   return (
     <>
-      <div className="min-w-0 flex-1">
+      <div className='min-w-0 flex-1'>
         <FormMessage result={result} />
       </div>
       {children}
@@ -120,7 +126,7 @@ function AboutForm({ user, onStatus }: { user: EditableProfile; onStatus: (statu
   const profile = user.profile;
   const [avatarUrl, setAvatarUrl] = useState(profile.avatarUrl ?? "");
   const [appliedResult, setAppliedResult] = useState(result);
-  const [zones, setZones] = useState<string[]>(() => [profile.timezone || "UTC"]);
+  const zones = timezoneChoices(profile.timezone || "UTC");
   const [timezone, setTimezone] = useState(profile.timezone || "UTC");
   if (result !== appliedResult) {
     setAppliedResult(result);
@@ -130,133 +136,145 @@ function AboutForm({ user, onStatus }: { user: EditableProfile; onStatus: (statu
   }
 
   useEffect(() => {
-    setZones(timezoneChoices(profile.timezone || "UTC"));
-  }, [profile.timezone]);
-
-  useEffect(() => {
     if (!result?.ok) return;
     void queryClient.invalidateQueries({ queryKey: keys.me() });
     void queryClient.invalidateQueries({ queryKey: keys.user(user.id) });
-  }, [queryClient, result]);
+  }, [queryClient, result, user.id]);
 
   useEffect(() => {
     onStatus({ result, pending });
   }, [onStatus, pending, result]);
 
   return (
-    <form id="profile-form" action={action}>
+    <form id='profile-form' action={action}>
       <Card>
         <CardHeader>
           <CardTitle>About you</CardTitle>
           <CardDescription>Name, contact, and sign-in are saved together.</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-6">
-          <FieldGroup title="Name">
+        <CardContent className='grid gap-6'>
+          <FieldGroup title='Name'>
             <AvatarField userId={user.id} value={avatarUrl} onChange={setAvatarUrl} />
-            <Field label="First name" htmlFor="firstName">
+            <Field label='First name' htmlFor='firstName'>
               <Input
-                id="firstName"
-                name="firstName"
-                autoComplete="given-name"
+                id='firstName'
+                name='firstName'
+                autoComplete='given-name'
                 required
                 maxLength={100}
                 defaultValue={profile.firstName}
-                className="h-9"
+                className='h-9'
               />
             </Field>
-            <Field label="Last name" htmlFor="lastName">
+            <Field label='Last name' htmlFor='lastName'>
               <Input
-                id="lastName"
-                name="lastName"
-                autoComplete="family-name"
+                id='lastName'
+                name='lastName'
+                autoComplete='family-name'
                 required
                 maxLength={100}
                 defaultValue={profile.lastName}
-                className="h-9"
+                className='h-9'
               />
             </Field>
-            <Field label="Display name" htmlFor="displayName" hint="Leave blank to use your first and last name." className="sm:col-span-2">
+            <Field
+              label='Display name'
+              htmlFor='displayName'
+              hint='Leave blank to use your first and last name.'
+              className='sm:col-span-2'
+            >
               <Input
-                id="displayName"
-                name="displayName"
-                autoComplete="nickname"
+                id='displayName'
+                name='displayName'
+                autoComplete='nickname'
                 maxLength={100}
                 defaultValue={profile.displayName ?? ""}
-                className="h-9"
+                className='h-9'
               />
             </Field>
-            <Field label="Description" htmlFor="description" hint="Shown on your profile." className="sm:col-span-2">
+            <Field label='Description' htmlFor='description' hint='Shown on your profile.' className='sm:col-span-2'>
               <MarkdownEditor
-                id="description"
-                name="description"
-                label="Description"
+                id='description'
+                name='description'
+                label='Description'
                 maxLength={8000}
                 defaultValue={profile.description ?? ""}
               />
             </Field>
           </FieldGroup>
 
-          <FieldGroup title="Contact" hint="Phone, ZIP, and notes stay on your profile.">
-            <Field label="Timezone" htmlFor="timezone" hint="Punch dates use this timezone.">
-              <input type="hidden" name="timezone" value={timezone} />
+          <FieldGroup title='Contact' hint='Phone, ZIP, and notes stay on your profile.'>
+            <Field label='Timezone' htmlFor='timezone' hint='Punch dates use this timezone.'>
+              <input type='hidden' name='timezone' value={timezone} />
               <SearchableSelect
-                id="timezone"
+                id='timezone'
                 value={timezone}
                 onValueChange={(next) => setTimezone(next || timezone)}
                 options={zones.map((zone) => ({ value: zone, label: zone.replaceAll("_", " ") }))}
-                searchPlaceholder="Search timezones"
-                className="h-9"
+                searchPlaceholder='Search timezones'
+                className='h-9'
               />
             </Field>
-            <Field label="Phone" htmlFor="phone">
+            <Field label='Phone' htmlFor='phone'>
               <Input
-                id="phone"
-                name="phone"
-                type="tel"
-                autoComplete="tel"
+                id='phone'
+                name='phone'
+                type='tel'
+                autoComplete='tel'
                 maxLength={40}
                 defaultValue={profile.phone ?? ""}
-                className="h-9"
+                className='h-9'
               />
             </Field>
-            <Field label="Zip code" htmlFor="zipCode" hint="Shown on volunteer workbooks.">
+            <Field label='Zip code' htmlFor='zipCode' hint='Shown on volunteer workbooks.'>
               <Input
-                id="zipCode"
-                name="zipCode"
-                autoComplete="postal-code"
+                id='zipCode'
+                name='zipCode'
+                autoComplete='postal-code'
                 maxLength={20}
                 defaultValue={profile.zipCode ?? ""}
-                className="h-9"
+                className='h-9'
               />
             </Field>
-            <Field label="Notes" htmlFor="notes" hint="Visible to you and organization admins." className="sm:col-span-2">
-              <Textarea id="notes" name="notes" maxLength={2000} defaultValue={profile.notes ?? ""} className="min-h-24" />
+            <Field
+              label='Notes'
+              htmlFor='notes'
+              hint='Visible to you and organization admins.'
+              className='sm:col-span-2'
+            >
+              <Textarea
+                id='notes'
+                name='notes'
+                maxLength={2000}
+                defaultValue={profile.notes ?? ""}
+                className='min-h-24'
+              />
             </Field>
           </FieldGroup>
 
-          <FieldGroup title="Sign-in" hint="Username is how you sign in. Invite and password codes go to this email.">
-            <Field label="Username" htmlFor="username" hint="Letters, numbers, dots, underscores, or hyphens.">
+          <FieldGroup title='Sign-in' hint='Username is how you sign in. Invite and password codes go to this email.'>
+            <Field label='Username' htmlFor='username' hint='Letters, numbers, dots, underscores, or hyphens.'>
               <Input
-                id="username"
-                name="username"
-                autoComplete="username"
+                id='username'
+                name='username'
+                autoComplete='username'
                 required
                 minLength={3}
                 maxLength={50}
                 defaultValue={user.username}
-                className="h-9"
+                className='h-9'
               />
             </Field>
-            <Field label="Email" htmlFor="email">
+            <Field label='Email' htmlFor='email'>
               <Input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
+                id='email'
+                name='email'
+                type='email'
+                autoComplete='email'
                 required
                 maxLength={254}
                 defaultValue={user.email}
-                className="h-9"
+                className='h-9'
               />
             </Field>
           </FieldGroup>
@@ -280,7 +298,7 @@ function PasswordForm({ onStatus }: { onStatus: (status: SaveStatus) => void }) 
 
   return (
     <form
-      id="password-form"
+      id='password-form'
       ref={formRef}
       onSubmit={(event) => {
         event.preventDefault();
@@ -295,28 +313,28 @@ function PasswordForm({ onStatus }: { onStatus: (status: SaveStatus) => void }) 
           <CardTitle>Password</CardTitle>
           <CardDescription>A new password signs out every other device. This browser stays signed in.</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
-          <Field label="Current password" htmlFor="currentPassword" className="sm:col-span-2">
+        <CardContent className='grid gap-4 sm:grid-cols-2'>
+          <Field label='Current password' htmlFor='currentPassword' className='sm:col-span-2'>
             <Input
-              id="currentPassword"
-              name="currentPassword"
-              type="password"
-              autoComplete="current-password"
+              id='currentPassword'
+              name='currentPassword'
+              type='password'
+              autoComplete='current-password'
               required
-              className="h-9"
+              className='h-9'
             />
           </Field>
-          <Field label="New password" htmlFor="password" hint="8 characters or more.">
-            <Input id="password" name="password" type="password" autoComplete="new-password" required className="h-9" />
+          <Field label='New password' htmlFor='password' hint='8 characters or more.'>
+            <Input id='password' name='password' type='password' autoComplete='new-password' required className='h-9' />
           </Field>
-          <Field label="Confirm new password" htmlFor="confirmPassword">
+          <Field label='Confirm new password' htmlFor='confirmPassword'>
             <Input
-              id="confirmPassword"
-              name="confirmPassword"
-              type="password"
-              autoComplete="new-password"
+              id='confirmPassword'
+              name='confirmPassword'
+              type='password'
+              autoComplete='new-password'
               required
-              className="h-9"
+              className='h-9'
             />
           </Field>
         </CardContent>
@@ -341,13 +359,13 @@ function RequestAccessCard() {
   );
   if (isAdmin || isCoordinator) return null;
   return (
-    <Card className="mt-6">
+    <Card className='mt-6'>
       <CardHeader>
         <CardTitle>Request more access</CardTitle>
         <CardDescription>Ask an admin for group manager or admin access.</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <Field label="Access">
+      <CardContent className='flex flex-col gap-3'>
+        <Field label='Access'>
           <SelectField
             value={requestedRole}
             onValueChange={setRequestedRole}
@@ -355,14 +373,14 @@ function RequestAccessCard() {
               { value: "GROUP_MANAGER", label: "Group manager" },
               { value: "ADMIN", label: "Admin" },
             ]}
-            className="h-9"
+            className='h-9'
           />
         </Field>
         {requestedRole === "GROUP_MANAGER" && lookups.departments.length > 0 ? (
-          <div className="grid gap-2">
-            <p className="text-sm font-medium">Groups</p>
+          <div className='grid gap-2'>
+            <p className='text-sm font-medium'>Groups</p>
             {lookups.departments.map((department) => (
-              <label key={department.id} className="flex items-center gap-2 text-sm">
+              <label key={department.id} className='flex items-center gap-2 text-sm'>
                 <Checkbox
                   checked={departmentIds.includes(department.id)}
                   onCheckedChange={(next) => {
@@ -376,7 +394,11 @@ function RequestAccessCard() {
             ))}
           </div>
         ) : null}
-        <Textarea value={message} onChange={(event) => setMessage(event.target.value)} placeholder="Why do you need more access?" />
+        <Textarea
+          value={message}
+          onChange={(event) => setMessage(event.target.value)}
+          placeholder='Why do you need more access?'
+        />
         <SubmitButton pending={request.isPending} onClick={() => request.mutate()}>
           Send request
         </SubmitButton>

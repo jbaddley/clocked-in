@@ -293,6 +293,9 @@ async function main() {
     const professionalRates = new Map<string, typeof rate>();
     async function rateForRow(row: (typeof logRows)[number]) {
       const amount = money(row.hourlyRate);
+      if (amount === 0) {
+        return null;
+      }
       const professional =
         row.rateType.trim().toLowerCase() === "professional" || amount !== 35.47;
       if (!professional) {
@@ -448,9 +451,6 @@ async function main() {
       }
 
       const catalogRate = await rateForRow(row);
-      if (!catalogRate) {
-        throw new Error(`Missing hourly rate on row ${row.sheetRow}.`);
-      }
       const hourlyRate = money(row.hourlyRate);
       const inKindValue = inKindFromMinutes(minutes, hourlyRate);
       let entry;
@@ -463,7 +463,7 @@ async function main() {
             departmentId,
             projectId,
             taskCategoryId,
-            hourlyRateId: catalogRate.id,
+            hourlyRateId: catalogRate?.id ?? null,
             mode: "Total",
             startedAt: onDate(row.occurredOn, row.startedAt),
             endedAt: onDate(row.occurredOn, row.endedAt),

@@ -2,7 +2,7 @@
  * Admin invites → accept → person on People. Local named seed only.
  */
 import { expect, test } from "@playwright/test";
-import { deleteMembershipByEmail, loginAs, loginAsAdmin, loginBearer } from "./helpers";
+import { deleteMembershipByEmail, loginAsAdmin, loginBearer } from "./helpers";
 
 const stamp = Date.now().toString(36);
 const email = `e2e.invite+${stamp}@example.com`;
@@ -26,11 +26,16 @@ test("admin invite is accepted and the person appears on People", async ({ page,
   await page.locator("#invite-last").fill("Invitee");
   await page.locator("#invite-email").fill(email);
   await page.getByRole("button", { name: "Send invite" }).click();
-  await expect(page.getByText(email)).toBeVisible();
+  await expect(page.getByText(email, { exact: true })).toBeVisible();
 
   const code = await waitForInviteCode(email);
   expect(code, "No invite code reached the mail sink. Start tests/http/mail-sink.mjs and point RESEND_API_URL at it.").toBeTruthy();
-  await loginAs(page, username, password);
+  await page.context().clearCookies();
+  await page.goto("/login");
+  await page.locator("#username").filter({ visible: true }).fill(username);
+  await page.locator("#password").filter({ visible: true }).fill(password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.waitForURL((url) => !url.pathname.startsWith("/login"));
   await page.goto(`/accept?code=${code}`);
   await page.getByRole("button", { name: "Join organization" }).click();
   await expect(page).toHaveURL(/dashboard/);
@@ -39,7 +44,7 @@ test("admin invite is accepted and the person appears on People", async ({ page,
   await page.context().clearCookies();
   await loginAsAdmin(page);
   await page.goto("/settings/members");
-  await expect(page.getByText("E2e Invitee")).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: email }).getByRole("button", { name: "E2e Invitee", exact: true })).toBeVisible();
   expect(admin.user.id).toBeTruthy();
 });
 

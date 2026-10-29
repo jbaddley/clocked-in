@@ -7,9 +7,7 @@ export function jsonBody(value: string, name = "body"): Body {
     if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
       return parsed as Body;
     }
-  } catch {
-    // The message below matches the C# MCP wrapper.
-  }
+  } catch {}
 
   validation(`${name} must be a JSON object.`);
 }

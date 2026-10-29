@@ -29,7 +29,7 @@ export function DialogActionsProvider({ children }: { children: ReactNode }) {
 export function DialogActionsSlot() {
   const context = useContext(DialogActionsContext);
   if (!context) return null;
-  return <div ref={context.setTarget} className="empty:hidden" />;
+  return <div ref={(node) => context.setTarget(node)} className='empty:hidden' />;
 }
 
 export function DialogActions({

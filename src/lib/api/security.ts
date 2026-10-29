@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomInt } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { jwtVerify, SignJWT } from "jose";
 import { fail } from "@/lib/api/errors";
+import { tenantOrigin } from "@/lib/portal";
 
 const accessTokenMs = 15 * 60 * 1000;
 export const refreshTokenMs = 30 * 24 * 60 * 60 * 1000;
@@ -31,9 +32,8 @@ export async function allocateNumericCode(isTaken: (codeHash: string) => Promise
   throw new Error("Could not allocate a one-time code.");
 }
 
-export function appUrl(path: string) {
-  const configured = process.env.APP_URL?.trim();
-  const base = (configured || "http://localhost:3025").replace(/\/$/, "");
+export function appUrl(path: string, slug?: string | null) {
+  const base = tenantOrigin(slug);
   return `${base}${path.startsWith("/") ? path : `/${path}`}`;
 }
 

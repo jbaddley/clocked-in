@@ -1,6 +1,6 @@
 # HTTP API
 
-The Next.js app and `ClockedIn.Api` implement this contract. Paths are the same on both servers. A token is valid only on the server that issued it.
+The Next.js app implements this contract. Authentication uses user JWTs or scoped organization API keys; human-only operations require a user JWT.
 
 Instants are UTC ISO-8601. `occurredOn` is `YYYY-MM-DD`. Ids are UUIDs. Unknown JSON fields are ignored. Passwords, password hashes, and secret codes are never returned.
 
@@ -141,11 +141,11 @@ Usernames are stored lowercase, 3 to 50 characters, matching `[a-z0-9][a-z0-9._-
 
 Any authenticated user can `POST /organizations` with `{ "name" }` and becomes that organization's `ADMIN`.
 
-Organization `{ "id", "name", "volunteerHourlyRate", "defaultRateType", "preferences", "themeId", "theme", "wordmarkUrl", "wordmarkOnLightUrl", "markUrl", "accentImageUrl", "description", "websiteUrl" }`. `description` is Markdown, up to 8000 characters. `websiteUrl` is up to 2000 characters. `volunteerHourlyRate` is the current default volunteer `HourlyRate` (`35.47` when an organization is created). `defaultRateType` is `Volunteer` or `Professional`. `preferences` is `{ "allowTimeEntryEditing": boolean, "allowVolunteersToAddVolunteers": boolean, "entityLabels": { "organization", "project", "department", "taskCategory" }, "feedbackNotifyUserIds": [] }`. `allowTimeEntryEditing` and `allowVolunteersToAddVolunteers` default to false. A preferences patch may omit `allowVolunteersToAddVolunteers`, which stores false. Entity label defaults are Organization, Project, Department, and Task category. Creating an organization assigns the seeded VolunTime global theme.
+Organization `{ "id", "name", "slug", "volunteerHourlyRate", "defaultRateType", "preferences", "themeId", "theme", "wordmarkUrl", "wordmarkOnLightUrl", "markUrl", "accentImageUrl", "description", "websiteUrl", "publicSlug" }`. `slug` is the optional white-label subdomain label (1 to 63 lowercase letters, digits, or hyphens, not starting or ending with a hyphen, and not reserved). `publicSlug` is the optional public openings slug. `description` is Markdown, up to 8000 characters. `websiteUrl` is up to 2000 characters. `volunteerHourlyRate` is the current default volunteer `HourlyRate` (`35.47` when an organization is created). `defaultRateType` is `Volunteer` or `Professional`. `preferences` is `{ "allowTimeEntryEditing": boolean, "allowVolunteersToAddVolunteers": boolean, "entityLabels": { "organization", "project", "department", "taskCategory" }, "feedbackNotifyUserIds": [] }`. `allowTimeEntryEditing` and `allowVolunteersToAddVolunteers` default to false. A preferences patch may omit `allowVolunteersToAddVolunteers`, which stores false. Entity label defaults are Organization, Project, Department, and Task category. Creating an organization assigns the seeded VolunTime global theme.
 
 - `GET /organizations` lists organizations the caller belongs to. SuperAdmin lists all.
 - `GET /organizations/{id}` requires membership or SuperAdmin
-- `PATCH /organizations/{id}` requires an organization admin. Fields: `name`, `volunteerHourlyRate`, `defaultRateType`, `preferences`, `themeId`, `wordmarkUrl`, `wordmarkOnLightUrl`, `markUrl`, `accentImageUrl`, `description`, and `websiteUrl`. Null or blank clears `description` and `websiteUrl`. `volunteerHourlyRate` updates the organization's default volunteer rate. `themeId` must be a global theme or a theme owned by this organization. Marks stay on the organization.
+- `PATCH /organizations/{id}` requires an organization admin. Fields: `name`, `slug`, `volunteerHourlyRate`, `defaultRateType`, `preferences`, `themeId`, `wordmarkUrl`, `wordmarkOnLightUrl`, `markUrl`, `accentImageUrl`, `description`, `websiteUrl`, and `publicSlug`. Null or blank clears `slug`, `description`, `websiteUrl`, and `publicSlug`. Changing `slug` is forbidden when the request is pinned to a tenant host via `x-voluntime-tenant`. `volunteerHourlyRate` updates the organization's default volunteer rate. `themeId` must be a global theme or a theme owned by this organization. Marks stay on the organization.
 - `GET/POST /organizations/{id}/themes` and `PATCH/DELETE /organizations/{id}/themes/{themeId}`. List requires membership. Create, edit, and delete require an organization admin and apply only to org-owned themes. Global themes are read-only; saving edits of a global theme creates a new org-owned copy in the UI. Theme body: `name`, hex colors `primary`, `primaryForeground`, `highlight`, `accent`, `success`, `surface`, `surfaceForeground`, `foreground`, and `chartColor`, fonts `headingFont` and `bodyFont` (`HelveticaNeue`, `AvenirNext`, `SourceSans3`, `NunitoSans`, or `Geist`), `categoricalPalette` (6–8 colors), `sequentialPalette` (5–10), and `divergingPalette` (7). Helvetica Neue and Avenir Next use system fonts with Source Sans 3 / Nunito Sans fallbacks. `chartColor` is the single color used by every chart. Deleting the active org theme reassigns the organization to VolunTime.
 - `GET/POST /organizations/{id}/hourly-rates` and `PATCH/DELETE /hourly-rates/{id}`. Create and edit require an organization admin. List requires membership. Body `{ "type", "name", "perHourRate", "isDefault", "isArchived", "source" }`. `type` is `Volunteer` or `Professional`. `source` is optional, 1 to 200 characters, and empty when omitted or blank. A patch can set `source` to `null` to clear it. Each organization has exactly one default volunteer rate. Only a volunteer rate can be the default, and that rate cannot be archived or deleted. Archived rates stay in this list. Time entries snapshot `hourlyRateId` and `hourlyRate`; deleting a rate that is still referenced fails with 409 `Archive this rate instead. Time entries still use it.`.
 - `DELETE /organizations/{id}` requires an organization admin and fails with 409 while time entries remain
@@ -425,7 +425,7 @@ Email templates live at `/organizations/{id}/email-templates`. Each organization
 
 ## Organization API keys
 
-ClockedIn.Api accepts organization API keys on REST and on `POST /mcp`. The Next.js app accepts the same keys on `POST /mcp`. Next.js REST routes still require a user JWT unless `CSHARP_API_URL` is set and Next proxies to ClockedIn.Api. A key is shown once at create or rotate: `cki_live_<prefix>_<secret>` in production, `cki_test_…` otherwise. Send `Authorization: Bearer <key>` or `X-Api-Key: <key>`. Only the HMAC hash is stored. Key create, list, rotate, and revoke require a human organization admin JWT. A key cannot mint other keys.
+Next.js accepts organization API keys on REST and `/mcp`, subject to their scopes. A key is shown once at create or rotate: `cki_live_<prefix>_<secret>` in production, `cki_test_…` otherwise. Send `Authorization: Bearer <key>` or `X-Api-Key: <key>`. Only the HMAC hash is stored. Key create, list, rotate, and revoke require a human organization admin JWT. A key cannot mint other keys.
 
 Scopes:
 
@@ -437,19 +437,9 @@ Scopes:
 
 `PATCH /organizations/{id}/api-keys/{keyId}` updates `name`, `scopes`, or `expiresAt`. `POST .../rotate` issues a new secret and prefix. `DELETE` revokes. Clock-in and clock-out with a key require `userId`.
 
-## Platform API keys
+## MCP
 
-ClockedIn.Api also issues platform keys. Only a SuperAdmin JWT can create, list, rotate, or revoke them. A platform key is not a SuperAdmin user: it can read and administer every organization, but it cannot mint keys, create or delete organizations, list users, or moderate feedback.
-
-Scope:
-
-- `platform:admin` — any organization, with the same write and admin abilities as `org:admin`
-
-`GET/POST /platform/api-keys`. Body `{ "name", "scopes", "expiresAt" }`. `scopes` must be `["platform:admin"]`. Create returns the plaintext `key` once. List omits `key`.
-
-`PATCH /platform/api-keys/{keyId}` updates `name`, `scopes`, or `expiresAt`. `POST .../rotate` issues a new secret and prefix. `DELETE` revokes.
-
-MCP is Streamable HTTP at `/mcp` on ClockedIn.Api and on the Next.js app. Clients send the same Bearer key. Tools wrap the same feature services as REST, with the same names and arguments on both hosts. Auth, signup, password reset, SuperAdmin user list, feedback moderation, and deleting an organization are not exposed.
+MCP is Streamable HTTP at `/mcp` on Next.js. Tools wrap the same feature services as REST. Auth, signup, password reset, SuperAdmin user list, feedback moderation, and deleting an organization are not exposed. C#-only platform-key endpoints are retired; their existing database records are retained, but do not grant Next.js access.
 
 ```json
 {

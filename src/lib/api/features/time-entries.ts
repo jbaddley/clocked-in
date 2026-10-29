@@ -1032,7 +1032,11 @@ export async function countUnclassified(access: Access, organizationId: string) 
   );
   if (visibility.kind === "departments") {
     return prisma.userTimeEntry.count({
-      where: { organizationId, departmentId: { in: visibility.departmentIds }, ...filter },
+      where: {
+        organizationId,
+        OR: [{ departmentId: { in: visibility.departmentIds } }, { userId: access.actorUserId }],
+        ...filter,
+      },
     });
   }
   return prisma.userTimeEntry.count({ where: { organizationId, ...filter } });

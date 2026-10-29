@@ -5,6 +5,8 @@ import {
   assertList,
   assertRole,
   callApi,
+  createJson,
+  label,
   signUp,
   suite,
 } from "./client.mjs";
@@ -14,6 +16,10 @@ describe("roles / list", suite, () => {
 
   before(async () => {
     admin = await signUp("roles");
+    const org = await createJson(admin.accessToken, "/organizations", { name: label("Role isolation") });
+    await createJson(admin.accessToken, `/organizations/${org.id}/roles`, {
+      code: "EVENT_LEAD", name: "Event lead", scope: "self", permissions: ["log_own_time"],
+    });
   });
 
   test("requires authentication", async () => {

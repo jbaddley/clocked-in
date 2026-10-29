@@ -2,15 +2,15 @@
 
 **Date:** 27 October 2026  
 **Audience:** developers  
-**Status:** current working tree, including VolunTime-feedback work that is not all on `main`
+**Status:** historical snapshot of the 27 October working tree. The C# backend was subsequently retired; see [Prisma adoption](ops/prisma-adoption.md) for the current architecture and rollout.
 
-This is the current-status audit. It scores the app against the Oct 15 launch brief and Dillon Workman’s Oct 27 staging feedback, answers his five open questions, and lists remaining gaps. The Oct 21 snapshot in [`original-goals-assessment.md`](original-goals-assessment.md) is historical; do not treat it as current (it still says the Total hours UI is missing).
+This historical audit scores the app against the Oct 15 launch brief and Dillon Workman’s Oct 27 staging feedback, answers his five open questions, and lists gaps at that time. The Oct 21 snapshot in [`original-goals-assessment.md`](original-goals-assessment.md) is also historical; do not treat either as current architecture guidance.
 
 ## Sources
 
 Under [`docs/base/`](base/):
 
-- [`Volunteer_Hours_Tracker_Project_Brief (1).pdf`](base/Volunteer_Hours_Tracker_Project_Brief%20(1).pdf) — 15 October 2026, Dillon Workman (minimum launch)
+- [`Volunteer_Hours_Tracker_Project_Brief (1).pdf`](<base/Volunteer_Hours_Tracker_Project_Brief%20(1).pdf>) — 15 October 2026, Dillon Workman (minimum launch)
 - [`VolunTime Feedback for Jason.pdf`](base/VolunTime%20Feedback%20for%20Jason.pdf) — 27 October 2026, Dillon Workman (post-staging feedback)
 - Brand pack: `CASWJ_Brand_Guidelines_v1_1_DRAFT.pdf`, `Design for Agenda Builder.png`, `caswj-gradient-usage.png`
 - Seed workbooks: `2026 Volunteer Hours.xlsx` (named, local-only), `clockify-export-ANONYMIZED-sample.xlsx`
@@ -35,7 +35,7 @@ These are the recommended replies. They are product decisions, not only a descri
 
 **No.** Import creates accounts immediately. Existing emails are skipped. The optional “Email users welcome credentials after import” checkbox sends the `account-welcome` template (username + temp password), not an invitation. Admins who want the accept-invite flow should use Invite, not Import.
 
-Code: [`src/app/(workspace)/settings/import/import-view.tsx`](../src/app/(workspace)/settings/import/import-view.tsx), [`src/lib/api/features/imports.ts`](../src/lib/api/features/imports.ts).
+Code: [`src/app/(workspace)/settings/import/import-view.tsx`](<../src/app/(workspace)/settings/import/import-view.tsx>), [`src/lib/api/features/imports.ts`](../src/lib/api/features/imports.ts).
 
 ### 2. Can a group coordinator manage more than one group today?
 
@@ -79,26 +79,26 @@ Role names to tell Dillon:
 
 ## Original brief (15 October) — scorecard
 
-| Brief goal | Status | Notes |
-| --- | --- | --- |
-| Replace Clockify + sheet | Met | Web app, timer, manual entry, reports, CSV |
-| In-kind $35.47 + professional rates | Met, extended | Catalog + snapshots. Seed still Volunteer-only |
-| CASWJ + eight affiliates | Met | One org, eight `Department` groups |
-| Invite or enrollment | Met | Invite + Add person + public signup. Portal can disable signup |
-| Roles: volunteer + admin, no approval on entries | Met, then extended | Plus Staff, Group manager, custom roles, SuperAdmin. Entries still live |
-| Settings: orgs, categories, tags | Met, extended | Projects/events, groups, rates, themes, labels, roles |
-| Timer, start/end, **total hours** | **Met** | Total is in [`time-entry-form.tsx`](../src/components/entity-forms/time-entry-form.tsx). This was the Oct 21 launch gap. |
-| Entry details + entered-by | Met | `userId` vs `enteredByUserId` |
-| Reports by org / category / person / date | Met, extended | Saved reports, designer, dashboard layout |
-| CSV | Met, extended | Log, Summary, plus “this view” |
-| Import 14,609 hours | Met | Golden suite still the grant invariant |
+| Brief goal                                                                  | Status                      | Notes                                                                                                                               |
+| --------------------------------------------------------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Replace Clockify + sheet                                                    | Met                         | Web app, timer, manual entry, reports, CSV                                                                                          |
+| In-kind $35.47 + professional rates                                         | Met, extended               | Catalog + snapshots. Seed still Volunteer-only                                                                                      |
+| CASWJ + eight affiliates                                                    | Met                         | One org, eight `Department` groups                                                                                                  |
+| Invite or enrollment                                                        | Met                         | Invite + Add person + public signup. Portal can disable signup                                                                      |
+| Roles: volunteer + admin, no approval on entries                            | Met, then extended          | Plus Staff, Group manager, custom roles, SuperAdmin. Entries still live                                                             |
+| Settings: orgs, categories, tags                                            | Met, extended               | Projects/events, groups, rates, themes, labels, roles                                                                               |
+| Timer, start/end, **total hours**                                           | **Met**                     | Total is in [`time-entry-form.tsx`](../src/components/entity-forms/time-entry-form.tsx). This was the Oct 21 launch gap.            |
+| Entry details + entered-by                                                  | Met                         | `userId` vs `enteredByUserId`                                                                                                       |
+| Reports by org / category / person / date                                   | Met, extended               | Saved reports, designer, dashboard layout                                                                                           |
+| CSV                                                                         | Met, extended               | Log, Summary, plus “this view”                                                                                                      |
+| Import 14,609 hours                                                         | Met                         | Golden suite still the grant invariant                                                                                              |
 | Clockify fixes (totals, entered-by, shared accounts, required fields, 999h) | Met with Dillon’s follow-up | Punch may leave project / category / group empty; Duration / Total still require placement. Unclassified hours stay in grant totals |
-| Agenda Builder brand | Partial | Tokens + mesh gradients on login / empty states. Official flame mark is still waiting on CASWJ files |
-| Host at `portal.wjarts.org` | Not met | Ops checklist in [`ops/caswj-portal.md`](ops/caswj-portal.md); still on `clocked-in.baddley.us` |
-| Per-role security | Exceeded | |
-| No real PII in development | Met | Named seed is local / `SEED_ALLOW_REAL_NAMES=1` only; other environments use the anonymized workbook |
-| Production owned by CASWJ | Not met | Jason’s Vercel / Postgres / Azure |
-| Later: coordinator, staff, paid staff | Partial | Coordinator + staff primitives exist; paid staff is not modeled |
+| Agenda Builder brand                                                        | Partial                     | Tokens + mesh gradients on login / empty states. Official flame mark is still waiting on CASWJ files                                |
+| Host at `portal.wjarts.org`                                                 | Not met                     | Ops checklist in [`ops/caswj-portal.md`](ops/caswj-portal.md); still on `clocked-in.baddley.us`                                     |
+| Per-role security                                                           | Exceeded                    |                                                                                                                                     |
+| No real PII in development                                                  | Met                         | Named seed is local / `SEED_ALLOW_REAL_NAMES=1` only; other environments use the anonymized workbook                                |
+| Production owned by CASWJ                                                   | Not met                     | Jason’s Vercel / Postgres / Azure                                                                                                   |
+| Later: coordinator, staff, paid staff                                       | Partial                     | Coordinator + staff primitives exist; paid staff is not modeled                                                                     |
 
 The 2026 workbook still sums to **14,609.41667 hours** across **249 entries**, **17 unique volunteers**, and **$517,273.91** in-kind. Treat `tests/e2e/caswj-hours.spec.ts` as the grant invariant.
 
@@ -118,49 +118,49 @@ flowchart LR
 
 ### Roles and access
 
-| Request | Status | Gap |
-| --- | --- | --- |
-| Three levels; each logs time for people below | Met | Admin, Staff, Volunteer, plus Group manager as department `ADMIN` |
-| Group manager on several groups + combined reports | Met | People / invite assign Member vs Group manager per group. Reports use assigned groups |
-| Event-level totals without naming people | Met | `CollectiveTimeEntry` with `departmentId` null + `participantCount`; needs `log_event_totals` |
-| Volunteer requests more access; admin decides | Met | Default request is Group manager + groups. Approving writes department `ADMIN` and leaves org Volunteer unless they asked for a system role |
-| Custom roles / permissions table | Met | Next and C#. `Role.scope` now drives report, time, and collective list visibility |
+| Request                                            | Status | Gap                                                                                                                                         |
+| -------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Three levels; each logs time for people below      | Met    | Admin, Staff, Volunteer, plus Group manager as department `ADMIN`                                                                           |
+| Group manager on several groups + combined reports | Met    | People / invite assign Member vs Group manager per group. Reports use assigned groups                                                       |
+| Event-level totals without naming people           | Met    | `CollectiveTimeEntry` with `departmentId` null + `participantCount`; needs `log_event_totals`                                               |
+| Volunteer requests more access; admin decides      | Met    | Default request is Group manager + groups. Approving writes department `ADMIN` and leaves org Volunteer unless they asked for a system role |
+| Custom roles / permissions table                   | Met    | Next and C#. `Role.scope` now drives report, time, and collective list visibility                                                           |
 
 Key files: [`src/lib/permissions.ts`](../src/lib/permissions.ts), [`src/lib/api/access.ts`](../src/lib/api/access.ts), [`src/lib/api/features/roles.ts`](../src/lib/api/features/roles.ts), [`src/lib/api/features/access-requests.ts`](../src/lib/api/features/access-requests.ts), [`ClockedIn.Api/Features/Shared/Access.cs`](../ClockedIn.Api/Features/Shared/Access.cs).
 
 ### Inviting and importing
 
-| Request | Status | Gap |
-| --- | --- | --- |
-| First + last name on invite | Met | |
-| Username = first initial + last name; tell admin if taken; number suffix | Met | Invite form previews `jsmith` / `jsmith1` before send |
-| Invite subject / preview | Met | `{{organizationName}} invited you to join VolunTime`. Next and C# send username |
-| Import review list | Met | Per-row Import / Skip / Merge. Near-match defaults to Skip |
-| Duplicate + near-match | Met | Email match or chosen near-match can merge; Skip does not create a second user |
-| Does import send invites? | Answered: no | Copy is clear |
-| CSV templates | Met | People and Projects |
-| Drop Groups import | Met in UI | API `POST .../imports/departments` still exists |
+| Request                                                                  | Status       | Gap                                                                             |
+| ------------------------------------------------------------------------ | ------------ | ------------------------------------------------------------------------------- |
+| First + last name on invite                                              | Met          |                                                                                 |
+| Username = first initial + last name; tell admin if taken; number suffix | Met          | Invite form previews `jsmith` / `jsmith1` before send                           |
+| Invite subject / preview                                                 | Met          | `{{organizationName}} invited you to join VolunTime`. Next and C# send username |
+| Import review list                                                       | Met          | Per-row Import / Skip / Merge. Near-match defaults to Skip                      |
+| Duplicate + near-match                                                   | Met          | Email match or chosen near-match can merge; Skip does not create a second user  |
+| Does import send invites?                                                | Answered: no | Copy is clear                                                                   |
+| CSV templates                                                            | Met          | People and Projects                                                             |
+| Drop Groups import                                                       | Met in UI    | API `POST .../imports/departments` still exists                                 |
 
 Key files: [`src/lib/api/features/invitations.ts`](../src/lib/api/features/invitations.ts), [`src/lib/import/username.ts`](../src/lib/import/username.ts), [`src/lib/import/people-review.ts`](../src/lib/import/people-review.ts), [`emails/invitation.tsx`](../emails/invitation.tsx).
 
 ### Projects, Needs, classification, reports
 
-| Request | Status | Gap |
-| --- | --- | --- |
-| Archive projects (hidden from dropdowns, kept in history) | Met | `isActive`; same pattern as rates |
-| + New project from time / group / Needs dropdowns | Met | `create_projects` (group managers included) |
-| Public Needs page | Met | `/openings/[slug]` |
-| Per-need public link | Met | |
-| Group manager posts need → admin approval → manager hears back | Met | Coordinators see `/needs` and create needs; publish still uses `approve_needs` |
-| Vetting + custom questions | Met | |
-| Reminder after stopping timer | Met | Placement stays editable while the timer runs and is sent on clock-out |
-| Unclassified entries + notify | Met | Nullable Punch FKs, banner, unclassified email, report bucket |
-| Hide Tags when none exist | Met | Hidden for non-admins when `lookups.tags.length === 0` |
-| Clickable dashboard cards | Met | Title / slice opens `/entries` with the card filter |
-| Export what you see; shape columns/filters/sorts; save custom report | Met | Grant CSVs stay fixed and labeled; `view.csv` follows list/entries cards |
-| Triple-listed groups / (Org) (Type) tags | Met | Seed archives Clockify duplicate projects and `(Org)` / `(Type)` tags |
+| Request                                                              | Status | Gap                                                                            |
+| -------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------ |
+| Archive projects (hidden from dropdowns, kept in history)            | Met    | `isActive`; same pattern as rates                                              |
+| + New project from time / group / Needs dropdowns                    | Met    | `create_projects` (group managers included)                                    |
+| Public Needs page                                                    | Met    | `/openings/[slug]`                                                             |
+| Per-need public link                                                 | Met    |                                                                                |
+| Group manager posts need → admin approval → manager hears back       | Met    | Coordinators see `/needs` and create needs; publish still uses `approve_needs` |
+| Vetting + custom questions                                           | Met    |                                                                                |
+| Reminder after stopping timer                                        | Met    | Placement stays editable while the timer runs and is sent on clock-out         |
+| Unclassified entries + notify                                        | Met    | Nullable Punch FKs, banner, unclassified email, report bucket                  |
+| Hide Tags when none exist                                            | Met    | Hidden for non-admins when `lookups.tags.length === 0`                         |
+| Clickable dashboard cards                                            | Met    | Title / slice opens `/entries` with the card filter                            |
+| Export what you see; shape columns/filters/sorts; save custom report | Met    | Grant CSVs stay fixed and labeled; `view.csv` follows list/entries cards       |
+| Triple-listed groups / (Org) (Type) tags                             | Met    | Seed archives Clockify duplicate projects and `(Org)` / `(Type)` tags          |
 
-Key files: [`src/app/(workspace)/log/own/own-view.tsx`](../src/app/(workspace)/log/own/own-view.tsx), [`src/app/(workspace)/dashboard/dashboard-view.tsx`](../src/app/(workspace)/dashboard/dashboard-view.tsx), [`src/lib/api/features/volunteer-needs.ts`](../src/lib/api/features/volunteer-needs.ts), [`src/lib/report-layout.ts`](../src/lib/report-layout.ts).
+Key files: [`src/app/(workspace)/log/own/own-view.tsx`](<../src/app/(workspace)/log/own/own-view.tsx>), [`src/app/(workspace)/dashboard/dashboard-view.tsx`](<../src/app/(workspace)/dashboard/dashboard-view.tsx>), [`src/lib/api/features/volunteer-needs.ts`](../src/lib/api/features/volunteer-needs.ts), [`src/lib/report-layout.ts`](../src/lib/report-layout.ts).
 
 ---
 
@@ -170,7 +170,7 @@ Waves 0–5 of the close-gaps plan are in the tree. What is still open:
 
 13. **CASWJ portal hosting and ownership** — ops checklist in [`ops/caswj-portal.md`](ops/caswj-portal.md). Not app code.
 14. **Official CASWJ logo files** — do not invent a flame mark. Seed the wordmark/favicon when CASWJ provides them.
-16. **Paid staff vs volunteer in-kind** — still out of scope until asked.
+15. **Paid staff vs volunteer in-kind** — still out of scope until asked.
 
 `POST .../imports/departments` stays for scripts; the UI does not expose it.
 
@@ -199,17 +199,17 @@ The internship `schema.sql` gave every signed-in user full access. VolunTime doe
 
 Volunteer words stay in the UI. Code names stay in the schema.
 
-| Volunteer language | Model | UI label (CASWJ) |
-| --- | --- | --- |
-| CASWJ | `Organization` | Organization |
-| Symphony, Youth Theatre, … | `Department` | Group |
-| Project / event | `Project` | Project / Event |
-| Task category | `TaskCategory` | Task Category |
-| CASWJ staff | `OrganizationMembership.roleId` → `ADMIN` | Admin |
-| Group leader | `DepartmentMembership.roleId` → `ADMIN` | Group manager |
-| Everyone else | `VOLUNTEER` | Volunteer |
-| Optional extra | `MEMBER` | Staff |
-| Platform operator | `User.isSuperAdmin` | SuperAdmin (internal only) |
+| Volunteer language         | Model                                     | UI label (CASWJ)           |
+| -------------------------- | ----------------------------------------- | -------------------------- |
+| CASWJ                      | `Organization`                            | Organization               |
+| Symphony, Youth Theatre, … | `Department`                              | Group                      |
+| Project / event            | `Project`                                 | Project / Event            |
+| Task category              | `TaskCategory`                            | Task Category              |
+| CASWJ staff                | `OrganizationMembership.roleId` → `ADMIN` | Admin                      |
+| Group leader               | `DepartmentMembership.roleId` → `ADMIN`   | Group manager              |
+| Everyone else              | `VOLUNTEER`                               | Volunteer                  |
+| Optional extra             | `MEMBER`                                  | Staff                      |
+| Platform operator          | `User.isSuperAdmin`                       | SuperAdmin (internal only) |
 
 CASWJ entity labels are seeded in [`scripts/caswj-workbook.ts`](../scripts/caswj-workbook.ts):
 

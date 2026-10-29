@@ -74,7 +74,7 @@ export async function assertCollectiveWrite(access: Access, organizationId: stri
     return;
   }
   if (departmentId === null) {
-    if (await access.can(organizationId, "log_event_totals")) {
+    if ((await access.visibility(organizationId)).kind === "all" && await access.can(organizationId, "log_event_totals")) {
       return;
     }
     forbidden();

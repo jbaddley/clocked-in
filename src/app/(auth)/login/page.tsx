@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
-import { publicSignupEnabled } from "@/lib/portal";
+import { requirePinnedOrganizationOrApex } from "@/lib/server/tenant";
 import { AuthCard, AuthFormSkeleton } from "../auth-card";
 import { LoginForm } from "./login-form";
 
@@ -13,19 +13,30 @@ export default function LoginPage() {
       title="Welcome back"
       description="Sign in to log and review volunteer hours."
       footer={
-        publicSignupEnabled() ? (
-          <>
-            New here?
-            <Link href="/signup" className="font-medium text-primary hover:underline">
-              Create an account
-            </Link>
-          </>
-        ) : undefined
+        <Suspense fallback={null}>
+          <LoginFooter />
+        </Suspense>
       }
     >
       <Suspense fallback={<AuthFormSkeleton />}>
         <LoginForm />
       </Suspense>
     </AuthCard>
+  );
+}
+
+async function LoginFooter() {
+  const pinned = await requirePinnedOrganizationOrApex();
+  if (pinned.pinned) {
+    return null;
+  }
+
+  return (
+    <>
+      New here?
+      <Link href="/signup" className="font-medium text-primary hover:underline">
+        Create an account
+      </Link>
+    </>
   );
 }

@@ -5,6 +5,7 @@ import { ShellSkeleton } from "@/components/shell/app-shell";
 import { WorkspaceShell } from "@/components/shell/workspace-shell";
 import { buttonVariants } from "@/components/ui/button";
 import { getAccess } from "@/lib/server/session";
+import { requirePinnedOrganizationOrApex } from "@/lib/server/tenant";
 import { cn } from "cn";
 
 export default function Home() {
@@ -16,9 +17,9 @@ export default function Home() {
 }
 
 async function HomePage() {
-  const access = await getAccess();
+  const [access, pinned] = await Promise.all([getAccess(), requirePinnedOrganizationOrApex()]);
   if (!access) {
-    return <MarketingHome />;
+    return <MarketingHome isTenantHost={pinned.pinned} organizationName={pinned.organization?.name ?? null} />;
   }
 
   return (
@@ -28,10 +29,16 @@ async function HomePage() {
   );
 }
 
-function MarketingHome() {
+function MarketingHome({
+  isTenantHost,
+  organizationName,
+}: {
+  isTenantHost: boolean;
+  organizationName: string | null;
+}) {
   return (
     <main className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center gap-6 px-6">
-      <p className="text-xs font-semibold uppercase tracking-widest">VolunTime</p>
+      <p className="text-xs font-semibold uppercase tracking-widest">{organizationName || "VolunTime"}</p>
       <h1 className="text-4xl font-semibold tracking-tight">Track volunteer time</h1>
       <p className="text-muted-foreground">
         Log hours, value them for grants, and let each organization bring its own colors and marks.
@@ -40,9 +47,11 @@ function MarketingHome() {
         <Link href="/login" className={cn(buttonVariants())}>
           Sign in
         </Link>
-        <Link href="/signup" className={cn(buttonVariants({ variant: "outline" }))}>
-          Create an account
-        </Link>
+        {!isTenantHost ? (
+          <Link href="/signup" className={cn(buttonVariants({ variant: "outline" }))}>
+            Create an account
+          </Link>
+        ) : null}
       </div>
     </main>
   );

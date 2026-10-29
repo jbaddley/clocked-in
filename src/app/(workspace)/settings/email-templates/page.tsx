@@ -1,8 +1,5 @@
-import type { Metadata } from "next";
-import { EmailTemplatesView } from "./email-templates-view";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "Email Templates" };
-
-export default function EmailTemplatesPage() {
-  return <EmailTemplatesView />;
+export default function EmailTemplatesRedirectPage() {
+  redirect("/settings/email");
 }

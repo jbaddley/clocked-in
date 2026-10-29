@@ -8,10 +8,15 @@ if (!connectionString) {
 
 export async function archiveCaswjClockifyDuplicates(prisma: PrismaClient) {
   const organizationName = process.env.CASWJ_ORG_NAME?.trim() || "Cultural Arts Society of West Jordan";
-  const organization = await prisma.organization.findFirst({
-    where: { name: { equals: organizationName, mode: "insensitive" } },
-    include: { departments: true, projects: true, tags: true },
-  });
+  const organization =
+    (await prisma.organization.findFirst({
+      where: { name: { equals: organizationName, mode: "insensitive" } },
+      include: { departments: true, projects: true, tags: true },
+    })) ??
+    (await prisma.organization.findFirst({
+      where: { name: { equals: "CASWJ", mode: "insensitive" } },
+      include: { departments: true, projects: true, tags: true },
+    }));
   if (!organization) {
     throw new Error(`Organization ${organizationName} was not found.`);
   }

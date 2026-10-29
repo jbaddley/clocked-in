@@ -10,13 +10,18 @@ export async function WorkspaceShell({ children }: { children: React.ReactNode }
 
   return (
     <WorkspaceProvider value={workspace}>
+      {workspace.isTenantHost && workspace.pinnedOrganizationName ? (
+        <title>{workspace.pinnedOrganizationName}</title>
+      ) : null}
       <AppShell
         organization={workspace.organization}
         isAdmin={workspace.isAdmin}
         isCoordinator={workspace.isCoordinator}
-        isSuperAdmin={workspace.viewer.isSuperAdmin}
+        isSuperAdmin={workspace.viewer.isSuperAdmin && !workspace.isTenantHost}
         showReports={canSeeReports(workspace)}
         sidebarOpen={store.get("sidebar_state")?.value !== "false"}
+        isTenantHost={workspace.isTenantHost}
+        pinnedOrganizationName={workspace.pinnedOrganizationName}
       >
         <OrganizationGate>{children}</OrganizationGate>
       </AppShell>

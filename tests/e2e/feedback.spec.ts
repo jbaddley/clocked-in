@@ -26,7 +26,7 @@ test("submit feedback and update it from the SuperAdmin inbox", async ({ page })
   await expect(page.getByRole("cell", { name: title })).toBeVisible();
   await page.getByRole("link", { name: title }).click();
   await expect(page.getByRole("heading", { name: title })).toBeVisible();
-  await expect(page.getByText("The stop button did nothing.")).toBeVisible();
+  await expect(page.getByText("The stop button did nothing.", { exact: true }).first()).toBeVisible();
   await page.getByLabel("Status").click();
   await page.getByRole("option", { name: "Resolved" }).click();
   await page.getByLabel("Note").fill("Shipped in this build.");

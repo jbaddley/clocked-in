@@ -3,7 +3,7 @@
 import { FileQuestionIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/page-header";
 import { ReportGrid } from "@/components/report-grid";
 import { CardSkeleton, StatsSkeleton } from "@/components/skeletons";
@@ -68,11 +68,7 @@ function defaultSlug(reports: SavedReport[]) {
   return selected ? slugForSavedReport(selected.name) : "summary";
 }
 
-function resolveStandard(
-  slug: string,
-  templates: ReportTemplate[],
-  copy: EntityLabels,
-): ResolvedReport | null {
+function resolveStandard(slug: string, templates: ReportTemplate[], copy: EntityLabels): ResolvedReport | null {
   const spec = standardReports.find((item) => item.slug === slug);
   if (!spec) return null;
   const saved = templates.find((item) => item.key === spec.key);
@@ -126,7 +122,7 @@ export function ReportWorkspace() {
     enabled: Boolean(organization.id),
   });
   const query = search.toString();
-  const appliedFiltersFor = useRef<string | null>(null);
+  const [appliedFiltersFor, setAppliedFiltersFor] = useState<string | null>(null);
 
   const canonical = slug ? canonicalStandardSlug(slug) : null;
   const uuidReport = slug && isReportId(slug) ? reports.find((item) => item.id === slug) : null;
@@ -135,7 +131,14 @@ export function ReportWorkspace() {
     return resolveStandard(slug, templates.data ?? [], copy) ?? resolveCustom(slug, listed);
   }, [copy, listed, slug, templates.data]);
 
-  const useStored = Boolean(resolved?.saved) && appliedFiltersFor.current !== resolved?.slug;
+  if (resolved?.saved) {
+    if (appliedFiltersFor !== resolved.slug && filtersQuery(resolved.saved.filters) === query) {
+      setAppliedFiltersFor(resolved.slug);
+    }
+  } else if (appliedFiltersFor !== null) {
+    setAppliedFiltersFor(null);
+  }
+  const useStored = Boolean(resolved?.saved) && appliedFiltersFor !== resolved?.slug;
   const filters = useStored && resolved?.saved ? resolved.saved.filters : urlFilters;
   const { data: report, isFetching, isPending } = useReport(filters);
 
@@ -170,24 +173,34 @@ export function ReportWorkspace() {
     }
 
     if (resolved?.saved) {
-      if (appliedFiltersFor.current !== resolved.slug) {
-        appliedFiltersFor.current = resolved.slug;
+      if (appliedFiltersFor !== resolved.slug) {
         const next = filtersQuery(resolved.saved.filters);
         if (next !== query) {
           router.replace(reportPath(resolved.slug, next), { scroll: false });
         }
       }
-    } else {
-      appliedFiltersFor.current = null;
     }
 
     if (resolved) {
       writeLastSlug(organization.id, resolved.slug);
     }
-  }, [canonical, listed, organization.id, query, reportsPending, resolved, router, slug, uuidReport]);
+  }, [
+    appliedFiltersFor,
+    canonical,
+    listed,
+    organization.id,
+    query,
+    reportsPending,
+    resolved,
+    router,
+    slug,
+    uuidReport,
+  ]);
 
   const waitingForRedirect =
-    !slug || Boolean(canonical && canonical !== slug) || Boolean(uuidReport && slugForSavedReport(uuidReport.name) !== slug);
+    !slug ||
+    Boolean(canonical && canonical !== slug) ||
+    Boolean(uuidReport && slugForSavedReport(uuidReport.name) !== slug);
   const waitingForLayout = Boolean(slug) && !resolved && (reportsPending || templates.isPending);
   const missing = Boolean(slug) && !waitingForRedirect && !waitingForLayout && !resolved;
   const showSkeleton = waitingForRedirect || waitingForLayout || (isPending && !report);
@@ -196,10 +209,10 @@ export function ReportWorkspace() {
     <>
       <PageHeader
         actions={
-          <div className="flex w-full flex-wrap items-center gap-2">
+          <div className='flex w-full flex-wrap items-center gap-2'>
             <ReportFilters filters={filters} />
-            <div className="ml-auto flex flex-wrap items-center gap-2">
-              {isFetching ? <span className="text-xs text-muted-foreground">Updating…</span> : null}
+            <div className='ml-auto flex flex-wrap items-center gap-2'>
+              {isFetching ? <span className='text-xs text-muted-foreground'>Updating…</span> : null}
               <ReportMenu
                 active={resolved?.slug ?? null}
                 title={resolved?.title ?? "Report"}
@@ -218,13 +231,17 @@ export function ReportWorkspace() {
       {showSkeleton ? (
         <>
           <StatsSkeleton />
-          <div className="grid gap-6 xl:grid-cols-2">
+          <div className='grid gap-6 xl:grid-cols-2'>
             <CardSkeleton rows={5} />
             <CardSkeleton rows={5} />
           </div>
         </>
       ) : missing ? (
-        <EmptyState icon={FileQuestionIcon} title="That report is not available" description="It may have been renamed or deleted." />
+        <EmptyState
+          icon={FileQuestionIcon}
+          title='That report is not available'
+          description='It may have been renamed or deleted.'
+        />
       ) : resolved ? (
         <ReportGrid cards={resolved.cards} data={report} filters={filters} />
       ) : null}

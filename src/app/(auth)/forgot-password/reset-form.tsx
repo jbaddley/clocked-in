@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import { confirmResetAction, requestResetAction } from "@/app/actions/auth";
 import { Field, FormMessage } from "@/components/field";
 import { SubmitButton } from "@/components/submit-button";
@@ -15,54 +15,63 @@ export function ResetForm() {
   const [requested, requestAction] = useActionState(requestResetAction, null);
   const [confirmed, confirmAction] = useActionState(confirmResetAction, null);
 
-  useEffect(() => {
+  const [appliedRequest, setAppliedRequest] = useState(requested);
+  if (requested !== appliedRequest) {
+    setAppliedRequest(requested);
     if (requested?.ok) {
       setCode("");
     }
-  }, [requested]);
+  }
 
   return (
-    <div className="flex flex-col gap-6">
-      <form action={requestAction} className="flex flex-col gap-4">
-        <Field label="Email" htmlFor="email">
+    <div className='flex flex-col gap-6'>
+      <form action={requestAction} className='flex flex-col gap-4'>
+        <Field label='Email' htmlFor='email'>
           <Input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
+            id='email'
+            name='email'
+            type='email'
+            autoComplete='email'
             required
-            className="h-10"
+            className='h-10'
             value={email}
             onChange={(event) => setEmail(event.target.value)}
           />
         </Field>
         <FormMessage result={requested} />
-        <SubmitButton variant={requested?.ok ? "outline" : "default"} className="h-10 w-full">
+        <SubmitButton variant={requested?.ok ? "outline" : "default"} className='h-10 w-full'>
           {requested?.ok ? "Send another code" : "Email me a code"}
         </SubmitButton>
       </form>
       {requested?.ok || params.get("code") ? (
         <>
           <Separator />
-          <form action={confirmAction} className="flex flex-col gap-4">
-            <input type="hidden" name="email" value={email} />
-            <Field label="Code" htmlFor="code">
+          <form action={confirmAction} className='flex flex-col gap-4'>
+            <input type='hidden' name='email' value={email} />
+            <Field label='Code' htmlFor='code'>
               <Input
-                id="code"
-                name="code"
+                id='code'
+                name='code'
                 required
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                className="h-10 font-mono tracking-[0.3em]"
+                inputMode='numeric'
+                autoComplete='one-time-code'
+                className='h-10 font-mono tracking-[0.3em]'
                 value={code}
                 onChange={(event) => setCode(event.target.value)}
               />
             </Field>
-            <Field label="New password" htmlFor="password">
-              <Input id="password" name="password" type="password" autoComplete="new-password" required className="h-10" />
+            <Field label='New password' htmlFor='password'>
+              <Input
+                id='password'
+                name='password'
+                type='password'
+                autoComplete='new-password'
+                required
+                className='h-10'
+              />
             </Field>
             <FormMessage result={confirmed} />
-            <SubmitButton className="h-10 w-full">Set new password</SubmitButton>
+            <SubmitButton className='h-10 w-full'>Set new password</SubmitButton>
           </form>
         </>
       ) : null}

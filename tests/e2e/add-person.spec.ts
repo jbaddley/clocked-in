@@ -55,7 +55,7 @@ async function fillAddPerson(
 ) {
   await dialog.getByLabel("First name").fill(person.firstName);
   await dialog.getByLabel("Last name").fill(person.lastName);
-  await dialog.getByLabel("Email").fill(person.email);
-  await dialog.getByLabel("Username").fill(person.username);
+  await dialog.getByLabel("Email", { exact: true }).fill(person.email);
+  await dialog.getByLabel("Username", { exact: true }).fill(person.username);
   await dialog.getByLabel("Temporary password").fill(person.password);
 }

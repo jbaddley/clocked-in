@@ -292,7 +292,12 @@ export function parseUpdateDepartmentMembership(body: Body): UpdateDepartmentMem
 
 export async function listRoles(params: URLSearchParams) {
   const paging = page(params);
-  const roles = await prisma.role.findMany({ orderBy: { code: "asc" }, skip: paging.offset, take: paging.limit });
+  const roles = await prisma.role.findMany({
+    where: { organizationId: null, isSystem: true },
+    orderBy: { code: "asc" },
+    skip: paging.offset,
+    take: paging.limit,
+  });
   return list(roles.map(roleJson), paging);
 }
 

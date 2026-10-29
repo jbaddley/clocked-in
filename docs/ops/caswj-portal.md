@@ -1,60 +1,50 @@
-# CASWJ portal install and ownership
+# White-label subdomain hosting on voluntime.app
 
-VolunTime stays a multi-tenant product at `clocked-in.baddley.us`. The CASWJ portal is the **same codebase** on a **subdomain**. Do not set Next.js `basePath=/portal` on the VolunTime Vercel project — emails, cookies, and `/brand/*` would break.
+Each environment is a single deployment of this codebase with its own database and environment variables. The apex host serves multi-tenant VolunTime, and each launched organization is served on its own subdomain (`{slug}.{APP_HOST}`).
 
-A later `wjarts.org/portal` path is only viable if a reverse proxy on the portal host can path-route without Next `basePath`.
+Launching an organization writes `Organization.slug` in that environment's database from **Settings → Organization** on the apex host. It does not require creating a separate Vercel project.
 
-## Environment
+## Host rules and environment variables
 
-Set these on the portal project (Preview from `.env.staging`, Production from `.env.production`):
+| Variable     | Production                          | Staging                                               | Local (default)                             |
+| ------------ | ----------------------------------- | ----------------------------------------------------- | ------------------------------------------- |
+| `APP_URL`    | `https://voluntime.app`             | `https://staging.voluntime.app`                       | `http://localhost:3025`                     |
+| `APP_HOST`   | `voluntime.app`                     | `staging.voluntime.app`                               | unset (or `localhost` for subdomain checks) |
+| `EMAIL_FROM` | `VolunTime <noreply@voluntime.app>` | `VolunTime (staging) <noreply@staging.voluntime.app>` | `VolunTime (dev) <noreply@voluntime.app>`   |
 
-| Variable                  | Portal value                  | VolunTime product               |
-| ------------------------- | ----------------------------- | ------------------------------- |
-| `PUBLIC_SIGNUP`           | `false`                       | unset / `true`                  |
-| `DEFAULT_ORGANIZATION_ID` | CASWJ organization UUID       | unset                           |
-| `PORTAL_NAME`             | `CASWJ` or `West Jordan Arts` | unset (`VolunTime`)             |
-| `APP_URL`                 | `https://portal.wjarts.org`   | `https://clocked-in.baddley.us` |
+- **Apex host**: `APP_HOST`, `www.{APP_HOST}`, `localhost`, `127.0.0.1`, or any host that is not a single DNS label under `APP_HOST` (such as `*.vercel.app` or `*.baddley.us`). Serves multi-tenant VolunTime with public sign-up and the organization switcher.
+- **Tenant host**: `{slug}.{APP_HOST}` (for example, `caswj.voluntime.app` on production and `caswj.staging.voluntime.app` on staging). Tenant resolution pins Next.js pages, server actions, and API requests to that organization.
+- **Reserved labels**: `www`, `app`, `api`, `staging`, `mail`, `admin`, `static`, `blob`, `status`, `support`, `help`, `docs`. Reserving `staging` prevents any production organization from claiming `staging.voluntime.app`.
+- **Unknown tenant slug**: returns 404 Not Found.
+- **Tenant host behavior**: invite-only (no public `/signup` or `POST /auth/user`), uses that organization's theme and marks before and after login, hides the organization switcher, and requires active membership in that organization (even for SuperAdmins).
+- **Cookies**: session cookies (`ci_access`, `ci_refresh`, `clocked-in-org`) remain host-only (`Domain` attribute is never set), isolating `staging.voluntime.app`, `*.staging.voluntime.app`, `voluntime.app`, and `*.voluntime.app`.
 
-`PUBLIC_SIGNUP=false` hides Create account. Invite accept and admin Add person stay. Optional `APP_BASE_PATH` is reserved if a later path install is required; it is not in this cut.
+## DNS and Vercel domains
 
-## Hosting
+DNS wildcards match only a single label, so `*.voluntime.app` does not match `caswj.staging.voluntime.app`. Configure both environments on the single Vercel project:
 
-1. Create a **new Vercel project** (or a custom domain on a CASWJ-owned project) for `portal.wjarts.org` pointing at this repo.
-2. Copy Preview/Production env from `.env.staging` / `.env.production`, then set the portal keys above.
-3. Keep `clocked-in.baddley.us` as the VolunTime product URL. Transfer or recreate that project as needed; do not replace it with the portal.
-4. Move the portal (and its Postgres) to a **CASWJ-owned Vercel team**. Jason stays a collaborator.
+### Production (`main` branch)
 
-## Azure API and Key Vault
+- `voluntime.app`
+- `*.voluntime.app`
 
-ClockedIn.Api and secrets should live in a **CASWJ Azure tenant**, or stay shared with written access:
+### Staging (`staging` branch)
 
-- Who can rotate `JWT_SIGNING_KEY`, `API_KEY_PEPPER`, `DATABASE_URL`, and Resend.
-- App Service / Key Vault owners on the CASWJ side.
-- Jason as collaborator until handover is done.
+- `staging.voluntime.app` (more specific than production's `*.voluntime.app` wildcard)
+- `*.staging.voluntime.app`
 
-## DNS
+## Email and Resend
 
-- `portal.wjarts.org` → the CASWJ Vercel project.
-- Later: `wjarts.org/portal` only if the portal host can reverse-proxy that path without Next `basePath`.
+- Verify `voluntime.app` and `staging.voluntime.app` in Resend so `EMAIL_FROM` can send from each environment's apex.
+- When an organization has a `slug`, invitation links (`https://{slug}.{APP_HOST}/accept?code=...`) and password-reset links (`https://{slug}.{APP_HOST}/forgot-password?code=...`) automatically point to the organization's launched host. When `slug` is null, links use `APP_URL`.
 
-## Ownership checklist
+## Local subdomain verification
 
-This is ops, not app code. Waves 0–4 of the product do not wait on it.
+Browsers resolve `*.localhost` to loopback automatically:
 
-- [ ] CASWJ-owned Vercel project (Jason as collaborator)
-- [ ] Custom domain `portal.wjarts.org` on that project
-- [ ] `PUBLIC_SIGNUP=false`
-- [ ] `DEFAULT_ORGANIZATION_ID` = CASWJ organization UUID
-- [ ] `PORTAL_NAME` set (`CASWJ` or `West Jordan Arts`)
-- [ ] `APP_URL=https://portal.wjarts.org`
-- [ ] Preview env from `.env.staging`, Production from `.env.production`
-- [ ] Shared/staging seed is `npm run db:seed:caswj:anon`
-- [ ] Named workbook only on a CASWJ machine with `SEED_ALLOW_REAL_NAMES=1`
-- [ ] Postgres in a CASWJ tenant (or written shared-access agreement)
-- [ ] ClockedIn.Api + Key Vault in a CASWJ Azure tenant (or written shared-access)
-- [ ] Who can rotate `JWT_SIGNING_KEY`, `API_KEY_PEPPER`, `DATABASE_URL`, and Resend
-- [ ] Do **not** set Next.js `basePath=/portal`
+1. Set a slug (e.g. `caswj`) on an organization from `http://localhost:3025/settings/organization`.
+2. Open `http://caswj.localhost:3025/login`.
 
 ## Production seed
 
-CASWJ staff run the **named** workbook import on the CASWJ-owned database (`SEED_ALLOW_REAL_NAMES=1` on that machine). Do not commit real names and do not auto-seed them from CI. Staging uses `npm run db:seed:caswj:anon`.
+CASWJ staff run the **named** workbook import on the production database (`SEED_ALLOW_REAL_NAMES=1` on that machine). Do not commit real names and do not auto-seed them from CI. Staging uses `npm run db:seed:caswj:anon`.
