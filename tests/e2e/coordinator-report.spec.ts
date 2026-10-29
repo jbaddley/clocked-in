@@ -67,7 +67,7 @@ test("coordinator logs for a group member and sees only that group on Reports", 
 
   await page.goto("/reports");
   await expect(page).toHaveURL(/\/reports\/[^/]+/);
-  await expect(page.getByRole("heading", { name: "Reports" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Choose report" })).toBeVisible();
   await page.getByRole("button", { name: "Choose report" }).click();
   await expect(page.getByRole("menuitem", { name: "Summary" })).toBeVisible();
   await page.keyboard.press("Escape");

@@ -16,7 +16,7 @@ const shellHeading: Record<string, RegExp | string> = {
   "/log/member": "Log time",
   "/log/group": "Log time",
   "/entries": "Entries",
-  "/reports": "Reports",
+  "/reports": /Report|Summary/,
   "/settings": "Settings",
   "/about-prototype": "Guide",
   "/settings/organization": "Settings",

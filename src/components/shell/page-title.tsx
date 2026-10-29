@@ -14,10 +14,9 @@ export function HeaderTitle() {
 
   if (isReportViewerPath(pathname ?? "")) {
     return (
-      <div className="ml-3 hidden min-w-0 flex-1 items-center gap-1 lg:flex">
-        <h1 className="truncate text-2xl font-semibold tracking-tight">{title}</h1>
+      <h1 className="ml-3 hidden min-w-0 flex-1 items-center lg:flex">
         <ReportSwitcher />
-      </div>
+      </h1>
     );
   }
 

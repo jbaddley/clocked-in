@@ -316,7 +316,7 @@ export function expectGroups(
 export async function openReports(page: Page) {
   const organization = await loginAsAdmin(page);
   await page.goto("/reports/summary");
-  await expect(page.getByRole("heading", { name: "Reports" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Choose report" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Reports menu" })).toBeVisible();
   await expect(page.getByText("Updating…")).toHaveCount(0);
   return organization;

@@ -56,12 +56,12 @@ export function ReportSwitcher() {
             type="button"
             variant="ghost"
             aria-label="Choose report"
-            className="h-auto max-w-64 min-w-0 gap-1 px-2 py-0.5 text-2xl font-semibold tracking-tight"
+            className="-ml-2 h-auto max-w-full min-w-0 gap-1.5 px-2 py-1 font-heading text-2xl font-semibold tracking-tight"
           />
         }
       >
         <span className="truncate">{label}</span>
-        <ChevronDownIcon data-icon="inline-end" className="size-5 text-muted-foreground" />
+        <ChevronDownIcon data-icon="inline-end" className="size-5 shrink-0 text-muted-foreground" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64">
         <DropdownMenuGroup>
