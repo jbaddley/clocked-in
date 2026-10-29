@@ -1,39 +1,60 @@
 name: Staging E2E
 
 on:
-  push:
-    branches: [staging]
+  deployment_status:
 
 jobs:
   staging:
     name: Staging views
+    if: >-
+      github.event.deployment_status.state == 'success' &&
+      github.event.deployment.environment != 'Production'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      E2E_BASE_URL: ${{ github.event.deployment_status.environment_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: staging
+
+      - name: Check deployment is the staging head
+        id: deployment
+        env:
+          DEPLOYMENT_SHA: ${{ github.event.deployment.sha }}
+        run: |
+          if [ "$(git rev-parse HEAD)" = "$DEPLOYMENT_SHA" ]; then
+            echo "staging=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Skipping deployment that is not the current staging commit."
+          fi
 
       - uses: actions/setup-node@v4
+        if: steps.deployment.outputs.staging == 'true'
         with:
           node-version: 22
           cache: npm
 
       - run: npm ci
+        if: steps.deployment.outputs.staging == 'true'
 
       - run: npx playwright install --with-deps chromium
+        if: steps.deployment.outputs.staging == 'true'
 
       - name: Wait for this commit on staging
+        if: steps.deployment.outputs.staging == 'true'
         env:
-          GITHUB_SHA: ${{ github.sha }}
+          EXPECTED_SHA: ${{ github.event.deployment.sha }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
           node --input-type=module <<'EOF'
-          const sha = process.env.GITHUB_SHA;
+          const sha = process.env.EXPECTED_SHA;
           const secret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim();
           if (!secret) {
             console.error("VERCEL_AUTOMATION_BYPASS_SECRET is required to reach staging.");
             process.exit(1);
           }
-          const url = "https://staging.clocked-in.baddley.us/health";
+          const url = new URL("/health", process.env.E2E_BASE_URL);
           for (let attempt = 1; attempt <= 40; attempt += 1) {
             try {
               const response = await fetch(url, {
@@ -42,6 +63,12 @@ jobs:
                   "x-vercel-protection-bypass": secret,
                 },
               });
+              if (!response.ok) {
+                throw new Error(`Health check returned HTTP ${response.status}.`);
+              }
+              if (!response.headers.get("content-type")?.includes("application/json")) {
+                throw new Error(`Health check returned non-JSON content (HTTP ${response.status}).`);
+              }
               const body = await response.json();
               console.log(`attempt ${attempt}: ${body.commit ?? "missing"} (${response.status})`);
               if (body.commit === sha) process.exit(0);
@@ -55,9 +82,9 @@ jobs:
           EOF
 
       - name: Run staging end-to-end tests
+        if: steps.deployment.outputs.staging == 'true'
         run: npm run test:e2e:staging
         env:
           E2E_ENV: STAGING
-          E2E_BASE_URL: https://staging.clocked-in.baddley.us/
           SEED_SUPERADMIN_PASSWORD: ${{ secrets.SEED_SUPERADMIN_PASSWORD }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
