@@ -50,7 +50,7 @@ async function collect(dir, segments = []) {
         }
       }
       let path = `/${segments.join("/")}`;
-      if (path === "/mcp" || path.startsWith("/brand/")) continue;
+      if (path === "/mcp" || path.startsWith("/brand/") || path.startsWith("/webhooks/")) continue;
       if (path === "/api/feedback" || path.startsWith("/api/feedback/")) path = path.slice(4);
       if (exported.size === 0) continue;
       routes.set(canonical(path), {

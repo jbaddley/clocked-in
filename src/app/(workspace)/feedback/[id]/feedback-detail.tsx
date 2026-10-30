@@ -78,7 +78,7 @@ function FeedbackBody({ feedback, canUpdateStatus }: { feedback: Feedback; canUp
         <Meta label="From" value={`${formatPersonName(feedback.user)} (${feedback.user.username})`} />
         <Meta label="Organization" value={feedback.organization?.name ?? "—"} />
         <Meta
-          label="GitHub"
+          label="Linear"
           value={
             feedback.ticketUrl ? (
               <a
@@ -87,7 +87,7 @@ function FeedbackBody({ feedback, canUpdateStatus }: { feedback: Feedback; canUp
                 rel="noreferrer"
                 className="text-primary underline-offset-4 hover:underline"
               >
-                {feedback.githubIssueNumber ? `#${feedback.githubIssueNumber}` : "Open issue"}
+                {feedback.linearIssueIdentifier ? feedback.linearIssueIdentifier : "Open issue"}
               </a>
             ) : (
               "—"
@@ -245,7 +245,7 @@ function StatusForm({ feedback }: { feedback: Feedback }) {
           <Field
             label="Ticket URL"
             htmlFor="feedback-ticket"
-            hint="Optional extra ticket URL. GitHub issues are created automatically."
+            hint="Optional extra ticket URL. Linear issues are created automatically."
           >
             <Input id="feedback-ticket" name="ticketUrl" type="url" className="h-9" />
           </Field>
@@ -269,11 +269,13 @@ function ActionHistory({ feedback }: { feedback: Feedback }) {
         {feedback.actions.map((action) => (
           <li key={action.id} className="grid gap-1 rounded-xl bg-card p-4 text-sm ring-1 ring-foreground/10">
             <p className="font-medium">
-              {feedbackLabel(feedbackStatuses, action.previousStatus as FeedbackStatus)} to{" "}
-              {feedbackLabel(feedbackStatuses, action.updatedStatus as FeedbackStatus)}
+              {action.previousStatus === action.updatedStatus
+                ? `Comment (${feedbackLabel(feedbackStatuses, action.updatedStatus as FeedbackStatus)})`
+                : `${feedbackLabel(feedbackStatuses, action.previousStatus as FeedbackStatus)} to ${feedbackLabel(feedbackStatuses, action.updatedStatus as FeedbackStatus)}`}
             </p>
             <p className="text-muted-foreground">
-              {action.takenBy.displayName || action.takenBy.username} · {formatWhen(action.updatedAt)}
+              {action.takenBy ? action.takenBy.displayName || action.takenBy.username : "Linear"} ·{" "}
+              {formatWhen(action.updatedAt)}
             </p>
             <p className="whitespace-pre-wrap leading-6">{action.description}</p>
           </li>

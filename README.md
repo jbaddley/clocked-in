@@ -60,7 +60,7 @@ APP_ENV=production npm run db:deploy
 
 The baseline preserves the effective EF schema, 18 CHECK constraints, and required roles, themes, permissions, and report templates. Existing databases must pass adoption checks before recording it. Do not edit the baseline after any environment adopts it.
 
-Next.js implements the [HTTP contract](docs/api/http.md) on port 3025. `JWT_SIGNING_KEY`, `JWT_ISSUER`, `JWT_AUDIENCE`, `API_KEY_PEPPER`, Resend settings, and optional `GITHUB_TOKEN` / `GITHUB_REPO` configure the backend.
+Next.js implements the [HTTP contract](docs/api/http.md) on port 3025. `JWT_SIGNING_KEY`, `JWT_ISSUER`, `JWT_AUDIENCE`, `API_KEY_PEPPER`, Resend settings, and optional `LINEAR_API_KEY` / `LINEAR_WEBHOOK_SECRET` configure the backend.
 
 Docs live in [docs/README.md](docs/README.md). Brand files and seed workbooks are in [docs/base/](docs/base/). The [original goals assessment](docs/original-goals-assessment.md) tracks brief vs shipped.
 
@@ -96,7 +96,7 @@ A SuperAdmin is a user flag, not a membership role. Set the first one in the sha
 UPDATE "User" SET "isSuperAdmin" = true WHERE "email" = 'you@example.com';
 ```
 
-HTTP contract tests (`npm run test:http`) target Next.js. Use a disposable database and the mail/GitHub sinks under `tests/http`; tests create and change records. `API_BASE_URL` overrides the default origin.
+HTTP contract tests (`npm run test:http`) target Next.js. Use a disposable database and the mail/Linear sinks under `tests/http`; tests create and change records. `API_BASE_URL` overrides the default origin.
 
 `npm run test:migrations` needs an explicit `MIGRATION_TEST_DATABASE_URL` with permission to create disposable databases. It checks fresh deployment, adoption without data changes, drift rejection, and migration replay. CI runs it against an isolated PostgreSQL service.
 

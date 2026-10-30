@@ -1,7 +1,7 @@
 import { Prisma } from "@/generated/prisma/client";
 import { Access } from "@/lib/api/access";
 import { guard } from "@/lib/api/db";
-import { forbidden, notFound } from "@/lib/api/errors";
+import { fail, forbidden, notFound, unauthorized, validation } from "@/lib/api/errors";
 import {
   activeFeedbackStatuses,
   Body,
@@ -26,7 +26,15 @@ import {
   type FeedbackType,
   utcNow,
 } from "@/lib/api/json";
-import { createGithubIssue, syncGithubIssueState } from "@/lib/api/github-issues";
+import {
+  createLinearIssue,
+  extractFeedbackDescription,
+  extractFeedbackIdFromDescription,
+  mapLinearPriorityToFeedbackPriority,
+  mapLinearStateToFeedbackStatus,
+  syncLinearIssueState,
+  verifyLinearWebhookSignature,
+} from "@/lib/api/linear-issues";
 import { sendEmail } from "@/lib/api/mail";
 import type { EmailContext, EmailTemplateFor } from "@/lib/email/templates";
 import { appUrl } from "@/lib/api/security";
@@ -109,7 +117,8 @@ function feedbackJson(feedback: FeedbackRow, includeActions: boolean) {
     status,
     active: isActiveFeedback(status),
     completed: isCompletedFeedback(status),
-    githubIssueNumber: feedback.githubIssueNumber,
+    linearIssueId: feedback.linearIssueId,
+    linearIssueIdentifier: feedback.linearIssueIdentifier,
     ticketUrl: feedback.ticketUrl,
     createdAt: feedback.createdAt.toISOString(),
     updatedAt: feedback.updatedAt.toISOString(),
@@ -125,7 +134,7 @@ function feedbackJson(feedback: FeedbackRow, includeActions: boolean) {
           description: action.description,
           takenByUserId: action.takenByUserId,
           ticketUrl: action.ticketUrl,
-          takenBy: personJson(action.takenBy),
+          takenBy: action.takenBy ? personJson(action.takenBy) : null,
         }))
       : [],
   };
@@ -246,8 +255,8 @@ async function trySend(
   }
 }
 
-async function tryOpenGithubIssue(feedback: FeedbackRow) {
-  const issue = await createGithubIssue({
+async function tryOpenLinearIssue(feedback: FeedbackRow) {
+  const issue = await createLinearIssue({
     id: feedback.id,
     title: feedback.title,
     type: feedback.type as FeedbackType,
@@ -267,11 +276,20 @@ async function tryOpenGithubIssue(feedback: FeedbackRow) {
   try {
     return await prisma.feedback.update({
       where: { id: feedback.id },
-      data: { githubIssueNumber: issue.number, ticketUrl: issue.htmlUrl },
+      data: {
+        linearIssueId: issue.id,
+        linearIssueIdentifier: issue.identifier,
+        ticketUrl: issue.url,
+      },
       include: feedbackInclude,
     });
   } catch {
-    return { ...feedback, githubIssueNumber: issue.number, ticketUrl: issue.htmlUrl };
+    return {
+      ...feedback,
+      linearIssueId: issue.id,
+      linearIssueIdentifier: issue.identifier,
+      ticketUrl: issue.url,
+    };
   }
 }
 
@@ -353,7 +371,7 @@ export async function createFeedback(access: Access, request: CreateFeedbackRequ
     }),
   );
   await notifyCreated(created);
-  return feedbackJson(await tryOpenGithubIssue(created), false);
+  return feedbackJson(await tryOpenLinearIssue(created), false);
 }
 
 export async function listFeedback(access: Access, params: URLSearchParams) {
@@ -455,8 +473,8 @@ export async function updateFeedback(access: Access, feedbackId: string, request
       include: detailInclude,
     }),
   );
-  if (existing.githubIssueNumber) {
-    await syncGithubIssueState(existing.githubIssueNumber, request.status);
+  if (existing.linearIssueId) {
+    await syncLinearIssueState(existing.linearIssueId, request.status);
   }
 
   if (!isCompletedFeedback(previous) && isCompletedFeedback(request.status)) {
@@ -472,4 +490,294 @@ export async function updateFeedback(access: Access, feedbackId: string, request
   }
 
   return feedbackJson(updated, true);
+}
+
+function cleanHttpUrl(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > 2000) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? trimmed : null;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveWebhookActorUserId(
+  actor: Record<string, unknown> | null,
+  dataUser: Record<string, unknown> | null,
+): Promise<string | null> {
+  const rawEmail =
+    (typeof actor?.email === "string" && actor.email.trim()) ||
+    (typeof dataUser?.email === "string" && dataUser.email.trim()) ||
+    "";
+  if (!rawEmail) {
+    return null;
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { email: rawEmail.toLowerCase() },
+    select: { id: true },
+  });
+  return user?.id ?? null;
+}
+
+async function findFeedbackForIssueWebhook(data: Record<string, unknown>) {
+  const issueId = typeof data.id === "string" ? data.id.trim() : "";
+  const identifier = typeof data.identifier === "string" ? data.identifier.trim() : "";
+  const descriptionText = typeof data.description === "string" ? data.description : null;
+  const feedbackId = extractFeedbackIdFromDescription(descriptionText);
+
+  if (issueId) {
+    const byIssueId = await prisma.feedback.findUnique({
+      where: { linearIssueId: issueId },
+      include: detailInclude,
+    });
+    if (byIssueId) return byIssueId;
+  }
+
+  if (identifier) {
+    const byIdentifier = await prisma.feedback.findFirst({
+      where: { linearIssueIdentifier: identifier },
+      include: detailInclude,
+    });
+    if (byIdentifier) return byIdentifier;
+  }
+
+  if (feedbackId) {
+    const byFeedbackId = await prisma.feedback.findUnique({
+      where: { id: feedbackId },
+      include: detailInclude,
+    });
+    if (byFeedbackId) return byFeedbackId;
+  }
+
+  return null;
+}
+
+async function findFeedbackForCommentWebhook(data: Record<string, unknown>) {
+  const issueObj =
+    typeof data.issue === "object" && data.issue !== null ? (data.issue as Record<string, unknown>) : null;
+  const issueId =
+    (typeof data.issueId === "string" && data.issueId.trim()) ||
+    (typeof issueObj?.id === "string" && issueObj.id.trim()) ||
+    "";
+  const identifier = typeof issueObj?.identifier === "string" ? issueObj.identifier.trim() : "";
+
+  if (issueId) {
+    const byIssueId = await prisma.feedback.findUnique({
+      where: { linearIssueId: issueId },
+      include: detailInclude,
+    });
+    if (byIssueId) return byIssueId;
+  }
+
+  if (identifier) {
+    const byIdentifier = await prisma.feedback.findFirst({
+      where: { linearIssueIdentifier: identifier },
+      include: detailInclude,
+    });
+    if (byIdentifier) return byIdentifier;
+  }
+
+  return null;
+}
+
+export async function handleLinearWebhook(rawBody: string, signatureHeader: string | null) {
+  if (!process.env.LINEAR_WEBHOOK_SECRET?.trim()) {
+    fail(503, "webhook_unconfigured", "Linear webhook secret is not configured.");
+  }
+
+  if (!verifyLinearWebhookSignature(rawBody, signatureHeader)) {
+    unauthorized("Invalid Linear webhook signature.");
+  }
+
+  let payload: Record<string, unknown>;
+  try {
+    const parsed = JSON.parse(rawBody) as unknown;
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      validation("Request body must be JSON.");
+    }
+    payload = parsed as Record<string, unknown>;
+  } catch (error) {
+    if (error instanceof Error && "status" in error) {
+      throw error;
+    }
+    validation("Request body must be JSON.");
+  }
+
+  if (typeof payload.webhookTimestamp === "number" && Number.isFinite(payload.webhookTimestamp)) {
+    const timestampMs =
+      payload.webhookTimestamp < 1_000_000_000_000 ? payload.webhookTimestamp * 1000 : payload.webhookTimestamp;
+    if (Math.abs(Date.now() - timestampMs) > 5 * 60 * 1000) {
+      unauthorized("Linear webhook timestamp is expired.");
+    }
+  }
+
+  const type = typeof payload.type === "string" ? payload.type.trim() : "";
+  const action = typeof payload.action === "string" ? payload.action.trim() : "";
+  const data =
+    typeof payload.data === "object" && payload.data !== null && !Array.isArray(payload.data)
+      ? (payload.data as Record<string, unknown>)
+      : null;
+  if (!data) {
+    return { ok: true, matched: false };
+  }
+
+  const actor =
+    typeof payload.actor === "object" && payload.actor !== null && !Array.isArray(payload.actor)
+      ? (payload.actor as Record<string, unknown>)
+      : null;
+  const dataUser =
+    typeof data.user === "object" && data.user !== null && !Array.isArray(data.user)
+      ? (data.user as Record<string, unknown>)
+      : null;
+  const actorName =
+    (typeof actor?.name === "string" && actor.name.trim()) ||
+    (typeof dataUser?.name === "string" && dataUser.name.trim()) ||
+    "Linear";
+
+  if (type === "Comment") {
+    if (action !== "create") {
+      return { ok: true, matched: false };
+    }
+
+    const existing = await findFeedbackForCommentWebhook(data);
+    if (!existing) {
+      return { ok: true, matched: false };
+    }
+
+    const rawComment = typeof data.body === "string" ? data.body.trim() : "";
+    if (!rawComment) {
+      return { ok: true, matched: true, feedback: feedbackJson(existing, true) };
+    }
+
+    const takenByUserId = await resolveWebhookActorUserId(actor, dataUser);
+    const commentText =
+      !takenByUserId && actorName !== "Linear"
+        ? `${actorName} commented in Linear:\n${rawComment}`.slice(0, 2000)
+        : rawComment.slice(0, 2000);
+    const now = utcNow();
+    const updated = await guard(
+      prisma.feedback.update({
+        where: { id: existing.id },
+        data: {
+          updatedAt: now,
+          actions: {
+            create: {
+              previousStatus: existing.status,
+              updatedStatus: existing.status,
+              updatedAt: now,
+              description: commentText,
+              takenByUserId,
+              ticketUrl: existing.ticketUrl,
+            },
+          },
+        },
+        include: detailInclude,
+      }),
+    );
+    return { ok: true, matched: true, feedback: feedbackJson(updated, true) };
+  }
+
+  if (type !== "Issue") {
+    return { ok: true, matched: false };
+  }
+
+  const existing = await findFeedbackForIssueWebhook(data);
+  if (!existing) {
+    return { ok: true, matched: false };
+  }
+
+  const previous = existing.status as FeedbackStatus;
+  const stateObj =
+    typeof data.state === "object" && data.state !== null && !Array.isArray(data.state)
+      ? (data.state as { name?: string | null; type?: string | null })
+      : null;
+
+  let nextStatus: FeedbackStatus = previous;
+  let actionDescription: string | null = null;
+  if (action === "remove" || data.trashed === true) {
+    nextStatus = "Cancelled";
+    actionDescription = "Issue cancelled in Linear.";
+  } else if (typeof data.archivedAt === "string" && data.archivedAt.trim().length > 0 && !isCompletedFeedback(previous)) {
+    nextStatus = "Archived";
+    actionDescription = "Issue archived in Linear.";
+  } else if (stateObj) {
+    const mapped = mapLinearStateToFeedbackStatus(stateObj);
+    if (mapped) {
+      nextStatus = mapped;
+      const stateLabel = stateObj.name?.trim() || stateObj.type?.trim() || mapped;
+      actionDescription = `Status updated in Linear (${stateLabel}).`;
+    }
+  }
+
+  const issueId = typeof data.id === "string" && data.id.trim() ? data.id.trim() : existing.linearIssueId;
+  const identifier =
+    typeof data.identifier === "string" && data.identifier.trim()
+      ? data.identifier.trim()
+      : existing.linearIssueIdentifier;
+  const resolvedTicketUrl = cleanHttpUrl(data.url) ?? cleanHttpUrl(payload.url) ?? existing.ticketUrl;
+  const nextPriority = mapLinearPriorityToFeedbackPriority(data.priority) ?? (existing.priority as FeedbackPriority);
+  const rawTitle = typeof data.title === "string" ? data.title.trim() : "";
+  const nextTitle = rawTitle.length >= 1 ? rawTitle.slice(0, 120) : existing.title;
+  const extractedDescription =
+    typeof data.description === "string" ? extractFeedbackDescription(data.description) : null;
+  const nextDescription = extractedDescription ?? existing.description;
+
+  const statusChanged = nextStatus !== previous;
+  const takenByUserId = statusChanged ? await resolveWebhookActorUserId(actor, dataUser) : null;
+  const now = utcNow();
+
+  const updated = await guard(
+    prisma.feedback.update({
+      where: { id: existing.id },
+      data: {
+        status: nextStatus,
+        priority: nextPriority,
+        title: nextTitle,
+        description: nextDescription,
+        linearIssueId: issueId,
+        linearIssueIdentifier: identifier,
+        ticketUrl: resolvedTicketUrl,
+        updatedAt: now,
+        ...(statusChanged
+          ? {
+              actions: {
+                create: {
+                  previousStatus: previous,
+                  updatedStatus: nextStatus,
+                  updatedAt: now,
+                  description: actionDescription ?? `Status updated to ${nextStatus} in Linear.`,
+                  takenByUserId,
+                  ticketUrl: resolvedTicketUrl,
+                },
+              },
+            }
+          : {}),
+      },
+      include: detailInclude,
+    }),
+  );
+
+  if (statusChanged && !isCompletedFeedback(previous) && isCompletedFeedback(nextStatus)) {
+    await trySend(updated.user.email, updated.organizationId, "FeedbackCompleted", {
+      user: { firstName: firstName(updated.user) },
+      feedback: {
+        title: updated.title,
+        typeLabel: typeLabel(updated.type),
+        outcome: outcome(nextStatus),
+        note: actionDescription ?? `Status updated to ${nextStatus} in Linear.`,
+      },
+    });
+  }
+
+  return { ok: true, matched: true, feedback: feedbackJson(updated, true) };
 }

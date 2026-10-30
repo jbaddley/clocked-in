@@ -446,23 +446,24 @@ model Theme {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model Feedback {
-  id                String           @id(map: "PK_Feedback") @default(uuid()) @db.Uuid
-  userId            String           @db.Uuid
-  organizationId    String?          @db.Uuid
-  type              String
-  priority          String
-  area              String
-  title             String
-  description       String
-  screenshotUrls    Json
-  status            String           @default("Pending")
-  createdAt         DateTime         @default(now()) @db.Timestamptz(6)
-  updatedAt         DateTime         @db.Timestamptz(6)
-  githubIssueNumber Int?
-  ticketUrl         String?
-  organization      Organization?    @relation(fields: [organizationId], references: [id], onUpdate: NoAction, map: "FK_Feedback_Organization_organizationId")
-  user              User             @relation(fields: [userId], references: [id], onUpdate: NoAction, map: "FK_Feedback_User_userId")
-  actions           FeedbackAction[]
+  id                    String           @id(map: "PK_Feedback") @default(uuid()) @db.Uuid
+  userId                String           @db.Uuid
+  organizationId        String?          @db.Uuid
+  type                  String
+  priority              String
+  area                  String
+  title                 String
+  description           String
+  screenshotUrls        Json
+  status                String           @default("Pending")
+  createdAt             DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime         @db.Timestamptz(6)
+  linearIssueId         String?          @unique(map: "IX_Feedback_linearIssueId", where: raw("(\"linearIssueId\" IS NOT NULL)"))
+  linearIssueIdentifier String?
+  ticketUrl             String?
+  organization          Organization?    @relation(fields: [organizationId], references: [id], onUpdate: NoAction, map: "FK_Feedback_Organization_organizationId")
+  user                  User             @relation(fields: [userId], references: [id], onUpdate: NoAction, map: "FK_Feedback_User_userId")
+  actions               FeedbackAction[]
 
   @@index([createdAt], map: "IX_Feedback_createdAt")
   @@index([organizationId], map: "IX_Feedback_organizationId")
@@ -478,10 +479,10 @@ model FeedbackAction {
   updatedStatus  String
   updatedAt      DateTime @db.Timestamptz(6)
   description    String
-  takenByUserId  String   @db.Uuid
+  takenByUserId  String?  @db.Uuid
   ticketUrl      String?
   feedback       Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_FeedbackAction_Feedback_feedbackId")
-  takenBy        User     @relation("FeedbackActionTakenBy", fields: [takenByUserId], references: [id], onUpdate: NoAction, map: "FK_FeedbackAction_User_takenByUserId")
+  takenBy        User?    @relation("FeedbackActionTakenBy", fields: [takenByUserId], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "FK_FeedbackAction_User_takenByUserId")
 
   @@index([feedbackId], map: "IX_FeedbackAction_feedbackId")
   @@index([takenByUserId], map: "IX_FeedbackAction_takenByUserId")

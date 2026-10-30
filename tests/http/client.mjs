@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import pg from "pg";
-import { apiBaseUrl, databaseUrl, githubSinkUrl, mailSinkUrl } from "./fixture.mjs";
+import { apiBaseUrl, databaseUrl, linearSinkUrl, mailSinkUrl } from "./fixture.mjs";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const instantPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
@@ -601,14 +601,14 @@ export async function waitForMatchingEmails(email, pattern, minCount = 1) {
   );
 }
 
-export async function waitForGithubIssue(title) {
+export async function waitForLinearIssue(title, predicate) {
   const deadline = Date.now() + 8000;
   let issues = [];
   while (Date.now() < deadline) {
-    const response = await fetch(`${githubSinkUrl}/issues`);
+    const response = await fetch(`${linearSinkUrl}/issues`);
     if (response.ok) {
       issues = await response.json();
-      const match = issues.find((issue) => issue.title === title);
+      const match = issues.find((issue) => issue.title === title && (!predicate || predicate(issue)));
       if (match) {
         return match;
       }
@@ -618,7 +618,7 @@ export async function waitForGithubIssue(title) {
   }
 
   throw new Error(
-    `Expected a GitHub issue titled ${title}. Start tests/http/github-sink.mjs and point GITHUB_API_URL at ${githubSinkUrl}. Got ${issues.length}.`,
+    `Expected a Linear issue titled ${title}. Start tests/http/linear-sink.mjs and point LINEAR_API_URL at ${linearSinkUrl}/graphql. Got ${issues.length}.`,
   );
 }
 

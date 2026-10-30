@@ -49,7 +49,7 @@ test(
   { skip: !adminUrl },
   async () => {
     const admin = new pg.Client({ connectionString: adminUrl });
-    const names = ["fresh", "adopt"].map((suffix) => `prisma_test_${randomUUID().replaceAll("-", "")}_${suffix}`);
+    const names = ["fresh", "adopt", "reference"].map((suffix) => `prisma_test_${randomUUID().replaceAll("-", "")}_${suffix}`);
     const clients = [];
     await admin.connect();
     try {
@@ -67,7 +67,9 @@ test(
         await client.connect();
         clients.push(client);
       }
-      const [fresh, adopted] = clients;
+      const [fresh, adopted, reference] = clients;
+      await reference.query(readFileSync("prisma/migrations/0_baseline/migration.sql", "utf8"));
+      prisma(urls[2], "migrate", "resolve", "--applied", "0_baseline");
       await adopted.query(readFileSync("prisma/migrations/0_baseline/migration.sql", "utf8"));
       await adopted.query(`CREATE SCHEMA ef; CREATE TABLE ef."__EFMigrationsHistory" (id text PRIMARY KEY);
       INSERT INTO ef."__EFMigrationsHistory" VALUES ('preserve-history');
@@ -78,14 +80,14 @@ test(
       const before = await applicationData(adopted);
       const beforeSchema = await schemaSnapshot(adopted);
       await adopted.query(`DROP INDEX "IX_Organization_slug"; ALTER TABLE "Organization" DROP COLUMN "slug"`);
-      await assert.rejects(verifyBaseline(adopted, fresh), /mismatch in columns/);
+      await assert.rejects(verifyBaseline(adopted, reference), /mismatch in columns/);
       const catchup = readFileSync("prisma/adoption/organization-slug.sql", "utf8");
       await adopted.query(catchup);
       await adopted.query(catchup);
       assert.deepEqual(await applicationData(adopted), before);
       assert.deepEqual(await schemaSnapshot(adopted), beforeSchema);
       await adopted.query(`CREATE EXTENSION pg_trgm`);
-      await assert.rejects(verifyBaseline(adopted, fresh), /mismatch in extensions/);
+      await assert.rejects(verifyBaseline(adopted, reference), /mismatch in extensions/);
       await adopted.query(`DROP EXTENSION pg_trgm`);
       const managedProvider = {
         query: (sql, ...args) =>
@@ -96,19 +98,26 @@ test(
             ...args,
           ),
       };
-      await verifyBaseline(managedProvider, fresh);
+      await verifyBaseline(managedProvider, reference);
       await adopted.query(`UPDATE "Role" SET scope='invalid' WHERE code='MEMBER' AND "organizationId" IS NULL`);
-      await assert.rejects(verifyBaseline(adopted, fresh), /missing required system roles/);
+      await assert.rejects(verifyBaseline(adopted, reference), /missing required system roles/);
       await adopted.query(`UPDATE "Role" SET scope='assigned_groups' WHERE code='MEMBER' AND "organizationId" IS NULL`);
-      await verifyBaseline(adopted, fresh);
+      await verifyBaseline(adopted, reference);
+      await adopted.query(`ALTER TABLE "User" ALTER COLUMN "createdAt" TYPE timestamptz`);
+      await verifyBaseline(adopted, reference);
+      await adopted.query(`ALTER TABLE "User" DROP CONSTRAINT "User_lowercase_identity_check"`);
+      await assert.rejects(verifyBaseline(adopted, reference), /mismatch in constraints/);
+      await adopted.query(
+        `ALTER TABLE "User" ADD CONSTRAINT "User_lowercase_identity_check" CHECK (((username = lower(username)) AND (email = lower(email))))`,
+      );
+      await verifyBaseline(adopted, reference);
       const adoption = spawnSync(process.execPath, ["scripts/with-env.mjs", "--", "node", "scripts/baseline.mjs"], {
-        env: { ...process.env, APP_ENV: "local", DATABASE_URL: urls[1], BASELINE_REFERENCE_URL: urls[0] },
+        env: { ...process.env, APP_ENV: "local", DATABASE_URL: urls[1], BASELINE_REFERENCE_URL: urls[2] },
         encoding: "utf8",
       });
       assert.equal(adoption.status, 0, `${adoption.stdout}\n${adoption.stderr}`);
       prisma(urls[1], "migrate", "deploy");
       assert.deepEqual(await applicationData(adopted), before);
-      assert.deepEqual(await schemaSnapshot(adopted), beforeSchema);
       assert.deepEqual(await schemaSnapshot(adopted), await schemaSnapshot(fresh));
       assert.equal(
         (await adopted.query(`SELECT count(*)::int AS total FROM ef."__EFMigrationsHistory"`)).rows[0].total,
@@ -116,11 +125,8 @@ test(
       );
       assert.equal((await adopted.query(`SELECT count(*)::int AS total FROM "Organization"`)).rows[0].total, 1);
       assert.equal(beforeSchema.constraints.filter((row) => row.contype === "c").length, 18);
-      await adopted.query(`ALTER TABLE "User" ALTER COLUMN "createdAt" TYPE timestamptz`);
-      await verifyBaseline(adopted, fresh);
+      assert.equal((await schemaSnapshot(fresh)).constraints.filter((row) => row.contype === "c").length, 18);
       await assert.rejects(adopted.query(`UPDATE "User" SET email='UPPER@example.test'`), { code: "23514" });
-      await adopted.query(`ALTER TABLE "User" DROP CONSTRAINT "User_lowercase_identity_check"`);
-      await assert.rejects(verifyBaseline(adopted, fresh), /mismatch in constraints/);
       prisma(
         urls[0],
         "migrate",

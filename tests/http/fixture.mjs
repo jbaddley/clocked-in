@@ -6,7 +6,7 @@ export const apiBaseUrl = process.env.API_BASE_URL || "http://127.0.0.1:3025";
 
 export const mailSinkUrl = process.env.MAIL_SINK_URL || "http://127.0.0.1:5399";
 
-export const githubSinkUrl = process.env.GITHUB_SINK_URL || "http://127.0.0.1:5400";
+export const linearSinkUrl = process.env.LINEAR_SINK_URL || "http://127.0.0.1:5400";
 
 export function databaseUrl() {
   const raw = process.env.DATABASE_URL;

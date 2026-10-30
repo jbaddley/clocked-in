@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
 import { before, describe, test } from "node:test";
 import {
   acceptInvite,
@@ -14,9 +15,10 @@ import {
   missingId,
   signUp,
   suite,
-  waitForGithubIssue,
+  waitForLinearIssue,
   waitForMatchingEmails,
 } from "./client.mjs";
+import { apiBaseUrl } from "./fixture.mjs";
 
 function feedbackBody(overrides = {}) {
   return {
@@ -28,6 +30,33 @@ function feedbackBody(overrides = {}) {
     screenshotUrls: [],
     ...overrides,
   };
+}
+
+function signLinearWebhook(payload, secret = process.env.LINEAR_WEBHOOK_SECRET || "") {
+  const raw = JSON.stringify(payload);
+  const signature = createHmac("sha256", secret).update(raw, "utf8").digest("hex");
+  return { raw, signature };
+}
+
+async function postLinearWebhook(payload, { signature, secret } = {}) {
+  const signed = signLinearWebhook(payload, secret);
+  const headers = {
+    "content-type": "application/json",
+    ...(signature !== null ? { "linear-signature": signature ?? signed.signature } : {}),
+  };
+  const response = await fetch(`${apiBaseUrl}/webhooks/linear`, {
+    method: "POST",
+    headers,
+    body: signed.raw,
+  });
+  const text = await response.text();
+  let json = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = null;
+  }
+  return { status: response.status, text, json };
 }
 
 function assertFeedback(item, expected = {}) {
@@ -44,7 +73,8 @@ function assertFeedback(item, expected = {}) {
     "status",
     "active",
     "completed",
-    "githubIssueNumber",
+    "linearIssueId",
+    "linearIssueIdentifier",
     "ticketUrl",
     "createdAt",
     "updatedAt",
@@ -132,13 +162,14 @@ describe("feedback", suite, () => {
     assert.equal(created.organizationId, ctx.org.id);
     assert.equal(created.organization.name, ctx.org.name);
     assert.equal(created.actions.length, 0);
-    const issue = await waitForGithubIssue(body.title);
-    assert.equal(created.githubIssueNumber, issue.number);
-    assert.equal(created.ticketUrl, issue.html_url);
-    assert.equal(issue.state, "open");
+    const issue = await waitForLinearIssue(body.title);
+    assert.equal(created.linearIssueId, issue.id);
+    assert.equal(created.linearIssueIdentifier, issue.identifier);
+    assert.equal(created.ticketUrl, issue.url);
+    assert.equal(issue.stateType, "triage");
     assert.ok(issue.labels.includes("Bug"));
-    assert.match(issue.body, new RegExp(`\\*\\*VolunTime:\\*\\* https?://\\S+/feedback/${created.id}(?:\\s|$)`));
-    ctx.githubIssue = issue;
+    assert.match(issue.description, new RegExp(`\\*\\*VolunTime:\\*\\* https?://\\S+/feedback/${created.id}(?:\\s|$)`));
+    ctx.linearIssue = issue;
 
     const memberList = await callApi("/feedback", { token: ctx.member.accessToken });
     assertError(memberList, 403, "forbidden", "Forbidden.");
@@ -310,10 +341,10 @@ describe("feedback", suite, () => {
     assert.equal(updated.json.actions[0].updatedStatus, "Resolved");
     assert.equal(updated.json.actions[0].ticketUrl, "https://linear.app/team/issue/ABC-1");
     assert.equal(updated.json.actions[0].takenByUserId, ctx.super.user.id);
-    const closed = await waitForGithubIssue(ctx.item.title);
-    assert.equal(closed.number, ctx.githubIssue.number);
-    assert.equal(closed.state, "closed");
-    assert.equal(closed.state_reason, "completed");
+    const closed = await waitForLinearIssue(ctx.item.title, (issue) => issue.stateType === "completed");
+    assert.equal(closed.id, ctx.linearIssue.id);
+    assert.equal(closed.stateType, "completed");
+    assert.equal(closed.stateName, "Done");
     const completed = await waitForMatchingEmails(ctx.member.email, /Update on your bug/i);
     assert.match(completed.at(-1).text, /completed the work/i);
     const completedCount = completed.length;
@@ -344,5 +375,129 @@ describe("feedback", suite, () => {
     });
     assert.ok(active.json.items.every((item) => item.active === true));
     assert.equal(active.json.items.some((item) => item.id === ctx.item.id), false);
+  });
+
+  test("Linear webhook validates signature and syncs issue updates, comments, and completion emails", async () => {
+    const item = await createJson(
+      ctx.member.accessToken,
+      "/feedback",
+      feedbackBody({ organizationId: ctx.org.id, title: label("Linear sync") }),
+    );
+    const issue = await waitForLinearIssue(item.title);
+    assert.equal(item.linearIssueId, issue.id);
+    assert.equal(item.linearIssueIdentifier, issue.identifier);
+
+    // 1. Missing or invalid signature is rejected with 401
+    const unsigned = await postLinearWebhook(
+      { action: "update", type: "Issue", data: { id: issue.id } },
+      { signature: null },
+    );
+    assertError(unsigned, 401, "unauthorized", "Invalid Linear webhook signature.");
+
+    const wrongSignature = await postLinearWebhook(
+      { action: "update", type: "Issue", data: { id: issue.id } },
+      { signature: "deadbeef" },
+    );
+    assertError(wrongSignature, 401, "unauthorized", "Invalid Linear webhook signature.");
+
+    // 2. Expired timestamp is rejected with 401
+    const expired = await postLinearWebhook({
+      action: "update",
+      type: "Issue",
+      webhookTimestamp: Date.now() - 10 * 60 * 1000,
+      data: { id: issue.id },
+    });
+    assertError(expired, 401, "unauthorized", "Linear webhook timestamp is expired.");
+
+    // 3. Issue update transitions status to InProgress and updates priority/title/description
+    const inProgressWebhook = await postLinearWebhook({
+      action: "update",
+      type: "Issue",
+      webhookTimestamp: Date.now(),
+      data: {
+        id: issue.id,
+        identifier: issue.identifier,
+        title: `${item.title} (triaged)`,
+        description: "Updated description from Linear.",
+        priority: 1,
+        url: issue.url,
+        state: { id: "state-in-progress", name: "In Progress", type: "started" },
+      },
+      actor: { name: "Linear Bot" },
+    });
+    assert.equal(inProgressWebhook.status, 200);
+    assert.equal(inProgressWebhook.json.ok, true);
+    assert.equal(inProgressWebhook.json.matched, true);
+    assert.equal(inProgressWebhook.json.feedback.status, "InProgress");
+    assert.equal(inProgressWebhook.json.feedback.priority, "Urgent");
+    assert.equal(inProgressWebhook.json.feedback.title, `${item.title} (triaged)`);
+    assert.equal(inProgressWebhook.json.feedback.description, "Updated description from Linear.");
+    assert.equal(inProgressWebhook.json.feedback.actions.length, 1);
+    assert.equal(inProgressWebhook.json.feedback.actions[0].previousStatus, "Pending");
+    assert.equal(inProgressWebhook.json.feedback.actions[0].updatedStatus, "InProgress");
+    assert.equal(inProgressWebhook.json.feedback.actions[0].takenBy, null);
+
+    // 4. Comment webhook records an action history item
+    const commentWebhook = await postLinearWebhook({
+      action: "create",
+      type: "Comment",
+      webhookTimestamp: Date.now(),
+      data: {
+        id: "comment-1",
+        issueId: issue.id,
+        body: "Investigating the root cause in the timer hook.",
+        user: { name: "Alex Admin" },
+      },
+    });
+    assert.equal(commentWebhook.status, 200);
+    assert.equal(commentWebhook.json.feedback.actions.length, 2);
+    assert.equal(commentWebhook.json.feedback.actions[1].previousStatus, "InProgress");
+    assert.equal(commentWebhook.json.feedback.actions[1].updatedStatus, "InProgress");
+    assert.match(commentWebhook.json.feedback.actions[1].description, /Investigating the root cause/);
+
+    // 5. Issue resolved in Linear transitions status to Resolved and emails the submitter
+    const beforeCompletedEmails = (await waitForMatchingEmails(ctx.member.email, /Update on your bug/i)).length;
+    const resolvedWebhook = await postLinearWebhook({
+      action: "update",
+      type: "Issue",
+      webhookTimestamp: Date.now(),
+      data: {
+        id: issue.id,
+        identifier: issue.identifier,
+        state: { id: "state-done", name: "Done", type: "completed" },
+      },
+      actor: { email: ctx.super.email, name: "Super Admin" },
+    });
+    assert.equal(resolvedWebhook.status, 200);
+    assert.equal(resolvedWebhook.json.feedback.status, "Resolved");
+    assert.equal(resolvedWebhook.json.feedback.completed, true);
+    assert.equal(resolvedWebhook.json.feedback.actions.length, 3);
+    assert.equal(resolvedWebhook.json.feedback.actions[2].takenByUserId, ctx.super.user.id);
+    const afterCompletedEmails = await waitForMatchingEmails(
+      ctx.member.email,
+      /Update on your bug/i,
+      beforeCompletedEmails + 1,
+    );
+    assert.equal(afterCompletedEmails.length, beforeCompletedEmails + 1);
+
+    // 6. Issue remove webhook cancels active feedback
+    const removable = await createJson(
+      ctx.member.accessToken,
+      "/feedback",
+      feedbackBody({ organizationId: ctx.org.id, title: label("Linear remove") }),
+    );
+    const removableIssue = await waitForLinearIssue(removable.title);
+    const removedWebhook = await postLinearWebhook({
+      action: "remove",
+      type: "Issue",
+      webhookTimestamp: Date.now(),
+      data: {
+        id: removableIssue.id,
+        identifier: removableIssue.identifier,
+      },
+    });
+    assert.equal(removedWebhook.status, 200);
+    assert.equal(removedWebhook.json.feedback.status, "Cancelled");
+    assert.equal(removedWebhook.json.feedback.active, false);
   });
 });

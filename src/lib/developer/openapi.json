@@ -20328,7 +20328,10 @@
             "type": "string"
           },
           "takenByUserId": {
-            "type": "string",
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "uuid"
           },
           "ticketUrl": {
@@ -20338,7 +20341,14 @@
             ]
           },
           "takenBy": {
-            "$ref": "#/components/schemas/FeedbackPersonDto"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/FeedbackPersonDto"
+              }
+            ]
           }
         }
       },
@@ -20407,14 +20417,17 @@
           "completed": {
             "type": "boolean"
           },
-          "githubIssueNumber": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
+          "linearIssueId": {
             "type": [
               "null",
-              "integer",
               "string"
-            ],
-            "format": "int32"
+            ]
+          },
+          "linearIssueIdentifier": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "ticketUrl": {
             "type": [

@@ -177,7 +177,7 @@ function FeedbackTable({ active }: { active: boolean }) {
             className='text-primary underline-offset-4 hover:underline'
             onClick={(event) => event.stopPropagation()}
           >
-            {row.githubIssueNumber ? `#${row.githubIssueNumber}` : "Open"}
+            {row.linearIssueIdentifier ? row.linearIssueIdentifier : "Open"}
           </a>
         ) : (
           "—"
