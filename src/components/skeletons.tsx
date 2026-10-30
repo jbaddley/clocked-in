@@ -1,123 +1,128 @@
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "cn";
+
+const HOUR_TICKS = Array.from({ length: 12 }, (_, index) => index * 30);
+
+export function ClockSpinner({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 120 120"
+      fill="none"
+      aria-hidden="true"
+      className={cn("size-28 shrink-0 text-primary sm:size-32", className)}
+    >
+      {/* Outer bezel and clock face */}
+      <circle cx="60" cy="60" r="56" className="fill-card stroke-primary/15" strokeWidth="2" />
+      <circle cx="60" cy="60" r="50" className="fill-card stroke-current" strokeWidth="4" />
+
+      {/* 12 hour markers around the dial */}
+      <g transform="translate(60 60)">
+        {HOUR_TICKS.map((angle, index) => {
+          const major = index % 3 === 0;
+          return (
+            <line
+              key={angle}
+              x1="0"
+              y1="-43"
+              x2="0"
+              y2={major ? "-35" : "-38.5"}
+              transform={`rotate(${angle})`}
+              strokeLinecap="round"
+              strokeWidth={major ? "3.25" : "2"}
+              className={major ? "stroke-current" : "stroke-muted-foreground/60"}
+            />
+          );
+        })}
+
+        {/* Hour hand */}
+        <g className="animate-clock-hour">
+          <line
+            x1="0"
+            y1="5"
+            x2="0"
+            y2="-22"
+            strokeLinecap="round"
+            strokeWidth="4.5"
+            className="stroke-current"
+          />
+        </g>
+
+        {/* Minute hand */}
+        <g className="animate-clock-minute">
+          <line
+            x1="0"
+            y1="6"
+            x2="0"
+            y2="-33"
+            strokeLinecap="round"
+            strokeWidth="3.25"
+            className="stroke-current"
+          />
+        </g>
+
+        {/* Ticking second hand */}
+        <g className="animate-clock-second">
+          <line
+            x1="0"
+            y1="10"
+            x2="0"
+            y2="-38"
+            strokeLinecap="round"
+            strokeWidth="2"
+            className="stroke-[var(--brand-accent)]"
+          />
+        </g>
+
+        {/* Center pivot cap */}
+        <circle cx="0" cy="0" r="4.5" className="fill-current" />
+        <circle cx="0" cy="0" r="2" className="fill-[var(--brand-accent)]" />
+      </g>
+    </svg>
+  );
+}
+
+export function PageLoader({
+  label = "Loading…",
+  className,
+}: {
+  label?: string;
+  className?: string;
+}) {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-label={label}
+      className={cn(
+        "flex min-h-[50vh] w-full flex-1 flex-col items-center justify-center gap-4 p-8 text-center",
+        className,
+      )}
+    >
+      <ClockSpinner />
+      <p className="text-base font-medium tracking-wide text-muted-foreground">{label}</p>
+    </div>
+  );
+}
 
 export function HeaderSkeleton() {
-  return <Skeleton className="h-8 w-48 lg:hidden" />;
+  return null;
 }
 
 export function StatsSkeleton() {
-  return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      {Array.from({ length: 4 }, (_, index) => (
-        <Card key={index} className="flex-row items-center gap-4 px-4">
-          <Skeleton className="size-11 rounded-xl" />
-          <div className="flex flex-1 flex-col gap-2">
-            <Skeleton className="h-3 w-20" />
-            <Skeleton className="h-6 w-16" />
-          </div>
-        </Card>
-      ))}
-    </div>
-  );
+  return <PageLoader />;
 }
 
-export function CardSkeleton({ rows = 4, className }: { rows?: number; className?: string }) {
-  return (
-    <Card className={className}>
-      <CardHeader>
-        <Skeleton className="h-5 w-40" />
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        {Array.from({ length: rows }, (_, index) => (
-          <Skeleton key={index} className="h-9 w-full" />
-        ))}
-      </CardContent>
-    </Card>
-  );
+export function CardSkeleton({ className }: { rows?: number; className?: string }) {
+  return <PageLoader className={className} />;
 }
 
 export function DashboardSkeleton() {
-  return (
-    <>
-      <HeaderSkeleton />
-      <StatsSkeleton />
-      <CardSkeleton rows={2} />
-      <div className="grid gap-6 lg:grid-cols-2">
-        <CardSkeleton rows={5} />
-        <CardSkeleton rows={5} />
-      </div>
-    </>
-  );
+  return <PageLoader />;
 }
 
-export function PageSkeleton({ rows = 6 }: { rows?: number }) {
-  return (
-    <>
-      <HeaderSkeleton />
-      <CardSkeleton rows={rows} />
-    </>
-  );
+export function PageSkeleton({ className }: { rows?: number; className?: string }) {
+  return <PageLoader className={className} />;
 }
 
 export function DesignerSkeleton() {
-  return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_18rem]">
-        <section className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border bg-card">
-          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
-            <Skeleton className="h-4 w-20" />
-            <div className="flex flex-wrap items-center gap-2">
-              <Skeleton className="size-9 rounded-lg" />
-              <Skeleton className="size-9 rounded-lg" />
-              <Skeleton className="size-9 rounded-lg" />
-              <Skeleton className="size-9 rounded-lg" />
-              <Skeleton className="h-9 w-16 rounded-lg" />
-              <Skeleton className="h-9 w-24 rounded-lg" />
-            </div>
-          </div>
-          <div className="min-h-0 flex-1 overflow-hidden bg-muted/40 p-3">
-            <div className="grid gap-3 sm:grid-cols-4">
-              {Array.from({ length: 4 }, (_, index) => (
-                <div key={index} className="flex items-center gap-3 rounded-xl border bg-card p-4">
-                  <Skeleton className="size-11 rounded-xl" />
-                  <div className="flex flex-1 flex-col gap-2">
-                    <Skeleton className="h-3 w-16" />
-                    <Skeleton className="h-6 w-12" />
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-3 grid gap-3 lg:grid-cols-2">
-              <div className="rounded-xl border bg-card p-4">
-                <Skeleton className="mb-4 h-5 w-32" />
-                <Skeleton className="h-40 w-full rounded-lg" />
-              </div>
-              <div className="rounded-xl border bg-card p-4">
-                <Skeleton className="mb-4 h-5 w-40" />
-                <div className="flex flex-col gap-3">
-                  {Array.from({ length: 5 }, (_, index) => (
-                    <Skeleton key={index} className="h-9 w-full" />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-        <aside className="hidden min-h-0 flex-col gap-3 overflow-hidden rounded-xl border bg-card p-3 lg:flex">
-          <div className="flex items-center justify-between gap-2">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="size-7 rounded-md" />
-          </div>
-          <div className="flex flex-col gap-4">
-            {Array.from({ length: 5 }, (_, index) => (
-              <div key={index} className="flex flex-col gap-2">
-                <Skeleton className="h-3 w-16" />
-                <Skeleton className="h-9 w-full" />
-              </div>
-            ))}
-          </div>
-        </aside>
-      </div>
-    </div>
-  );
+  return <PageLoader />;
 }

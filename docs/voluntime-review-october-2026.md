@@ -1,6 +1,6 @@
 # VolunTime review for Dillon
 
-**27–28 October 2026**
+**27–29 October 2026**
 
 Jason, thank you for the letter. We really love where this is headed too. Below is an honest score against the October 15 brief and your October 27 staging notes, plus answers to the five questions.
 
@@ -33,7 +33,7 @@ Those totals are the grant invariant. Staging uses anonymized names so real volu
 | Replace Clockify and the sheet; in-kind at $35.47 | **Met** | Live timer, start and duration, total hours, reports, CSV. Default volunteer rate is $35.47. Professional rates exist for people who need them. |
 | Invite by email **or** a basic enrollment form | **Met** | Invite (name + email + role), admin “Add person,” and optional public Create account. The CASWJ portal can turn Create account off. |
 | Volunteer and admin; no approval step for entries | **Met**, then **Beyond the ask** | Entries go live on save. We also have Group manager, Staff, and custom roles. |
-| Settings for groups, task categories, and tags | **Met** | Groups (called Departments until CASWJ labels are on), projects/events, categories, tags, rates, brand, and theme. |
+| Settings for groups, task categories, and tags | **Met** | Groups (called Departments until CASWJ labels are on), projects/events, categories, tags, rates, brand, theme, and email controls/templates. |
 | Live timer, start and end, or total hours | **Met** | Timer on Log time. Manual form: “Start and duration” or “Total hours” (date + HH:MM, no fake clock times). |
 | Date, group, project/event, category, tags, notes, who entered it | **Met** | Project and category can be left blank on the timer (and, today, on handwritten hours) so people can classify later. Entered-by is stored separately from whose hours they are. |
 | Reports by group, category, person, date range + CSV | **Met**, then **Beyond the ask** | Summary, People, Group sessions, and Staff tabs. Volunteer Log and Summary CSVs in grant format, plus “Download this view.” |
@@ -71,7 +71,7 @@ Later items from the brief:
 | --- | --- | --- |
 | First and last name on the invite | **Met** | Invite form asks for both. |
 | Username from first initial + last name (`jsmith`, then `jsmith1`) | **Met** | Reserved when you invite; the email tells them their username. |
-| Subject like “CASWJ invited you to join VolunTime” | **Met** | Subject is “{organization} invited you to join VolunTime.” Preview: “Log your volunteer hours with {organization}.” |
+| Subject like “CASWJ invited you to join VolunTime” | **Met** | Subject is “{organization} invited you to join VolunTime.” Preview: “Log your volunteer hours with {organization}.” Editable under Settings → Email along with all 13 organization email templates. |
 | Review list before mass invitations; say whether import sends mail | **Met** | Import copy is explicit: it **creates accounts** and does **not** send invitations unless you check “Email users welcome credentials after import” (off by default). Review list supports skip or merge on matches. |
 | Duplicate / near-match flags | **Met** | Same email, or same name with a different email, is flagged. |
 | CSV templates | **Met** | “Download template” for People and for Projects / Events. |
@@ -97,7 +97,7 @@ Later items from the brief:
 | Ask | Status | What’s there now |
 | --- | --- | --- |
 | Reminder after stopping the timer | **Met** | “Check this time before saving.” You can leave project, category, and group blank and classify later. |
-| Unclassified entries + a nudge | **Met** | Blank project, category, **and** group = unclassified. Banner in the app and an email that points at those entries. |
+| Unclassified entries + a nudge | **Met** | Blank project, category, **and** group = unclassified. Banner in the app and an email that points at those entries. Under Settings → Email, admins control when emails go out (`Immediately`, `Weekly digest`, or `Off` for logged-time and unclassified-entry emails, plus On/Off toggles for optional notifications). |
 | Hide Tags when the org has none | **Met** | Volunteers do not see Tags until you add some. Admins still see the field so they can create the first one. |
 | Clickable dashboard cards | **Met** | Cards and charts open the entries behind them. You can also edit the dashboard layout. |
 
@@ -133,7 +133,7 @@ If you want someone to accept an invite and pick their own password, use **Invit
 **Yes for the timer.** The original brief made organization and category required so Clockify’s blank fields would not come back. Your letter asked for a classify-after path. The app does both:
 
 - **Timer:** you can start and stop without a project, category, or group. After Stop, “Check this time before saving” asks you to confirm those fields, and says you can leave them blank and classify later.
-- Blank on all three is **unclassified**. The volunteer gets a banner and an email pointing at those entries.
+- Blank on all three is **unclassified**. The volunteer gets a banner and an email pointing at those entries (admins can set both **Logged time** and **Unclassified entry** emails to **Immediately**, **Weekly digest**, or **Off** under **Settings → Email**).
 - **Handwritten duration and total hours:** the form currently also allows those fields to be blank (same unclassified path). For grant-quality hours we still recommend picking a project and category before you save a typed total.
 
 That is the recommendation: keep classify-after for the timer; do not let handwritten grant hours sit unclassified if you can help it.
@@ -177,6 +177,7 @@ On top of the brief we also shipped:
 - Invite-first portal mode so CASWJ can turn off open signup
 - An anonymized staging seed so real volunteer names stay off shared databases
 - A Staff report tab (hours that used a professional rate), without pretending this is payroll
+- Email send controls and editable templates under **Settings → Email** (admins choose **Immediately**, **Weekly digest**, or **Off** for logged-time and unclassified-entry emails, toggle optional notifications on or off, and edit the subject, preview, heading, and body of all 13 organization email templates)
 
 ---
 

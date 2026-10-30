@@ -1,5 +1,5 @@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PageLoader } from "@/components/skeletons";
 
 export function AuthCard({
   title,
@@ -25,16 +25,6 @@ export function AuthCard({
   );
 }
 
-export function AuthFormSkeleton({ fields = 2 }: { fields?: number }) {
-  return (
-    <div className="flex flex-col gap-4">
-      {Array.from({ length: fields }, (_, index) => (
-        <div key={index} className="flex flex-col gap-1.5">
-          <Skeleton className="h-3 w-20" />
-          <Skeleton className="h-10 w-full" />
-        </div>
-      ))}
-      <Skeleton className="h-10 w-full" />
-    </div>
-  );
+export function AuthFormSkeleton({}: { fields?: number }) {
+  return <PageLoader className="min-h-48 py-6" />;
 }

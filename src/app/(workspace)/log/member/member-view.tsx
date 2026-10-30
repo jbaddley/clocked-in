@@ -9,6 +9,7 @@ import { useMembers } from "@/hooks/use-members";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { canLogMemberTime } from "@/lib/roles";
 import { EmptyState } from "@/components/empty-state";
+import { PageSkeleton } from "@/components/skeletons";
 
 export function MemberTimeView() {
   const { viewer, isAdmin, isCoordinator, groupDepartments } = useWorkspace();
@@ -33,7 +34,7 @@ export function MemberTimeView() {
         </CardHeader>
         <CardContent>
           {isPending ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
+            <PageSkeleton className="min-h-60" />
           ) : eligible.length === 0 ? (
             <EmptyState icon={UsersIcon} title="No other active members" description="Add or reactivate someone on People to log time for them." />
           ) : (

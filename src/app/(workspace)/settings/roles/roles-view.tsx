@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { createRoleAction, deleteRoleAction, updateRoleAction } from "@/app/actions/roles";
 import { Field } from "@/components/field";
 import { SelectField } from "@/components/select-field";
+import { PageSkeleton } from "@/components/skeletons";
 import { SubmitButton } from "@/components/submit-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,13 +32,15 @@ export function RolesView() {
   const organization = useOrganization();
   const { permissions, viewer } = useWorkspace();
   const canManage = permissions.includes("manage_roles");
-  const { data } = useQuery({
+  const { data, isPending } = useQuery({
     queryKey: ["org", organization.id, "roles"],
     queryFn: ({ signal }) => fetchJson<Paged<OrgRole>>(`/organizations/${organization.id}/roles?limit=100`, signal),
   });
   const roles = data?.items ?? [];
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = roles.find((role) => role.id === selectedId) ?? roles[0] ?? null;
+
+  if (isPending) return <PageSkeleton />;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[18rem_minmax(0,1fr)]">

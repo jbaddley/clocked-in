@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { PageLoader } from "@/components/skeletons";
 import { ApiError } from "@/lib/api/errors";
 import { listPublicNeeds } from "@/lib/api/features/volunteer-needs";
 
@@ -56,13 +57,8 @@ async function PublicOpenings({ params }: { params: Promise<{ slug: string }> })
 
 function PublicOpeningsSkeleton() {
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-10">
-      <div className="animate-pulse">
-        <div className="h-4 w-36 rounded bg-muted" />
-        <div className="mt-3 h-9 w-64 max-w-full rounded bg-muted" />
-        <div className="mt-3 h-4 w-80 max-w-full rounded bg-muted" />
-      </div>
-      <div className="h-28 animate-pulse rounded-xl bg-muted" />
+    <main className="mx-auto flex min-h-dvh w-full max-w-3xl items-center justify-center px-4 py-10">
+      <PageLoader />
     </main>
   );
 }

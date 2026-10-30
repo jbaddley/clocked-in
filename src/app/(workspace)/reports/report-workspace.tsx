@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/page-header";
 import { ReportGrid } from "@/components/report-grid";
-import { CardSkeleton, StatsSkeleton } from "@/components/skeletons";
+import { PageSkeleton } from "@/components/skeletons";
 import { useLabels } from "@/hooks/use-labels";
 import { useLookups } from "@/hooks/use-lookups";
 import { useMembers } from "@/hooks/use-members";
@@ -229,13 +229,7 @@ export function ReportWorkspace() {
         }
       />
       {showSkeleton ? (
-        <>
-          <StatsSkeleton />
-          <div className='grid gap-6 xl:grid-cols-2'>
-            <CardSkeleton rows={5} />
-            <CardSkeleton rows={5} />
-          </div>
-        </>
+        <PageSkeleton />
       ) : missing ? (
         <EmptyState
           icon={FileQuestionIcon}

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { PageLoader } from "@/components/skeletons";
 import { ApiError } from "@/lib/api/errors";
 import { publicVolunteerNeed } from "@/lib/api/features/volunteer-needs";
 import { getAccess } from "@/lib/server/session";
@@ -52,13 +53,8 @@ async function VolunteerNeed({ params }: { params: Promise<{ token: string }> })
 
 function VolunteerNeedSkeleton() {
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-6 px-4 py-10">
-      <div className="animate-pulse">
-        <div className="h-4 w-32 rounded bg-muted" />
-        <div className="mt-3 h-9 w-64 max-w-full rounded bg-muted" />
-        <div className="mt-3 h-4 w-48 rounded bg-muted" />
-      </div>
-      <div className="h-24 animate-pulse rounded-xl bg-muted" />
+    <main className="mx-auto flex min-h-dvh w-full max-w-xl items-center justify-center px-4 py-10">
+      <PageLoader />
     </main>
   );
 }

@@ -9,6 +9,7 @@ import { TimeEntryForm } from "@/components/entity-forms/time-entry-form";
 import { EntityFormDialog } from "@/components/entity-forms/entity-form-dialog";
 import { Field, FormMessage } from "@/components/field";
 import { SelectField } from "@/components/select-field";
+import { PageSkeleton } from "@/components/skeletons";
 import { SubmitButton } from "@/components/submit-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -65,7 +66,7 @@ export function ConnectionsTimeView() {
             </div>
           ) : null}
           {connections.isPending ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
+            <PageSkeleton className="min-h-60" />
           ) : mine.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               {canAdd ? "Add a volunteer to log time for them." : "You have no connections to log time for."}

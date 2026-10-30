@@ -337,3 +337,45 @@
   height: 0;
   pointer-events: none;
 }
+
+@keyframes clock-hand-second {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes clock-hand-minute {
+  from {
+    transform: rotate(60deg);
+  }
+  to {
+    transform: rotate(420deg);
+  }
+}
+
+@keyframes clock-hand-hour {
+  from {
+    transform: rotate(-60deg);
+  }
+  to {
+    transform: rotate(300deg);
+  }
+}
+
+.animate-clock-second {
+  animation: clock-hand-second 1.8s steps(12, end) infinite;
+  transform-origin: 0px 0px;
+}
+
+.animate-clock-minute {
+  animation: clock-hand-minute 12s steps(60, end) infinite;
+  transform-origin: 0px 0px;
+}
+
+.animate-clock-hour {
+  animation: clock-hand-hour 72s linear infinite;
+  transform-origin: 0px 0px;
+}

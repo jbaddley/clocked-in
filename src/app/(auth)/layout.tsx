@@ -1,5 +1,6 @@
 import { BarChart3Icon, HandCoinsIcon, TimerIcon } from "lucide-react";
 import { Suspense } from "react";
+import { PageLoader } from "@/components/skeletons";
 import { brandCss } from "@/lib/brand";
 import { getAuthBrand } from "@/lib/server/auth-brand";
 import { requirePinnedOrganizationOrApex } from "@/lib/server/tenant";
@@ -63,12 +64,7 @@ function AuthShellSkeleton() {
     <div className="grid min-h-svh lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
       <aside className="brand-hero-navy relative hidden overflow-hidden lg:block" />
       <main className="brand-hero-white relative flex flex-col items-center justify-center bg-muted px-4 py-10 sm:px-8">
-        <div className="w-full max-w-md animate-pulse rounded-xl border bg-card p-6 shadow-sm">
-          <div className="h-7 w-48 rounded-md bg-muted" />
-          <div className="mt-3 h-4 w-full rounded-md bg-muted" />
-          <div className="mt-6 h-10 w-full rounded-md bg-muted" />
-          <div className="mt-4 h-10 w-full rounded-md bg-muted" />
-        </div>
+        <PageLoader />
       </main>
     </div>
   );

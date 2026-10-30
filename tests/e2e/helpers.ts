@@ -108,13 +108,17 @@ export async function createOrgPerson(
     data: { username: input.username, password: `${input.password}-temporary` },
   });
   expect(initialLogin.ok(), await initialLogin.text()).toBeTruthy();
-  const initialSession = await initialLogin.json() as { accessToken: string };
+  const initialSession = (await initialLogin.json()) as { accessToken: string };
   const activated = await request.patch("/users/me", {
     headers: { authorization: `Bearer ${initialSession.accessToken}` },
     data: { currentPassword: `${input.password}-temporary`, password: input.password },
   });
   expect(activated.ok(), await activated.text()).toBeTruthy();
-  return { membership: (await created.json()) as { id: string; userId: string; user: { email: string } }, organization, session };
+  return {
+    membership: (await created.json()) as { id: string; userId: string; user: { email: string } },
+    organization,
+    session,
+  };
 }
 
 export async function makeCoordinator(request: APIRequestContext, userId: string, departmentId: string) {
@@ -122,7 +126,9 @@ export async function makeCoordinator(request: APIRequestContext, userId: string
   const headers = { authorization: `Bearer ${session.accessToken}` };
   let membership: { id: string; userId: string } | undefined;
   for (let offset = 0; !membership; offset += 100) {
-    const listed = await request.get(`/departments/${departmentId}/memberships?limit=100&offset=${offset}`, { headers });
+    const listed = await request.get(`/departments/${departmentId}/memberships?limit=100&offset=${offset}`, {
+      headers,
+    });
     expect(listed.ok(), await listed.text()).toBeTruthy();
     const body = (await listed.json()) as { items: { id: string; userId: string }[] };
     membership = body.items.find((item) => item.userId === userId);
@@ -223,11 +229,16 @@ export async function deleteE2eEntries(request: APIRequestContext) {
   const organization = await sessionOrganization(request, session.accessToken);
   const entryIds: string[] = [];
   for (let offset = 0; ; offset += 100) {
-    const listed = await request.get(`/organizations/${organization.id}/time-entries?limit=100&offset=${offset}`, { headers });
+    const listed = await request.get(`/organizations/${organization.id}/time-entries?limit=100&offset=${offset}`, {
+      headers,
+    });
     expect(listed.ok(), await listed.text()).toBeTruthy();
-    const body = await listed.json() as { items: { id: string; description: string | null; sourceRef: string | null }[] };
+    const body = (await listed.json()) as {
+      items: { id: string; description: string | null; sourceRef: string | null }[];
+    };
     for (const entry of body.items) {
-      if (!entry.sourceRef?.startsWith(caswjSourceRefPrefix) && (entry.description ?? "").startsWith("e2e-")) entryIds.push(entry.id);
+      if (!entry.sourceRef?.startsWith(caswjSourceRefPrefix) && (entry.description ?? "").startsWith("e2e-"))
+        entryIds.push(entry.id);
     }
     if (body.items.length < 100) break;
   }
@@ -323,7 +334,10 @@ export async function openReports(page: Page) {
 }
 
 export function cardNamed(page: Page, title: string) {
-  return page.locator("[data-slot='card']").filter({ has: page.locator("[data-slot='card-title']", { hasText: title }) }).first();
+  return page
+    .locator("[data-slot='card']")
+    .filter({ has: page.locator("[data-slot='card-title']", { hasText: title }) })
+    .first();
 }
 
 export function cardTitle(page: Page, title: string) {
@@ -331,7 +345,12 @@ export function cardTitle(page: Page, title: string) {
 }
 
 export async function selectReportsTab(page: Page, name: string) {
-  const slugs: Record<string, string> = { Summary: "summary", People: "people", "Group sessions": "group-sessions", Staff: "staff" };
+  const slugs: Record<string, string> = {
+    Summary: "summary",
+    People: "people",
+    "Group sessions": "group-sessions",
+    Staff: "staff",
+  };
   await page.goto(`/reports/${slugs[name] ?? name}`);
   await expect(page.getByRole("button", { name: "Reports menu" })).toBeVisible();
 }

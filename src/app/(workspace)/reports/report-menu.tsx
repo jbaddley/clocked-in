@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { MenuIcon } from "lucide-react";
 import { toast } from "sonner";
-import { updateReportAction } from "@/app/actions/reports";
+import { deleteReportAction, updateReportAction } from "@/app/actions/reports";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -21,7 +23,7 @@ import { csvUrl, keys, summaryCsvUrl } from "@/lib/queries";
 import { filtersEqual, filtersQuery, type ReportCard, type ReportFilters } from "@/lib/report-layout";
 import { downloadReportPdf } from "@/lib/report-pdf/download";
 import { viewCsvFromLayout } from "@/lib/report-view-csv";
-import { newReportPath } from "@/lib/report-slug";
+import { lastReportStorageKey, newReportPath, reportPath, slugForSavedReport } from "@/lib/report-slug";
 
 export function ReportMenu({
   active,
@@ -44,12 +46,15 @@ export function ReportMenu({
   saved?: SavedReport | null;
   templateKey?: string | null;
 }) {
+  const router = useRouter();
   const organization = useOrganization();
   const queryClient = useQueryClient();
   const { isAdmin, permissions } = useWorkspace();
   const canDesign = isAdmin || permissions.includes("design_reports");
   const canExport = isAdmin || permissions.includes("export_reports");
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const dirtyFilters = Boolean(saved) && !filtersEqual(filters, saved?.filters ?? {});
 
@@ -65,6 +70,32 @@ export function ReportMenu({
     await queryClient.invalidateQueries({ queryKey: keys.savedReports(organization.id) });
     await queryClient.invalidateQueries({ queryKey: keys.savedReport(organization.id, saved.id) });
     toast.success("Filters saved.");
+  }
+
+  async function deleteReport() {
+    if (!saved || deleting) return;
+    setDeleting(true);
+    const result = await deleteReportAction(organization.id, saved.id);
+    setDeleting(false);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    try {
+      window.localStorage.removeItem(lastReportStorageKey(organization.id));
+    } catch {
+      // Ignore storage access errors
+    }
+    const remaining =
+      queryClient
+        .getQueryData<SavedReport[]>(keys.savedReports(organization.id))
+        ?.filter((item) => item.id !== saved.id) ?? [];
+    queryClient.setQueryData<SavedReport[]>(keys.savedReports(organization.id), remaining);
+    queryClient.removeQueries({ queryKey: keys.savedReport(organization.id, saved.id) });
+    await queryClient.invalidateQueries({ queryKey: keys.savedReports(organization.id) });
+    const nextDefault = remaining.find((item) => item.isDefault);
+    router.replace(reportPath(nextDefault ? slugForSavedReport(nextDefault.name) : "summary"), { scroll: false });
+    toast.success("Report deleted.");
   }
 
   async function downloadPdf() {
@@ -90,39 +121,53 @@ export function ReportMenu({
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger render={<Button type="button" variant="outline" size="icon-lg" aria-label="Reports menu" />}>
-        <MenuIcon />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64">
-        {canDesign && editHref ? <DropdownMenuItem render={<Link href={editHref} />}>Edit</DropdownMenuItem> : null}
-        {canDesign ? (
-          <DropdownMenuItem render={<Link href={newReportPath(filtersQuery(filters), templateKey)} />}>
-            Create
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger render={<Button type="button" variant="outline" size="icon-lg" aria-label="Reports menu" />}>
+          <MenuIcon />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-64">
+          {canDesign && editHref ? <DropdownMenuItem render={<Link href={editHref} />}>Edit</DropdownMenuItem> : null}
+          {canDesign ? (
+            <DropdownMenuItem render={<Link href={newReportPath(filtersQuery(filters), templateKey)} />}>
+              Create
+            </DropdownMenuItem>
+          ) : null}
+          {canDesign && dirtyFilters ? (
+            <DropdownMenuItem disabled={saving} onClick={() => void saveFilters()}>
+              {saving ? "Saving filters…" : "Save filters"}
+            </DropdownMenuItem>
+          ) : null}
+          {canDesign && saved ? (
+            <DropdownMenuItem variant="destructive" disabled={deleting} onClick={() => setConfirmDeleteOpen(true)}>
+              {deleting ? "Deleting…" : "Delete"}
+            </DropdownMenuItem>
+          ) : null}
+          {canDesign ? <DropdownMenuSeparator /> : null}
+          <DropdownMenuItem onClick={() => downloadTextFile("report-view.csv", viewCsvFromLayout(cards, data ?? {}))}>
+            Download CSV
           </DropdownMenuItem>
-        ) : null}
-        {canDesign && dirtyFilters ? (
-          <DropdownMenuItem disabled={saving} onClick={() => void saveFilters()}>
-            {saving ? "Saving filters…" : "Save filters"}
+          {canExport ? (
+            <DropdownMenuItem disabled={downloadingPdf} onClick={() => void downloadPdf()}>
+              {downloadingPdf ? "Preparing PDF…" : "Download PDF"}
+            </DropdownMenuItem>
+          ) : null}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem render={<a href={csvUrl(organization.id, filters)} download="volunteer-log.csv" />}>
+            Download Full Volunteer Log
           </DropdownMenuItem>
-        ) : null}
-        {canDesign ? <DropdownMenuSeparator /> : null}
-        <DropdownMenuItem onClick={() => downloadTextFile("report-view.csv", viewCsvFromLayout(cards, data ?? {}))}>
-          Download CSV
-        </DropdownMenuItem>
-        {canExport ? (
-          <DropdownMenuItem disabled={downloadingPdf} onClick={() => void downloadPdf()}>
-            {downloadingPdf ? "Preparing PDF…" : "Download PDF"}
+          <DropdownMenuItem render={<a href={summaryCsvUrl(organization.id, filters)} download="summary.csv" />}>
+            Download Full Summary
           </DropdownMenuItem>
-        ) : null}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem render={<a href={csvUrl(organization.id, filters)} download="volunteer-log.csv" />}>
-          Download Full Volunteer Log
-        </DropdownMenuItem>
-        <DropdownMenuItem render={<a href={summaryCsvUrl(organization.id, filters)} download="summary.csv" />}>
-          Download Full Summary
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        onOpenChange={setConfirmDeleteOpen}
+        title={`Delete ${saved?.name ?? "this report"}?`}
+        description="This custom report will be permanently removed."
+        onConfirm={() => void deleteReport()}
+      />
+    </>
   );
 }
