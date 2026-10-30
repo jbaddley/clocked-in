@@ -15,6 +15,7 @@
     "start:staging": "node scripts/with-env.mjs staging -- next start --port 3025",
     "start:production": "node scripts/with-env.mjs production -- next start --port 3025",
     "env:print": "node scripts/with-env.mjs -- node scripts/print-env.mjs",
+    "pipeToVercel": "node scripts/pipeToVercel.mjs",
     "lint": "eslint",
     "test": "npm run test:unit && npm run test:import && npm run test:http",
     "test:unit": "node --import tsx --test tests/*.test.ts",
