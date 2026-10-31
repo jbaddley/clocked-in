@@ -1,24 +1,24 @@
 import type { FeedbackArea, FeedbackPriority, FeedbackStatus, FeedbackType } from "@/lib/api/json";
 
-export const feedbackTypes: { value: FeedbackType; label: string }[] = [
-  { value: "Bug", label: "Bug" },
-  { value: "Feature", label: "Feature request" },
+export const feedbackTypes: { value: FeedbackType; label: string; swatch?: string }[] = [
+  { value: "Bug", label: "Bug", swatch: "bg-red-500" },
+  { value: "Feature", label: "Feature request", swatch: "bg-emerald-500" },
 ];
 
-export const feedbackPriorities: { value: FeedbackPriority; label: string }[] = [
-  { value: "Urgent", label: "Urgent" },
-  { value: "High", label: "High" },
-  { value: "Medium", label: "Medium" },
-  { value: "Low", label: "Low" },
+export const feedbackPriorities: { value: FeedbackPriority; label: string; swatch?: string }[] = [
+  { value: "Urgent", label: "Urgent", swatch: "bg-red-500" },
+  { value: "High", label: "High", swatch: "bg-amber-500" },
+  { value: "Medium", label: "Medium", swatch: "bg-sky-500" },
+  { value: "Low", label: "Low", swatch: "bg-slate-400" },
 ];
 
-export const feedbackAreas: { value: FeedbackArea; label: string }[] = [
-  { value: "Dashboard", label: "Dashboard" },
-  { value: "LogTime", label: "Log time" },
-  { value: "Entries", label: "Entries" },
-  { value: "Reports", label: "Reports" },
-  { value: "Settings", label: "Settings" },
-  { value: "Other", label: "Other" },
+export const feedbackAreas: { value: FeedbackArea; label: string; swatch?: string }[] = [
+  { value: "Dashboard", label: "Dashboard", swatch: "bg-indigo-500" },
+  { value: "LogTime", label: "Log time", swatch: "bg-violet-500" },
+  { value: "Entries", label: "Entries", swatch: "bg-cyan-500" },
+  { value: "Reports", label: "Reports", swatch: "bg-teal-500" },
+  { value: "Settings", label: "Settings", swatch: "bg-amber-500" },
+  { value: "Other", label: "Other", swatch: "bg-slate-400" },
 ];
 
 export function feedbackAreaForPath(pathname: string): FeedbackArea {
@@ -31,16 +31,20 @@ export function feedbackAreaForPath(pathname: string): FeedbackArea {
   return "Other";
 }
 
-export const feedbackStatuses: { value: FeedbackStatus; label: string }[] = [
-  { value: "Pending", label: "Pending" },
-  { value: "Acknowledged", label: "Acknowledged" },
-  { value: "Planned", label: "Planned" },
-  { value: "InProgress", label: "In progress" },
-  { value: "Resolved", label: "Resolved" },
-  { value: "Cancelled", label: "Cancelled" },
-  { value: "CouldNotReproduce", label: "Could not reproduce" },
-  { value: "Archived", label: "Archived" },
+export const feedbackStatuses: { value: FeedbackStatus; label: string; swatch?: string }[] = [
+  { value: "Pending", label: "Pending", swatch: "bg-amber-500" },
+  { value: "Acknowledged", label: "Acknowledged", swatch: "bg-sky-500" },
+  { value: "Planned", label: "Planned", swatch: "bg-indigo-500" },
+  { value: "InProgress", label: "In progress", swatch: "bg-blue-500" },
+  { value: "Resolved", label: "Resolved", swatch: "bg-emerald-500" },
+  { value: "Cancelled", label: "Cancelled", swatch: "bg-slate-400" },
+  { value: "CouldNotReproduce", label: "Could not reproduce", swatch: "bg-zinc-400" },
+  { value: "Archived", label: "Archived", swatch: "bg-neutral-400" },
 ];
+
+export function feedbackOption<T extends string>(options: { value: T; label: string; swatch?: string }[], value: T) {
+  return options.find((option) => option.value === value);
+}
 
 export function feedbackLabel<T extends string>(options: { value: T; label: string }[], value: T) {
   return options.find((option) => option.value === value)?.label ?? value;

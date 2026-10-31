@@ -6,16 +6,19 @@ import {
   parseCreateFeedback,
   parseEditFeedback,
   parseUpdateFeedback,
+  syncFeedbackLinearIssue,
   updateFeedback,
 } from "@/lib/api/features/feedback";
 import { run } from "@/lib/server/action";
 import { uploadFeedbackScreenshots } from "@/lib/server/feedback-assets";
 import { requireAccess } from "@/lib/server/session";
-import type { ActionResult } from "@/lib/types";
+import type { ActionResult, Feedback } from "@/lib/types";
 
-export async function createFeedbackAction(formData: FormData): Promise<ActionResult> {
-  return run(async () => {
+export async function createFeedbackAction(formData: FormData): Promise<ActionResult<Feedback>> {
+  let isSuperAdmin = false;
+  const result = await run(async () => {
     const access = await requireAccess();
+    isSuperAdmin = access.caller.isSuperAdmin;
     const files = formData.getAll("screenshots").filter((item): item is File => item instanceof File && item.size > 0);
     const screenshotUrls = files.length > 0 ? await uploadFeedbackScreenshots(access.caller.id, files) : [];
     const organizationId = String(formData.get("organizationId") ?? "").trim();
@@ -32,6 +35,15 @@ export async function createFeedbackAction(formData: FormData): Promise<ActionRe
       }),
     );
   }, "Thanks for the feedback.");
+
+  if (result.ok && isSuperAdmin && result.data && !result.data.ticketUrl) {
+    return {
+      ...result,
+      message: "Feedback saved, but Linear ticket could not be created (check LINEAR_API_KEY).",
+    };
+  }
+
+  return result;
 }
 
 export async function editFeedbackAction(input: {
@@ -41,7 +53,7 @@ export async function editFeedbackAction(input: {
   area: string;
   title: string;
   description: string;
-}): Promise<ActionResult> {
+}): Promise<ActionResult<Feedback>> {
   return run(async () => {
     const access = await requireAccess();
     return editFeedback(
@@ -63,7 +75,7 @@ export async function updateFeedbackAction(input: {
   status: string;
   description: string;
   ticketUrl?: string;
-}): Promise<ActionResult> {
+}): Promise<ActionResult<Feedback>> {
   return run(async () => {
     const access = await requireAccess();
     return updateFeedback(
@@ -76,4 +88,11 @@ export async function updateFeedbackAction(input: {
       }),
     );
   }, "Feedback updated.");
+}
+
+export async function syncFeedbackLinearAction(id: string): Promise<ActionResult<Feedback>> {
+  return run(async () => {
+    const access = await requireAccess();
+    return syncFeedbackLinearIssue(access, id);
+  }, "Linear issue linked.");
 }

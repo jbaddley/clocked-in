@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { FeedbackView } from "./feedback-view";
 
 export const metadata: Metadata = { title: "Feedback" };
+export const instant = false;
 
 export default function FeedbackPage() {
-  return <FeedbackView />;
+  return null;
 }

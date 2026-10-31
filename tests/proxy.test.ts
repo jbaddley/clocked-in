@@ -27,7 +27,7 @@ test("bearer API requests stay on Next even with an obsolete forwarding setting"
   assert.equal(response.headers.get("x-middleware-next"), "1");
 });
 
-test("feedback API rewrites preserve the query and document requests stay protected", async () => {
+test("feedback API rewrites preserve the query and document/RSC requests stay on the app router", async () => {
   const api = await proxy(
     new NextRequest("http://example.test/feedback?limit=5", {
       headers: { authorization: "Bearer token", accept: "application/json" },
@@ -36,6 +36,39 @@ test("feedback API rewrites preserve the query and document requests stay protec
   assert.equal(api.headers.get("x-middleware-rewrite"), "http://example.test/api/feedback?limit=5");
   const document = await proxy(new NextRequest("http://example.test/feedback", { headers: { accept: "text/html" } }));
   assert.equal(new URL(document.headers.get("location")!).pathname, "/login");
+
+  const { accessToken } = await signAccessToken({
+    id: "test-user",
+    username: "tester",
+    email: "test@example.test",
+    isSuperAdmin: true,
+  });
+  const rscList = await proxy(
+    new NextRequest("http://example.test/feedback", {
+      headers: {
+        cookie: `${accessCookie}=${accessToken}`,
+        rsc: "1",
+        accept: "*/*",
+        "sec-fetch-dest": "empty",
+      },
+    }),
+  );
+  assert.equal(rscList.headers.get("x-middleware-rewrite"), null);
+  assert.equal(rscList.headers.get("x-middleware-next"), "1");
+
+  const rscItem = await proxy(
+    new NextRequest("http://example.test/feedback/11111111-2222-4333-8444-555555555555", {
+      headers: {
+        cookie: `${accessCookie}=${accessToken}`,
+        rsc: "1",
+        "next-router-prefetch": "1",
+        accept: "*/*",
+        "sec-fetch-dest": "empty",
+      },
+    }),
+  );
+  assert.equal(rscItem.headers.get("x-middleware-rewrite"), null);
+  assert.equal(rscItem.headers.get("x-middleware-next"), "1");
 });
 
 test("protected redirects, public health, and tenant signup handling are preserved", async () => {

@@ -69,16 +69,24 @@ function resolveTenantSlug(request: NextRequest): string | null {
 }
 
 function rewriteFeedbackApi(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const { pathname, searchParams } = request.nextUrl;
   if (pathname !== "/feedback" && !pathname.startsWith("/feedback/")) {
     return null;
   }
 
-  if (request.headers.has("next-action")) {
+  const accept = request.headers.get("accept") ?? "";
+  if (
+    request.headers.has("next-action") ||
+    request.headers.has("rsc") ||
+    request.headers.has("next-router-prefetch") ||
+    request.headers.has("next-router-segment-prefetch") ||
+    request.headers.has("next-router-state-tree") ||
+    accept.includes("text/x-component") ||
+    searchParams.has("_rsc")
+  ) {
     return null;
   }
 
-  const accept = request.headers.get("accept") ?? "";
   const dest = request.headers.get("sec-fetch-dest") ?? "";
   const isDocument = dest === "document" || dest === "iframe" || accept.includes("text/html");
   const isApi =
@@ -92,22 +100,19 @@ function rewriteFeedbackApi(request: NextRequest) {
 
   const url = request.nextUrl.clone();
   url.pathname = `/api${pathname}`;
-  return NextResponse.rewrite(url);
+  return url;
 }
 
 export async function proxy(request: NextRequest) {
   const tenantSlug = resolveTenantSlug(request);
-  const feedbackApi = rewriteFeedbackApi(request);
-  if (feedbackApi) {
-    return feedbackApi;
-  }
+  const feedbackApiUrl = rewriteFeedbackApi(request);
 
   if (request.headers.has("authorization")) {
-    return NextResponse.next();
+    return feedbackApiUrl ? NextResponse.rewrite(feedbackApiUrl) : NextResponse.next();
   }
 
   const { pathname, search } = request.nextUrl;
-  if (tenantSlug && pathname === "/signup") {
+  if (!feedbackApiUrl && tenantSlug && pathname === "/signup") {
     const nextParam = request.nextUrl.searchParams.get("next") ?? "";
     if (!/[?&]code=/.test(nextParam)) {
       const login = new URL("/login", request.url);
@@ -129,18 +134,22 @@ export async function proxy(request: NextRequest) {
   }
 
   let response: NextResponse;
-  if (!signedIn && matches(pathname, protectedPrefixes)) {
+  if (!feedbackApiUrl && !signedIn && matches(pathname, protectedPrefixes)) {
     const login = new URL("/login", request.url);
     login.searchParams.set("next", `${pathname}${search}`);
     response = NextResponse.redirect(login);
-  } else if (signedIn && matches(pathname, guestOnly)) {
+  } else if (!feedbackApiUrl && signedIn && matches(pathname, guestOnly)) {
     response = NextResponse.redirect(new URL("/dashboard", request.url));
   } else if (issued) {
     request.cookies.set(accessCookie, issued.accessToken);
     request.cookies.set(refreshCookie, issued.refreshToken);
     const headers = new Headers(request.headers);
     headers.set("cookie", request.cookies.toString());
-    response = NextResponse.next({ request: { headers } });
+    response = feedbackApiUrl
+      ? NextResponse.rewrite(feedbackApiUrl, { request: { headers } })
+      : NextResponse.next({ request: { headers } });
+  } else if (feedbackApiUrl) {
+    response = NextResponse.rewrite(feedbackApiUrl);
   } else {
     response = NextResponse.next();
   }

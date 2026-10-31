@@ -1,23 +1,60 @@
 "use client";
 
-import { MessageSquareIcon } from "lucide-react";
+import { ExternalLinkIcon, MessageSquareIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { syncFeedbackLinearAction, updateFeedbackAction } from "@/app/actions/feedback";
 import { DataTable, type Column } from "@/components/data-table";
+import { EmptyState } from "@/components/empty-state";
+import { EntityFormDialog } from "@/components/entity-forms/entity-form-dialog";
+import { Field, FormMessage } from "@/components/field";
 import { PageHeader } from "@/components/page-header";
 import { SelectField } from "@/components/select-field";
+import { PageSkeleton } from "@/components/skeletons";
+import { SubmitButton } from "@/components/submit-button";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PageSkeleton } from "@/components/skeletons";
+import { Textarea } from "@/components/ui/textarea";
+import { useActionMutation } from "@/hooks/use-action-mutation";
 import { useClientRedirect } from "@/hooks/use-client-redirect";
 import { useWorkspace } from "@/hooks/use-workspace";
+import type { FeedbackStatus } from "@/lib/api/json";
 import { feedbackAreas, feedbackLabel, feedbackPriorities, feedbackStatuses, feedbackTypes } from "@/lib/feedback";
-import { feedbackQuery } from "@/lib/queries";
-import type { Feedback } from "@/lib/types";
 import { formatPersonName } from "@/lib/format";
-import { EmptyState } from "@/components/empty-state";
+import { feedbackQuery, keys, syncFeedbackInCache } from "@/lib/queries";
+import type { ActionResult, Feedback } from "@/lib/types";
+
+type SortKey = "createdAt" | "title" | "priority" | "status";
+type SortDir = "asc" | "desc";
+
+type TableFilterState = {
+  search: string;
+  type: string;
+  priority: string;
+  area: string;
+  status: string;
+  sortKey: SortKey;
+  sortDir: SortDir;
+};
+
+const defaultTableFilterState: TableFilterState = {
+  search: "",
+  type: "all",
+  priority: "all",
+  area: "all",
+  status: "all",
+  sortKey: "createdAt",
+  sortDir: "desc",
+};
+
+let cachedTab: "active" | "inactive" = "active";
+const cachedTableFilters: Record<"active" | "inactive", TableFilterState> = {
+  active: { ...defaultTableFilterState },
+  inactive: { ...defaultTableFilterState },
+};
 
 function formatWhen(value: string) {
   return new Date(value).toLocaleString();
@@ -25,13 +62,23 @@ function formatWhen(value: string) {
 
 export function FeedbackView() {
   const { viewer } = useWorkspace();
+  const [tab, setTab] = useState<"active" | "inactive">(() => cachedTab);
   useClientRedirect(!viewer.isSuperAdmin, "/dashboard");
+  useQuery({ ...feedbackQuery(true), enabled: viewer.isSuperAdmin });
+  useQuery({ ...feedbackQuery(false), enabled: viewer.isSuperAdmin });
   if (!viewer.isSuperAdmin) return <PageSkeleton rows={8} />;
 
   return (
     <>
       <PageHeader description='Bugs and feature requests from everyone who uses the app.' />
-      <Tabs defaultValue='active'>
+      <Tabs
+        value={tab}
+        onValueChange={(next) => {
+          const resolved = next === "inactive" ? "inactive" : "active";
+          cachedTab = resolved;
+          setTab(resolved);
+        }}
+      >
         <TabsList variant='line'>
           <TabsTrigger value='active'>Active</TabsTrigger>
           <TabsTrigger value='inactive'>Inactive</TabsTrigger>
@@ -49,14 +96,48 @@ export function FeedbackView() {
 
 function FeedbackTable({ active }: { active: boolean }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const bucket = active ? "active" : "inactive";
+  const initial = cachedTableFilters[bucket];
   const { data, isPending } = useQuery(feedbackQuery(active));
-  const [search, setSearch] = useState("");
-  const [type, setType] = useState("all");
-  const [priority, setPriority] = useState("all");
-  const [area, setArea] = useState("all");
-  const [status, setStatus] = useState("all");
-  const [sortKey, setSortKey] = useState<"createdAt" | "title" | "priority" | "status">("createdAt");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [search, setSearchState] = useState(initial.search);
+  const [type, setTypeState] = useState(initial.type);
+  const [priority, setPriorityState] = useState(initial.priority);
+  const [area, setAreaState] = useState(initial.area);
+  const [status, setStatusState] = useState(initial.status);
+  const [sortKey, setSortKeyState] = useState<SortKey>(initial.sortKey);
+  const [sortDir, setSortDirState] = useState<SortDir>(initial.sortDir);
+  const [selected, setSelected] = useState<Feedback | null>(null);
+
+  const setSearch = (value: string) => {
+    cachedTableFilters[bucket].search = value;
+    setSearchState(value);
+  };
+  const setType = (value: string) => {
+    cachedTableFilters[bucket].type = value;
+    setTypeState(value);
+  };
+  const setPriority = (value: string) => {
+    cachedTableFilters[bucket].priority = value;
+    setPriorityState(value);
+  };
+  const setArea = (value: string) => {
+    cachedTableFilters[bucket].area = value;
+    setAreaState(value);
+  };
+  const setStatus = (value: string) => {
+    cachedTableFilters[bucket].status = value;
+    setStatusState(value);
+  };
+
+  const syncLinear = useActionMutation(syncFeedbackLinearAction, {
+    invalidate: (id) => [keys.feedback(true), keys.feedback(false), keys.feedbackItem(id)],
+    onSuccess: (updated) => {
+      if (updated) {
+        syncFeedbackInCache(queryClient, updated);
+      }
+    },
+  });
 
   const rows = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -76,14 +157,19 @@ function FeedbackTable({ active }: { active: boolean }) {
     return ranked;
   }, [area, data?.items, priority, search, sortDir, sortKey, status, type]);
 
-  function toggleSort(key: typeof sortKey) {
+  function toggleSort(key: SortKey) {
     if (sortKey === key) {
-      setSortDir((value) => (value === "asc" ? "desc" : "asc"));
+      const nextDir: SortDir = sortDir === "asc" ? "desc" : "asc";
+      cachedTableFilters[bucket].sortDir = nextDir;
+      setSortDirState(nextDir);
       return;
     }
 
-    setSortKey(key);
-    setSortDir(key === "createdAt" ? "desc" : "asc");
+    const nextDir: SortDir = key === "createdAt" ? "desc" : "asc";
+    cachedTableFilters[bucket].sortKey = key;
+    cachedTableFilters[bucket].sortDir = nextDir;
+    setSortKeyState(key);
+    setSortDirState(nextDir);
   }
 
   const columns: Column<Feedback>[] = [
@@ -116,6 +202,7 @@ function FeedbackTable({ active }: { active: boolean }) {
     {
       key: "type",
       header: "Type",
+      wrap: true,
       cell: (row) => feedbackLabel(feedbackTypes, row.type),
     },
     {
@@ -137,6 +224,7 @@ function FeedbackTable({ active }: { active: boolean }) {
     {
       key: "area",
       header: "Area",
+      wrap: true,
       cell: (row) => feedbackLabel(feedbackAreas, row.area),
     },
     {
@@ -153,34 +241,50 @@ function FeedbackTable({ active }: { active: boolean }) {
           Status
         </button>
       ),
+      wrap: true,
       cell: (row) => feedbackLabel(feedbackStatuses, row.status),
     },
     {
       key: "submitter",
       header: "From",
+      wrap: true,
       cell: (row) => formatPersonName(row.user),
     },
     {
       key: "organization",
       header: "Organization",
+      wrap: true,
       cell: (row) => row.organization?.name ?? "—",
     },
     {
       key: "ticket",
       header: "Ticket",
+      wrap: true,
       cell: (row) =>
         row.ticketUrl ? (
           <a
             href={row.ticketUrl}
             target='_blank'
             rel='noreferrer'
-            className='text-primary underline-offset-4 hover:underline'
+            className='inline-flex items-center gap-1 font-medium text-primary underline-offset-4 hover:underline'
             onClick={(event) => event.stopPropagation()}
           >
-            {row.linearIssueIdentifier ? row.linearIssueIdentifier : "Open"}
+            <span>{row.linearIssueIdentifier ? row.linearIssueIdentifier : "Open"}</span>
+            <ExternalLinkIcon className='size-3 shrink-0' />
           </a>
         ) : (
-          "—"
+          <Button
+            type='button'
+            size='xs'
+            variant='outline'
+            disabled={syncLinear.isPending && syncLinear.variables === row.id}
+            onClick={(event) => {
+              event.stopPropagation();
+              syncLinear.mutate(row.id);
+            }}
+          >
+            {syncLinear.isPending && syncLinear.variables === row.id ? "Creating..." : "Create in Linear"}
+          </Button>
         ),
     },
     {
@@ -197,7 +301,29 @@ function FeedbackTable({ active }: { active: boolean }) {
           Received
         </button>
       ),
+      wrap: true,
       cell: (row) => formatWhen(row.createdAt),
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      align: "right",
+      width: "6.5rem",
+      cell: (row) => (
+        <div className='flex justify-end gap-1.5'>
+          <Button
+            type='button'
+            size='sm'
+            variant='outline'
+            onClick={(event) => {
+              event.stopPropagation();
+              setSelected(row);
+            }}
+          >
+            Update
+          </Button>
+        </div>
+      ),
     },
   ];
 
@@ -242,8 +368,137 @@ function FeedbackTable({ active }: { active: boolean }) {
           onRowClick={(row) => router.push(`/feedback/${row.id}`)}
         />
       ) : (
-        <EmptyState icon={MessageSquareIcon} title="No feedback in this list" />
+        <EmptyState icon={MessageSquareIcon} title='No feedback in this list' />
       )}
+      <UpdateFeedbackDialog
+        feedback={selected ? (data?.items.find((item) => item.id === selected.id) ?? selected) : null}
+        onOpenChange={(open) => !open && setSelected(null)}
+      />
     </div>
+  );
+}
+
+function UpdateFeedbackDialog({
+  feedback,
+  onOpenChange,
+}: {
+  feedback: Feedback | null;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <EntityFormDialog
+      open={Boolean(feedback)}
+      onOpenChange={onOpenChange}
+      title='Update feedback'
+      description={feedback?.title}
+      className='sm:max-w-lg'
+    >
+      {feedback ? (
+        <UpdateFeedbackForm
+          key={`${feedback.id}:${feedback.status}:${feedback.ticketUrl ?? ""}`}
+          feedback={feedback}
+          onSaved={() => onOpenChange(false)}
+        />
+      ) : null}
+    </EntityFormDialog>
+  );
+}
+
+function UpdateFeedbackForm({ feedback, onSaved }: { feedback: Feedback; onSaved: () => void }) {
+  const queryClient = useQueryClient();
+  const [status, setStatus] = useState<FeedbackStatus>(feedback.status);
+  const update = useActionMutation(updateFeedbackAction, {
+    invalidate: [keys.feedback(true), keys.feedback(false), keys.feedbackItem(feedback.id)],
+    onSuccess: (updated) => {
+      if (updated) {
+        syncFeedbackInCache(queryClient, updated);
+      }
+      onSaved();
+    },
+    errorToast: false,
+  });
+  const syncLinear = useActionMutation(syncFeedbackLinearAction, {
+    invalidate: [keys.feedback(true), keys.feedback(false), keys.feedbackItem(feedback.id)],
+    onSuccess: (updated) => {
+      if (updated) {
+        syncFeedbackInCache(queryClient, updated);
+      }
+    },
+  });
+
+  return (
+    <form
+      className='grid gap-4'
+      onSubmit={(event) => {
+        event.preventDefault();
+        const form = new FormData(event.currentTarget);
+        update.mutate({
+          id: feedback.id,
+          status,
+          description: String(form.get("description") ?? ""),
+          ticketUrl: String(form.get("ticketUrl") ?? "").trim() || undefined,
+        });
+      }}
+    >
+      <p className='text-sm text-muted-foreground whitespace-pre-wrap'>{feedback.description}</p>
+      <div className='flex items-center justify-between gap-2 text-sm'>
+        {feedback.ticketUrl ? (
+          <p className='text-sm'>
+            Linear issue:{" "}
+            <a
+              href={feedback.ticketUrl}
+              target='_blank'
+              rel='noreferrer'
+              className='inline-flex items-center gap-1 font-medium text-primary underline-offset-4 hover:underline'
+            >
+              <span>{feedback.linearIssueIdentifier ? feedback.linearIssueIdentifier : feedback.ticketUrl}</span>
+              <ExternalLinkIcon className='size-3 shrink-0' />
+            </a>
+          </p>
+        ) : (
+          <div className='flex items-center gap-2'>
+            <span className='text-xs text-muted-foreground'>No Linear issue linked yet.</span>
+            <Button
+              type='button'
+              size='xs'
+              variant='outline'
+              disabled={syncLinear.isPending}
+              onClick={() => syncLinear.mutate(feedback.id)}
+            >
+              {syncLinear.isPending ? "Creating..." : "Create in Linear"}
+            </Button>
+          </div>
+        )}
+      </div>
+      <Field label='Status' htmlFor='feedback-status'>
+        <SelectField
+          id='feedback-status'
+          value={status}
+          onValueChange={(value) => setStatus(value as FeedbackStatus)}
+          options={feedbackStatuses}
+        />
+      </Field>
+      <Field label='Note' htmlFor='feedback-note'>
+        <Textarea
+          id='feedback-note'
+          name='description'
+          required
+          maxLength={2000}
+          rows={4}
+          placeholder='Leave a comment or status update note...'
+        />
+      </Field>
+      <Field
+        label='Ticket URL'
+        htmlFor='feedback-ticket'
+        hint='Optional extra ticket URL. Linear issues are created automatically.'
+      >
+        <Input id='feedback-ticket' name='ticketUrl' type='url' className='h-9' defaultValue={feedback.ticketUrl ?? ""} />
+      </Field>
+      <div className='flex items-center justify-end gap-2'>
+        <FormMessage result={update.error ? ({ ok: false, error: update.error.message } satisfies ActionResult) : null} />
+        <SubmitButton pending={update.isPending}>Save</SubmitButton>
+      </div>
+    </form>
   );
 }

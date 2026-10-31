@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import { usePathname } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { createFeedbackAction } from "@/app/actions/feedback";
 import { DialogActions } from "@/components/dialog-actions";
 import { EntityFormDialog } from "@/components/entity-forms/entity-form-dialog";
@@ -14,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useActionMutation } from "@/hooks/use-action-mutation";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { feedbackAreaForPath, feedbackAreas, feedbackPriorities, feedbackTypes } from "@/lib/feedback";
-import { keys } from "@/lib/queries";
+import { keys, syncFeedbackInCache } from "@/lib/queries";
 import type { ActionResult } from "@/lib/types";
 
 export function FeedbackDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
@@ -42,13 +43,19 @@ function FeedbackForm({
   onCancel: () => void;
 }) {
   const { organization } = useWorkspace();
+  const queryClient = useQueryClient();
   const pathname = usePathname();
   const [type, setType] = useState("Bug");
   const [priority, setPriority] = useState("Medium");
   const [area, setArea] = useState<string>(() => feedbackAreaForPath(pathname));
   const create = useActionMutation((formData: FormData) => createFeedbackAction(formData), {
     invalidate: [keys.feedback()],
-    onSuccess: onCreated,
+    onSuccess: (created) => {
+      if (created) {
+        syncFeedbackInCache(queryClient, created);
+      }
+      onCreated();
+    },
     errorToast: false,
   });
 

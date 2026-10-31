@@ -1,4 +1,5 @@
-import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
+import { infiniteQueryOptions, queryOptions, type QueryClient } from "@tanstack/react-query";
+import { isActiveFeedback } from "@/lib/api/json";
 import { fetchJson } from "@/lib/fetch-json";
 import type { MemberConnectionRecord } from "@/lib/member-connection";
 import type { ReportFilters } from "@/lib/report-layout";
@@ -303,16 +304,45 @@ export function meQuery() {
 export function feedbackQuery(active: boolean) {
   return queryOptions({
     queryKey: keys.feedback(active),
+    staleTime: lookupStaleTime,
+    gcTime: lookupGcTime,
     queryFn: ({ signal }) =>
-      fetchJson<Paged<Feedback>>(`/feedback${query({ active: String(active), limit: 100 })}`, signal),
+      fetchJson<Paged<Feedback>>(`/api/feedback${query({ active: String(active), limit: 100 })}`, signal),
   });
 }
 
 export function feedbackItemQuery(id: string) {
   return queryOptions({
     queryKey: keys.feedbackItem(id),
-    queryFn: ({ signal }) => fetchJson<Feedback>(`/feedback/${id}`, signal),
+    staleTime: lookupStaleTime,
+    gcTime: lookupGcTime,
+    queryFn: ({ signal }) => fetchJson<Feedback>(`/api/feedback/${id}`, signal),
   });
+}
+
+export function syncFeedbackInCache(queryClient: QueryClient, item: Feedback) {
+  queryClient.setQueryData<Feedback>(keys.feedbackItem(item.id), (current) =>
+    item.actions.length > 0 || !current ? item : { ...item, actions: current.actions },
+  );
+
+  for (const active of [true, false]) {
+    const shouldInclude = isActiveFeedback(item.status) === active;
+    queryClient.setQueryData<Paged<Feedback>>(keys.feedback(active), (current) => {
+      if (!current) return current;
+      const without = current.items.filter((row) => row.id !== item.id);
+      const existed = without.length !== current.items.length;
+      if (!shouldInclude) {
+        return existed ? { ...current, items: without } : current;
+      }
+      const items = existed
+        ? current.items.map((row) => (row.id === item.id ? { ...row, ...item } : row))
+        : [item, ...current.items];
+      return {
+        ...current,
+        items,
+      };
+    });
+  }
 }
 
 export function needsQuery(organizationId: string) {

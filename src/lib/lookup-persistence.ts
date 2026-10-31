@@ -46,7 +46,10 @@ export const lookupPersister = createAsyncStoragePersister({
 });
 
 export function persistedLookupQuery(query: Query) {
-  return query.state.status === "success" && query.queryKey[2] === "lookups";
+  return (
+    query.state.status === "success" &&
+    (query.queryKey[2] === "lookups" || query.queryKey[0] === "feedback")
+  );
 }
 
 export async function signOut() {

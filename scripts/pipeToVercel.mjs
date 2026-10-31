@@ -85,7 +85,10 @@ function resolveEnvTarget(rawEnv) {
   if (normalized === "production" || normalized === "prod") {
     return { envFile: ".env.production", vercelEnv: "production" };
   }
-  if (normalized === "staging" || normalized === "preview") {
+  if (normalized === "staging") {
+    return { envFile: ".env.staging", vercelEnv: "staging" };
+  }
+  if (normalized === "preview") {
     return { envFile: ".env.staging", vercelEnv: "preview" };
   }
   if (normalized === "local" || normalized === "development" || normalized === "dev") {

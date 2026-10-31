@@ -28,6 +28,7 @@ import {
 } from "@/lib/api/json";
 import {
   createLinearIssue,
+  createLinearIssueDetailed,
   extractFeedbackDescription,
   extractFeedbackIdFromDescription,
   mapLinearPriorityToFeedbackPriority,
@@ -489,6 +490,51 @@ export async function updateFeedback(access: Access, feedbackId: string, request
     });
   }
 
+  return feedbackJson(updated, true);
+}
+
+export async function syncFeedbackLinearIssue(access: Access, feedbackId: string) {
+  requireSuperAdmin(access);
+  const existing = await prisma.feedback.findUnique({ where: { id: feedbackId }, include: detailInclude });
+  if (!existing) {
+    notFound();
+  }
+
+  if (existing.linearIssueId) {
+    await syncLinearIssueState(existing.linearIssueId, existing.status as FeedbackStatus);
+    return feedbackJson(existing, true);
+  }
+
+  const { issue, error } = await createLinearIssueDetailed({
+    id: existing.id,
+    title: existing.title,
+    type: existing.type as FeedbackType,
+    priority: existing.priority as FeedbackPriority,
+    area: existing.area as FeedbackArea,
+    status: existing.status as FeedbackStatus,
+    description: existing.description,
+    screenshotUrls: urls(existing.screenshotUrls),
+    submitterName: displayName(existing.user),
+    submitterUsername: existing.user.username,
+    organizationName: existing.organization?.name ?? null,
+    adminUrl: appUrl(`/feedback/${existing.id}`),
+  });
+  if (!issue) {
+    fail(502, "linear_unavailable", error ?? "Could not create a Linear issue. Check that LINEAR_API_KEY is configured.");
+  }
+
+  const updated = await guard(
+    prisma.feedback.update({
+      where: { id: existing.id },
+      data: {
+        linearIssueId: issue.id,
+        linearIssueIdentifier: issue.identifier,
+        ticketUrl: issue.url,
+        updatedAt: utcNow(),
+      },
+      include: detailInclude,
+    }),
+  );
   return feedbackJson(updated, true);
 }
 

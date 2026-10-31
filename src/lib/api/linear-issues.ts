@@ -7,6 +7,7 @@ export type LinearIssueDraft = {
   type: FeedbackType;
   priority: FeedbackPriority;
   area: FeedbackArea;
+  status?: FeedbackStatus;
   description: string;
   screenshotUrls: string[];
   submitterName: string;
@@ -254,10 +255,18 @@ export function verifyLinearWebhookSignature(rawBody: string, signatureHeader: s
   return timingSafeEqual(actualBuf, expectedBuf);
 }
 
-async function linearGraphql<T>(query: string, variables: Record<string, unknown> = {}): Promise<T | null> {
+type GraphqlResult<T> = {
+  data: T | null;
+  error: string | null;
+};
+
+async function linearGraphqlDetailed<T>(
+  query: string,
+  variables: Record<string, unknown> = {},
+): Promise<GraphqlResult<T>> {
   const settings = config();
   if (!settings) {
-    return null;
+    return { data: null, error: "LINEAR_API_KEY is not configured in this environment." };
   }
 
   try {
@@ -272,27 +281,45 @@ async function linearGraphql<T>(query: string, variables: Record<string, unknown
       body: JSON.stringify({ query, variables }),
     });
     if (!response.ok) {
-      return null;
+      const errorText = `Linear API returned HTTP ${response.status}.`;
+      console.error(`[linear] ${errorText}`);
+      return { data: null, error: errorText };
     }
 
-    const payload = (await response.json()) as { data?: T; errors?: unknown[] };
+    const payload = (await response.json()) as {
+      data?: T;
+      errors?: Array<{ message?: string }>;
+    };
     if (payload.errors?.length || !payload.data) {
-      return null;
+      const detail =
+        payload.errors
+          ?.map((err) => (typeof err?.message === "string" ? err.message.trim() : ""))
+          .filter(Boolean)
+          .join("; ") || "Linear GraphQL request failed.";
+      console.error(`[linear] ${detail}`);
+      return { data: null, error: detail };
     }
 
-    return payload.data;
-  } catch {
-    return null;
+    return { data: payload.data, error: null };
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "Network error connecting to Linear.";
+    console.error(`[linear] ${detail}`);
+    return { data: null, error: detail };
   }
 }
 
-async function resolveVolunTimeTeam(): Promise<LinearTeam | null> {
+async function linearGraphql<T>(query: string, variables: Record<string, unknown> = {}): Promise<T | null> {
+  const result = await linearGraphqlDetailed<T>(query, variables);
+  return result.data;
+}
+
+async function resolveVolunTimeTeam(): Promise<{ team: LinearTeam | null; error: string | null }> {
   const settings = config();
   if (!settings) {
-    return null;
+    return { team: null, error: "LINEAR_API_KEY is not configured in this environment." };
   }
 
-  const data = await linearGraphql<{ teams?: { nodes?: LinearTeam[] } }>(`
+  const { data, error } = await linearGraphqlDetailed<{ teams?: { nodes?: LinearTeam[] } }>(`
     query VolunTimeTeams {
       teams {
         nodes {
@@ -316,23 +343,28 @@ async function resolveVolunTimeTeam(): Promise<LinearTeam | null> {
       }
     }
   `);
+  if (error) {
+    return { team: null, error };
+  }
+
   const teams = data?.teams?.nodes ?? [];
   if (teams.length === 0) {
-    return null;
+    return { team: null, error: "No Linear teams are accessible with the configured LINEAR_API_KEY." };
   }
 
   if (settings.teamId) {
     const byId = teams.find((team) => team.id === settings.teamId);
-    if (byId) return byId;
+    if (byId) return { team: byId, error: null };
   }
 
   const target = settings.teamKey.toLowerCase();
-  return (
+  const matched =
     teams.find((team) => team.key.toLowerCase() === target || team.name.toLowerCase() === target) ??
     teams.find((team) => team.name.toLowerCase() === "voluntime" || team.key.toLowerCase() === "vol") ??
     teams[0] ??
-    null
-  );
+    null;
+
+  return { team: matched, error: matched ? null : `Linear team "${settings.teamKey}" was not found.` };
 }
 
 async function ensureLinearLabels(team: LinearTeam, names: string[]): Promise<string[]> {
@@ -391,19 +423,23 @@ type IssueCreateResult = {
   };
 };
 
-export async function createLinearIssue(draft: LinearIssueDraft): Promise<LinearIssue | null> {
+export async function createLinearIssueDetailed(
+  draft: LinearIssueDraft,
+): Promise<{ issue: LinearIssue | null; error: string | null }> {
   const settings = config();
   if (!settings) {
-    return null;
+    const error = "LINEAR_API_KEY is not configured in this environment.";
+    console.warn(`[linear] ${error}`);
+    return { issue: null, error };
   }
 
-  const team = await resolveVolunTimeTeam();
+  const { team, error: teamError } = await resolveVolunTimeTeam();
   if (!team) {
-    return null;
+    return { issue: null, error: teamError ?? "Could not resolve Linear team." };
   }
 
   const labelIds = await ensureLinearLabels(team, labels(draft.type, draft.area));
-  const stateId = pickLinearStateId(team.states?.nodes ?? [], "Pending");
+  const stateId = pickLinearStateId(team.states?.nodes ?? [], draft.status ?? "Pending");
   const description = formatLinearDescription(draft);
   const priority = feedbackPriorityToLinear(draft.priority);
 
@@ -420,36 +456,45 @@ export async function createLinearIssue(draft: LinearIssueDraft): Promise<Linear
     }
   `;
 
-  const created =
-    (await linearGraphql<IssueCreateResult>(mutation, {
+  let result = await linearGraphqlDetailed<IssueCreateResult>(mutation, {
+    input: {
+      teamId: team.id,
+      title: draft.title,
+      description,
+      priority,
+      ...(stateId ? { stateId } : {}),
+      ...(labelIds.length > 0 ? { labelIds } : {}),
+    },
+  });
+  if (!result.data) {
+    result = await linearGraphqlDetailed<IssueCreateResult>(mutation, {
       input: {
         teamId: team.id,
         title: draft.title,
         description,
         priority,
-        ...(stateId ? { stateId } : {}),
-        ...(labelIds.length > 0 ? { labelIds } : {}),
       },
-    })) ??
-    (await linearGraphql<IssueCreateResult>(mutation, {
-      input: {
-        teamId: team.id,
-        title: draft.title,
-        description,
-        priority,
-      },
-    }));
+    });
+  }
 
-  const issue = created?.issueCreate?.issue;
+  const issue = result.data?.issueCreate?.issue;
   if (!issue?.id || !issue.identifier || !issue.url) {
-    return null;
+    return { issue: null, error: result.error ?? "Linear did not return a created issue." };
   }
 
   return {
-    id: issue.id,
-    identifier: issue.identifier,
-    url: issue.url,
+    issue: {
+      id: issue.id,
+      identifier: issue.identifier,
+      url: issue.url,
+    },
+    error: null,
   };
+}
+
+export async function createLinearIssue(draft: LinearIssueDraft): Promise<LinearIssue | null> {
+  const { issue } = await createLinearIssueDetailed(draft);
+  return issue;
 }
 
 export async function syncLinearIssueState(linearIssueId: string, status: FeedbackStatus) {
@@ -487,7 +532,8 @@ export async function syncLinearIssueState(linearIssueId: string, status: Feedba
     { id: linearIssueId },
   );
 
-  const states = issueData?.issue?.team?.states?.nodes ?? (await resolveVolunTimeTeam())?.states?.nodes ?? [];
+  const states =
+    issueData?.issue?.team?.states?.nodes ?? (await resolveVolunTimeTeam()).team?.states?.nodes ?? [];
   const stateId = pickLinearStateId(states, status);
   if (!stateId) {
     return;

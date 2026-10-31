@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import { after, before, test } from "node:test";
+import { QueryClient } from "@tanstack/react-query";
 import {
   extractFeedbackDescription,
   extractFeedbackIdFromDescription,
@@ -11,6 +12,8 @@ import {
   pickLinearStateId,
   verifyLinearWebhookSignature,
 } from "../src/lib/api/linear-issues";
+import { keys, syncFeedbackInCache } from "../src/lib/queries";
+import type { Feedback, Paged } from "../src/lib/types";
 
 const originalSecret = process.env.LINEAR_WEBHOOK_SECRET;
 
@@ -95,4 +98,55 @@ test("priority and description helpers preserve feedback metadata and extract cl
   assert.equal(extractFeedbackIdFromDescription(formatted), feedbackId);
   assert.equal(extractFeedbackDescription(formatted), "Original description from user.\nSecond line.");
   assert.equal(extractFeedbackDescription("Plain description edited in Linear."), "Plain description edited in Linear.");
+});
+
+test("syncFeedbackInCache updates item and active/inactive list caches immediately", () => {
+  const queryClient = new QueryClient();
+  const baseItem: Feedback = {
+    id: "11111111-2222-4333-8444-555555555555",
+    userId: "user-1",
+    organizationId: null,
+    type: "Bug",
+    priority: "High",
+    area: "Dashboard",
+    title: "Initial title",
+    description: "Initial description",
+    screenshotUrls: [],
+    status: "Pending",
+    ticketUrl: null,
+    linearIssueId: null,
+    linearIssueIdentifier: null,
+    createdAt: "2026-10-30T00:00:00.000Z",
+    updatedAt: "2026-10-30T00:00:00.000Z",
+    user: { id: "user-1", username: "ada", email: "ada@example.com", firstName: "Ada", lastName: "Lovelace", displayName: "Ada Lovelace" },
+    organization: null,
+    actions: [],
+  };
+
+  queryClient.setQueryData<Paged<Feedback>>(keys.feedback(true), { items: [baseItem], limit: 100, offset: 0 });
+  queryClient.setQueryData<Paged<Feedback>>(keys.feedback(false), { items: [], limit: 100, offset: 0 });
+
+  const resolvedItem: Feedback = {
+    ...baseItem,
+    title: "Updated title",
+    status: "Resolved",
+    actions: [
+      {
+        id: "act-1",
+        feedbackId: baseItem.id,
+        previousStatus: "Pending",
+        updatedStatus: "Resolved",
+        description: "Fixed",
+        takenByUserId: "user-1",
+        updatedAt: "2026-10-30T01:00:00.000Z",
+        takenBy: baseItem.user,
+      },
+    ],
+  };
+
+  syncFeedbackInCache(queryClient, resolvedItem);
+
+  assert.equal(queryClient.getQueryData<Feedback>(keys.feedbackItem(baseItem.id))?.title, "Updated title");
+  assert.equal(queryClient.getQueryData<Paged<Feedback>>(keys.feedback(true))?.items.length, 0);
+  assert.equal(queryClient.getQueryData<Paged<Feedback>>(keys.feedback(false))?.items[0]?.status, "Resolved");
 });
