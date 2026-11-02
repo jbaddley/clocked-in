@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLinkIcon, MessageSquareIcon } from "lucide-react";
+import { ExternalLinkIcon, MessageSquareIcon, PlusIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -9,6 +9,7 @@ import { syncFeedbackLinearAction, updateFeedbackAction } from "@/app/actions/fe
 import { DataTable, type Column } from "@/components/data-table";
 import { EmptyState } from "@/components/empty-state";
 import { EntityFormDialog } from "@/components/entity-forms/entity-form-dialog";
+import { FeedbackDialog } from "@/components/entity-forms/feedback-form";
 import { Field, FormMessage } from "@/components/field";
 import { PageHeader } from "@/components/page-header";
 import { SelectField } from "@/components/select-field";
@@ -108,6 +109,7 @@ function FeedbackTable({ active }: { active: boolean }) {
   const [sortKey, setSortKeyState] = useState<SortKey>(initial.sortKey);
   const [sortDir, setSortDirState] = useState<SortDir>(initial.sortDir);
   const [selected, setSelected] = useState<Feedback | null>(null);
+  const [creating, setCreating] = useState(false);
 
   const setSearch = (value: string) => {
     cachedTableFilters[bucket].search = value;
@@ -329,7 +331,7 @@ function FeedbackTable({ active }: { active: boolean }) {
 
   return (
     <div className='grid gap-4'>
-      <div className='grid gap-3 sm:grid-cols-2 lg:grid-cols-5'>
+      <div className='grid gap-3 sm:grid-cols-2 lg:grid-cols-[repeat(5,minmax(0,1fr))_auto]'>
         <Input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
@@ -357,6 +359,10 @@ function FeedbackTable({ active }: { active: boolean }) {
           onValueChange={setStatus}
           options={[{ value: "all", label: "All statuses" }, ...feedbackStatuses]}
         />
+        <Button type='button' className='h-9' onClick={() => setCreating(true)}>
+          <PlusIcon />
+          Create Feedback
+        </Button>
       </div>
       {isPending ? (
         <PageSkeleton rows={8} />
@@ -370,6 +376,7 @@ function FeedbackTable({ active }: { active: boolean }) {
       ) : (
         <EmptyState icon={MessageSquareIcon} title='No feedback in this list' />
       )}
+      <FeedbackDialog open={creating} onOpenChange={setCreating} />
       <UpdateFeedbackDialog
         feedback={selected ? (data?.items.find((item) => item.id === selected.id) ?? selected) : null}
         onOpenChange={(open) => !open && setSelected(null)}

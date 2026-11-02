@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -8,6 +8,7 @@ import {
   Building2Icon,
   CalendarIcon,
   ExternalLinkIcon,
+  FileTextIcon,
   MessageSquareIcon,
   TagIcon,
   UserIcon,
@@ -30,11 +31,13 @@ import type { FeedbackArea, FeedbackPriority, FeedbackStatus, FeedbackType } fro
 import { HttpError } from "@/lib/fetch-json";
 import {
   feedbackAreas,
+  feedbackAttachmentName,
   feedbackLabel,
   feedbackOption,
   feedbackPriorities,
   feedbackStatuses,
   feedbackTypes,
+  isFeedbackImageUrl,
 } from "@/lib/feedback";
 import { feedbackItemQuery, keys, syncFeedbackInCache } from "@/lib/queries";
 import type { ActionResult, Feedback, Paged } from "@/lib/types";
@@ -61,6 +64,11 @@ export function FeedbackDetail({ id }: { id: string }) {
   const { viewer } = useWorkspace();
   const queryClient = useQueryClient();
   const { data, isPending, error } = useQuery(feedbackItemQuery(id));
+  useEffect(() => {
+    if (data) {
+      syncFeedbackInCache(queryClient, data);
+    }
+  }, [data, queryClient]);
   const summary =
     data ??
     queryClient.getQueryData<Paged<Feedback>>(keys.feedback(true))?.items.find((item) => item.id === id) ??
@@ -174,6 +182,11 @@ function FeedbackEditor({ feedback, canUpdateStatus }: { feedback: Feedback; can
   });
   const syncLinear = useActionMutation(syncFeedbackLinearAction, {
     invalidate: [keys.feedback(true), keys.feedback(false), keys.feedbackItem(feedback.id)],
+    onSuccess: (updated) => {
+      if (updated) {
+        syncFeedbackInCache(queryClient, updated);
+      }
+    },
   });
 
   const screenshots = feedback.screenshotUrls
@@ -326,22 +339,40 @@ function FeedbackEditor({ feedback, canUpdateStatus }: { feedback: Feedback; can
                 Attachments ({screenshots.length})
               </h3>
               <div className="grid gap-3 sm:grid-cols-2">
-                {screenshots.map((url, index) => (
-                  <a
-                    key={url}
-                    href={url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="group relative block overflow-hidden rounded-lg bg-muted/30 ring-1 ring-foreground/10 transition hover:ring-foreground/25"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={url}
-                      alt={`Screenshot ${index + 1}`}
-                      className="max-h-72 w-full object-contain p-2"
-                    />
-                  </a>
-                ))}
+                {screenshots.map((url, index) =>
+                  isFeedbackImageUrl(url) ? (
+                    <a
+                      key={url}
+                      href={url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="group relative block overflow-hidden rounded-lg bg-muted/30 ring-1 ring-foreground/10 transition hover:ring-foreground/25"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={url}
+                        alt={`Screenshot ${index + 1}`}
+                        className="max-h-72 w-full object-contain p-2"
+                      />
+                    </a>
+                  ) : (
+                    <a
+                      key={url}
+                      href={url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="group flex items-center justify-between gap-3 rounded-lg bg-muted/30 px-3.5 py-3 text-sm ring-1 ring-foreground/10 transition hover:bg-muted/50 hover:ring-foreground/25"
+                    >
+                      <span className="flex min-w-0 items-center gap-2.5">
+                        <FileTextIcon className="size-4 shrink-0 text-muted-foreground" />
+                        <span className="truncate font-medium text-foreground">
+                          {feedbackAttachmentName(url, index)}
+                        </span>
+                      </span>
+                      <ExternalLinkIcon className="size-3.5 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
+                    </a>
+                  ),
+                )}
               </div>
             </div>
           ) : null}

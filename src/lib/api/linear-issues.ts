@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { FeedbackArea, FeedbackPriority, FeedbackStatus, FeedbackType } from "@/lib/api/json";
+import { feedbackAttachmentName, isFeedbackImageUrl } from "@/lib/feedback";
 
 export type LinearIssueDraft = {
   id: string;
@@ -173,8 +174,12 @@ export function formatLinearDescription(draft: LinearIssueDraft) {
   }
 
   lines.push(`**VolunTime:** ${draft.adminUrl}`, "", draft.description);
-  for (const url of draft.screenshotUrls) {
-    lines.push("", `![Screenshot](${url})`);
+  for (const [index, url] of draft.screenshotUrls.entries()) {
+    if (isFeedbackImageUrl(url)) {
+      lines.push("", `![Screenshot](${url})`);
+    } else {
+      lines.push("", `[Attachment: ${feedbackAttachmentName(url, index)}](${url})`);
+    }
   }
 
   lines.push("", `VolunTime id: \`${draft.id}\``);
@@ -204,7 +209,8 @@ export function extractFeedbackDescription(linearDescription: string | null | un
     if (
       tail === "" ||
       /^VolunTime id:\s*`[0-9a-f-]{36}`$/i.test(tail) ||
-      /^!\[Screenshot\]\([^)]+\)$/.test(tail)
+      /^!\[Screenshot\]\([^)]+\)$/.test(tail) ||
+      /^\[Attachment:[^\]]*\]\([^)]+\)$/.test(tail)
     ) {
       end -= 1;
     } else {

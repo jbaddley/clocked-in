@@ -304,8 +304,10 @@ export function meQuery() {
 export function feedbackQuery(active: boolean) {
   return queryOptions({
     queryKey: keys.feedback(active),
-    staleTime: lookupStaleTime,
+    staleTime: 0,
     gcTime: lookupGcTime,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: ({ signal }) =>
       fetchJson<Paged<Feedback>>(`/api/feedback${query({ active: String(active), limit: 100 })}`, signal),
   });
@@ -314,16 +316,19 @@ export function feedbackQuery(active: boolean) {
 export function feedbackItemQuery(id: string) {
   return queryOptions({
     queryKey: keys.feedbackItem(id),
-    staleTime: lookupStaleTime,
+    staleTime: 0,
     gcTime: lookupGcTime,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: ({ signal }) => fetchJson<Feedback>(`/api/feedback/${id}`, signal),
   });
 }
 
 export function syncFeedbackInCache(queryClient: QueryClient, item: Feedback) {
-  queryClient.setQueryData<Feedback>(keys.feedbackItem(item.id), (current) =>
-    item.actions.length > 0 || !current ? item : { ...item, actions: current.actions },
-  );
+  queryClient.setQueryData<Feedback>(keys.feedbackItem(item.id), (current) => {
+    if (current === item) return current;
+    return item.actions.length > 0 || !current ? item : { ...item, actions: current.actions };
+  });
 
   for (const active of [true, false]) {
     const shouldInclude = isActiveFeedback(item.status) === active;
