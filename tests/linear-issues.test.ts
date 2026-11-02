@@ -12,6 +12,11 @@ import {
   pickLinearStateId,
   verifyLinearWebhookSignature,
 } from "../src/lib/api/linear-issues";
+import {
+  classifyFeedbackAttachment,
+  feedbackAttachmentName,
+  isFeedbackImageUrl,
+} from "../src/lib/feedback";
 import { keys, syncFeedbackInCache } from "../src/lib/queries";
 import type { Feedback, Paged } from "../src/lib/types";
 
@@ -88,16 +93,60 @@ test("priority and description helpers preserve feedback metadata and extract cl
     priority: "High",
     area: "LogTime",
     description: "Original description from user.\nSecond line.",
-    screenshotUrls: ["https://voluntime.app/s1.png"],
+    screenshotUrls: [
+      "https://voluntime.app/s1.png",
+      "https://voluntime.app/feedback/u1/11111111-2222-4333-8444-555555555555-error-report.pdf",
+    ],
     submitterName: "Ada Lovelace",
     submitterUsername: "ada",
     organizationName: "CASWJ",
     adminUrl: `https://voluntime.app/feedback/${feedbackId}`,
   });
 
+  assert.equal(formatted.includes("![Screenshot](https://voluntime.app/s1.png)"), true);
+  assert.equal(
+    formatted.includes(
+      "[Attachment: error-report.pdf](https://voluntime.app/feedback/u1/11111111-2222-4333-8444-555555555555-error-report.pdf)",
+    ),
+    true,
+  );
   assert.equal(extractFeedbackIdFromDescription(formatted), feedbackId);
   assert.equal(extractFeedbackDescription(formatted), "Original description from user.\nSecond line.");
   assert.equal(extractFeedbackDescription("Plain description edited in Linear."), "Plain description edited in Linear.");
+});
+
+test("classifyFeedbackAttachment and attachment URL helpers handle images and documents", () => {
+  assert.deepEqual(
+    classifyFeedbackAttachment({ name: "pasted-image-1.png", type: "image/png", size: 2048 }),
+    { kind: "image" },
+  );
+  assert.deepEqual(
+    classifyFeedbackAttachment({ name: "Audit Report (Q3).pdf", type: "application/pdf", size: 4096 }),
+    {
+      kind: "document",
+      extension: ".pdf",
+      contentType: "application/pdf",
+      safeName: "Audit-Report-Q3.pdf",
+    },
+  );
+  assert.deepEqual(
+    classifyFeedbackAttachment({ name: "notes.docx", type: "application/octet-stream", size: 1024 }),
+    {
+      kind: "document",
+      extension: ".docx",
+      contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      safeName: "notes.docx",
+    },
+  );
+  assert.equal("error" in classifyFeedbackAttachment({ name: "malware.exe", type: "application/x-msdownload", size: 512 }), true);
+  assert.equal("error" in classifyFeedbackAttachment({ name: "huge.pdf", type: "application/pdf", size: 5 * 1024 * 1024 }), true);
+
+  assert.equal(isFeedbackImageUrl("https://blob.vercel-storage.com/feedback/u1/abc.webp"), true);
+  assert.equal(isFeedbackImageUrl("https://blob.vercel-storage.com/feedback/u1/abc-report.pdf"), false);
+  assert.equal(
+    feedbackAttachmentName("https://blob.vercel-storage.com/feedback/u1/11111111-2222-4333-8444-555555555555-report.pdf"),
+    "report.pdf",
+  );
 });
 
 test("syncFeedbackInCache updates item and active/inactive list caches immediately", () => {
