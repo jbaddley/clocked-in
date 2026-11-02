@@ -1,7 +1,6 @@
 import {
   BarChart3Icon,
   BookOpenIcon,
-  ClockIcon,
   Code2Icon,
   HandHeartIcon,
   LayoutDashboardIcon,
@@ -11,8 +10,8 @@ import {
   TimerIcon,
   type LucideIcon,
 } from "lucide-react";
-import Link from "next/link";
 import { NavLink } from "@/components/shell/nav-link";
+import { OrgSwitcher } from "@/components/shell/org-switcher";
 import { SidebarToggle } from "@/components/shell/sidebar-toggle";
 import {
   Sidebar,
@@ -24,8 +23,6 @@ import {
   SidebarHeader,
   SidebarMenu,
 } from "@/components/ui/sidebar";
-import { brandAssetSrc, wordmarkSrc } from "@/lib/brand";
-import type { Organization } from "@/lib/types";
 
 type NavItem = {
   href: string;
@@ -60,48 +57,22 @@ const sections: { label: string; links: NavItem[] }[] = [
 ];
 
 export function AppSidebar({
-  organization,
   isAdmin,
   isCoordinator = false,
   isSuperAdmin,
   showReports,
 }: {
-  organization: Organization | null;
   isAdmin: boolean;
   isCoordinator?: boolean;
   isSuperAdmin: boolean;
   showReports: boolean;
 }) {
-  const markUrl = brandAssetSrc("mark", organization?.markUrl ?? null);
-  const wordmarkUrl = wordmarkSrc(organization, "dark");
   return (
-    <Sidebar collapsible='icon'>
-      <SidebarHeader className='h-16 flex-row items-center gap-0 overflow-hidden border-b border-sidebar-border px-2 py-0'>
-        <Link href='/' className='flex min-w-0 items-center gap-2.5'>
-          {markUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={markUrl} alt='' width={32} height={32} className='size-8 shrink-0 rounded-md object-contain' />
-          ) : (
-            <span className='flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground'>
-              <ClockIcon className='size-4' />
-            </span>
-          )}
-          {wordmarkUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={wordmarkUrl}
-              alt={organization?.name ?? "Organization"}
-              height={28}
-              className='h-7 max-w-36 object-contain group-data-[collapsible=icon]:hidden'
-            />
-          ) : (
-            <span className='truncate font-heading text-base font-semibold tracking-tight group-data-[collapsible=icon]:hidden'>
-              {organization?.name ?? "VolunTime"}
-            </span>
-          )}
-        </Link>
+    <Sidebar collapsible="icon">
+      <SidebarHeader className="h-16 flex-row items-center gap-0 overflow-hidden border-b border-sidebar-border px-2 py-0 group-data-[collapsible=icon]:pl-1 group-data-[collapsible=icon]:pr-0.5">
+        <OrgSwitcher />
       </SidebarHeader>
-      <SidebarContent className='py-2'>
+      <SidebarContent className="py-2">
         {sections
           .map((section) => ({
             ...section,
@@ -115,7 +86,7 @@ export function AppSidebar({
           .filter((section) => section.links.length > 0)
           .map((section) => (
             <SidebarGroup key={section.label}>
-              <SidebarGroupLabel className='text-[0.68rem] tracking-widest text-sidebar-foreground/60 uppercase'>
+              <SidebarGroupLabel className="text-[0.68rem] tracking-widest text-sidebar-foreground/60 uppercase">
                 {section.label}
               </SidebarGroupLabel>
               <SidebarGroupContent>

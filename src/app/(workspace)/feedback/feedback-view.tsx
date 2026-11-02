@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLinkIcon, MessageSquareIcon, PlusIcon } from "lucide-react";
+import { ExternalLinkIcon, MessageSquareIcon, MoreVerticalIcon, PlusIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -16,6 +16,12 @@ import { SelectField } from "@/components/select-field";
 import { PageSkeleton } from "@/components/skeletons";
 import { SubmitButton } from "@/components/submit-button";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -308,22 +314,38 @@ function FeedbackTable({ active }: { active: boolean }) {
     },
     {
       key: "actions",
-      header: "Actions",
+      header: <span className='sr-only'>Actions</span>,
       align: "right",
-      width: "6.5rem",
+      width: "3rem",
       cell: (row) => (
-        <div className='flex justify-end gap-1.5'>
-          <Button
-            type='button'
-            size='sm'
-            variant='outline'
-            onClick={(event) => {
-              event.stopPropagation();
-              setSelected(row);
-            }}
-          >
-            Update
-          </Button>
+        <div className='flex justify-end' onClick={(event) => event.stopPropagation()}>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type='button'
+                  variant='ghost'
+                  size='icon-sm'
+                  className='shrink-0'
+                  aria-label={`Actions for ${row.title}`}
+                />
+              }
+            >
+              <MoreVerticalIcon />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align='end'>
+              <DropdownMenuItem onClick={() => setSelected(row)}>Update</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push(`/feedback/${row.id}`)}>View details</DropdownMenuItem>
+              {!row.ticketUrl ? (
+                <DropdownMenuItem
+                  disabled={syncLinear.isPending && syncLinear.variables === row.id}
+                  onClick={() => syncLinear.mutate(row.id)}
+                >
+                  {syncLinear.isPending && syncLinear.variables === row.id ? "Creating..." : "Create in Linear"}
+                </DropdownMenuItem>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ),
     },

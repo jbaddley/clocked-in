@@ -20,8 +20,6 @@ export async function WorkspaceShell({ children }: { children: React.ReactNode }
         isSuperAdmin={workspace.viewer.isSuperAdmin && !workspace.isTenantHost}
         showReports={canSeeReports(workspace)}
         sidebarOpen={store.get("sidebar_state")?.value !== "false"}
-        isTenantHost={workspace.isTenantHost}
-        pinnedOrganizationName={workspace.pinnedOrganizationName}
       >
         <OrganizationGate>{children}</OrganizationGate>
       </AppShell>
