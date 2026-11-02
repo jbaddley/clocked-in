@@ -17,11 +17,10 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "brand-hero-white relative flex flex-col items-center justify-center gap-3 overflow-hidden rounded-xl border border-dashed px-6 py-12 text-center",
+        "flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed bg-card/60 px-6 py-12 text-center",
         className,
       )}
     >
-      <div className="brand-rule absolute inset-x-0 top-0" />
       <div className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
         <Icon className="size-6" />
       </div>
