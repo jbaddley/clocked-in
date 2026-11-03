@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 
 const issues = [];
+const slackMessages = [];
 const labels = [
   { id: "label-bug", name: "Bug" },
   { id: "label-feature", name: "Feature" },
@@ -171,6 +172,21 @@ const server = createServer(async (request, response) => {
 
   if (request.method === "GET" && url.pathname === "/issues") {
     send(response, 200, issues);
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/slack") {
+    const body = await readJson(request);
+    slackMessages.push({
+      receivedAt: new Date().toISOString(),
+      ...body,
+    });
+    send(response, 200, { ok: true });
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/slack") {
+    send(response, 200, slackMessages);
     return;
   }
 

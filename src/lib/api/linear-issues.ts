@@ -23,6 +23,22 @@ export type LinearIssue = {
   url: string;
 };
 
+export type SlackFeedbackAlert = {
+  id: string;
+  title: string;
+  type: FeedbackType;
+  priority: FeedbackPriority;
+  area: FeedbackArea;
+  description: string;
+  screenshotUrls: string[];
+  submitterName: string;
+  submitterUsername: string;
+  organizationName: string | null;
+  adminUrl: string;
+  linearIssueIdentifier: string | null;
+  ticketUrl: string | null;
+};
+
 type LinearWorkflowState = {
   id: string;
   name: string;
@@ -558,4 +574,120 @@ export async function syncLinearIssueState(linearIssueId: string, status: Feedba
       input: { stateId },
     },
   );
+}
+
+function escapeSlackMrkdwn(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+export function formatSlackFeedbackPayload(alert: SlackFeedbackAlert) {
+  const kindLabel = alert.type === "Feature" ? "feature request" : "bug report";
+  const areaLabel = alert.area === "LogTime" ? "Log time" : alert.area;
+  const identifierPrefix = alert.linearIssueIdentifier ? `[${alert.linearIssueIdentifier}] ` : "";
+  const fallbackText = `New ${kindLabel}: ${identifierPrefix}${alert.title}`;
+  const headerText = `New ${alert.type === "Feature" ? "Feature Request" : "Bug Report"}: ${identifierPrefix}${alert.title}`.slice(
+    0,
+    150,
+  );
+
+  const fields: Array<{ type: "mrkdwn"; text: string }> = [
+    { type: "mrkdwn", text: `*Type:*\n${escapeSlackMrkdwn(alert.type)}` },
+    { type: "mrkdwn", text: `*Priority:*\n${escapeSlackMrkdwn(alert.priority)}` },
+    { type: "mrkdwn", text: `*Area:*\n${escapeSlackMrkdwn(areaLabel)}` },
+    {
+      type: "mrkdwn",
+      text: `*From:*\n${escapeSlackMrkdwn(alert.submitterName)} (\`${escapeSlackMrkdwn(alert.submitterUsername)}\`)`,
+    },
+  ];
+
+  if (alert.organizationName) {
+    fields.push({
+      type: "mrkdwn",
+      text: `*Organization:*\n${escapeSlackMrkdwn(alert.organizationName)}`,
+    });
+  }
+
+  if (alert.linearIssueIdentifier) {
+    const linearValue = alert.ticketUrl
+      ? `<${alert.ticketUrl}|${escapeSlackMrkdwn(alert.linearIssueIdentifier)}>`
+      : escapeSlackMrkdwn(alert.linearIssueIdentifier);
+    fields.push({
+      type: "mrkdwn",
+      text: `*Linear Issue:*\n${linearValue}`,
+    });
+  }
+
+  const links: string[] = [`<${alert.adminUrl}|View in VolunTime>`];
+  if (alert.ticketUrl) {
+    const label = alert.linearIssueIdentifier ? `Open ${escapeSlackMrkdwn(alert.linearIssueIdentifier)} in Linear` : "Open in Linear";
+    links.push(`<${alert.ticketUrl}|${label}>`);
+  }
+  for (const [index, url] of alert.screenshotUrls.entries()) {
+    const name = isFeedbackImageUrl(url) ? `Screenshot ${index + 1}` : feedbackAttachmentName(url, index);
+    links.push(`<${url}|${escapeSlackMrkdwn(name)}>`);
+  }
+
+  const descriptionText = escapeSlackMrkdwn(alert.description.trim()).slice(0, 2900) || "_No description provided._";
+
+  return {
+    text: fallbackText,
+    blocks: [
+      {
+        type: "header",
+        text: {
+          type: "plain_text",
+          text: headerText,
+          emoji: true,
+        },
+      },
+      {
+        type: "section",
+        fields,
+      },
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: descriptionText,
+        },
+      },
+      {
+        type: "context",
+        elements: [
+          {
+            type: "mrkdwn",
+            text: links.join("  •  "),
+          },
+        ],
+      },
+    ],
+  };
+}
+
+export async function notifySlackFeedbackWebhook(alert: SlackFeedbackAlert): Promise<boolean> {
+  const webhookUrl = process.env.SLACK_WEBHOOK_URL?.trim();
+  if (!webhookUrl) {
+    return false;
+  }
+
+  const payload = formatSlackFeedbackPayload(alert);
+  try {
+    const response = await fetch(webhookUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "clocked-in",
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      console.error(`[slack] Slack webhook returned HTTP ${response.status}.`);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "Network error connecting to Slack webhook.";
+    console.error(`[slack] ${detail}`);
+    return false;
+  }
 }

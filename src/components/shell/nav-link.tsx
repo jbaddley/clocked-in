@@ -4,10 +4,23 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar";
 
-export function NavLink({ href, label, children }: { href: string; label: string; children: React.ReactNode }) {
+export function NavLink({
+  href,
+  label,
+  excludePrefix,
+  children,
+}: {
+  href: string;
+  label: string;
+  excludePrefix?: string;
+  children: React.ReactNode;
+}) {
   const pathname = usePathname();
   const { setOpenMobile } = useSidebar();
-  const active = pathname === href || pathname.startsWith(`${href}/`);
+  const excluded = excludePrefix
+    ? pathname === excludePrefix || pathname.startsWith(`${excludePrefix}/`)
+    : false;
+  const active = !excluded && (pathname === href || pathname.startsWith(`${href}/`));
 
   return (
     <SidebarMenuItem>

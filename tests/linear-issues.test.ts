@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
+import { createServer } from "node:http";
 import { after, before, test } from "node:test";
 import { QueryClient } from "@tanstack/react-query";
 import {
@@ -7,8 +8,10 @@ import {
   extractFeedbackIdFromDescription,
   feedbackPriorityToLinear,
   formatLinearDescription,
+  formatSlackFeedbackPayload,
   mapLinearPriorityToFeedbackPriority,
   mapLinearStateToFeedbackStatus,
+  notifySlackFeedbackWebhook,
   pickLinearStateId,
   verifyLinearWebhookSignature,
 } from "../src/lib/api/linear-issues";
@@ -198,4 +201,69 @@ test("syncFeedbackInCache updates item and active/inactive list caches immediate
   assert.equal(queryClient.getQueryData<Feedback>(keys.feedbackItem(baseItem.id))?.title, "Updated title");
   assert.equal(queryClient.getQueryData<Paged<Feedback>>(keys.feedback(true))?.items.length, 0);
   assert.equal(queryClient.getQueryData<Paged<Feedback>>(keys.feedback(false))?.items[0]?.status, "Resolved");
+});
+
+test("formatSlackFeedbackPayload and notifySlackFeedbackWebhook format and post Slack alerts", async () => {
+  const alert = {
+    id: "11111111-2222-4333-8444-555555555555",
+    title: "Timer <bug> & edge case",
+    type: "Bug" as const,
+    priority: "Urgent" as const,
+    area: "LogTime" as const,
+    description: "When clicking <Stop>, the timer keeps running & increments.",
+    screenshotUrls: [
+      "https://voluntime.app/s1.png",
+      "https://voluntime.app/feedback/u1/11111111-2222-4333-8444-555555555555-error-report.pdf",
+    ],
+    submitterName: "Ada Lovelace",
+    submitterUsername: "ada",
+    organizationName: "CASWJ & Friends",
+    adminUrl: "https://voluntime.app/feedback/11111111-2222-4333-8444-555555555555",
+    linearIssueIdentifier: "VOL-42",
+    ticketUrl: "https://linear.app/voluntime/issue/VOL-42",
+  };
+
+  const payload = formatSlackFeedbackPayload(alert);
+  assert.equal(payload.text, "New bug report: [VOL-42] Timer <bug> & edge case");
+  assert.equal(payload.blocks[0]?.type, "header");
+  const serialized = JSON.stringify(payload);
+  assert.equal(serialized.includes("CASWJ &amp; Friends"), true);
+  assert.equal(serialized.includes("When clicking &lt;Stop&gt;, the timer keeps running &amp; increments."), true);
+  assert.equal(serialized.includes("<https://linear.app/voluntime/issue/VOL-42|VOL-42>"), true);
+  assert.equal(serialized.includes("<https://voluntime.app/feedback/11111111-2222-4333-8444-555555555555|View in VolunTime>"), true);
+  assert.equal(serialized.includes("<https://voluntime.app/s1.png|Screenshot 1>"), true);
+
+  const previousSlackUrl = process.env.SLACK_WEBHOOK_URL;
+  delete process.env.SLACK_WEBHOOK_URL;
+  assert.equal(await notifySlackFeedbackWebhook(alert), false);
+
+  const received: unknown[] = [];
+  const server = createServer(async (req, res) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) {
+      chunks.push(Buffer.from(chunk));
+    }
+    received.push(JSON.parse(Buffer.concat(chunks).toString("utf8")));
+    res.writeHead(200, { "content-type": "text/plain" });
+    res.end("ok");
+  });
+
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+  const address = server.address();
+  const port = typeof address === "object" && address ? address.port : 0;
+
+  try {
+    process.env.SLACK_WEBHOOK_URL = `http://127.0.0.1:${port}/slack-webhook`;
+    const sent = await notifySlackFeedbackWebhook(alert);
+    assert.equal(sent, true);
+    assert.equal(received.length, 1);
+    assert.deepEqual(received[0], payload);
+  } finally {
+    if (previousSlackUrl === undefined) {
+      delete process.env.SLACK_WEBHOOK_URL;
+    } else {
+      process.env.SLACK_WEBHOOK_URL = previousSlackUrl;
+    }
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
 });

@@ -8,6 +8,7 @@ import {
   MessageSquarePlusIcon,
   SettingsIcon,
   TimerIcon,
+  UsersIcon,
   type LucideIcon,
 } from "lucide-react";
 import { NavLink } from "@/components/shell/nav-link";
@@ -28,28 +29,43 @@ type NavItem = {
   href: string;
   label: string;
   icon: LucideIcon;
+  excludePrefix?: string;
   admin?: boolean;
   coordinator?: boolean;
   superAdmin?: boolean;
   reports?: boolean;
 };
 
-const sections: { label: string; links: NavItem[] }[] = [
+const sections: { label: string; bottom?: boolean; links: NavItem[] }[] = [
   {
-    label: "Track",
+    label: "Workspace",
     links: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboardIcon },
       { href: "/log", label: "Log time", icon: TimerIcon },
       { href: "/entries", label: "Entries", icon: ListChecksIcon },
+      { href: "/reports", label: "Reports", icon: BarChart3Icon, reports: true },
     ],
   },
-  { label: "Analyze", links: [{ href: "/reports", label: "Reports", icon: BarChart3Icon, reports: true }] },
   {
     label: "Manage",
     links: [
+      { href: "/needs", label: "Needs", icon: HandHeartIcon, admin: true, coordinator: true },
+      { href: "/settings/members", label: "People", icon: UsersIcon, admin: true, coordinator: true },
+      {
+        href: "/settings",
+        label: "Settings",
+        icon: SettingsIcon,
+        excludePrefix: "/settings/members",
+        admin: true,
+        coordinator: true,
+      },
+    ],
+  },
+  {
+    label: "Resources",
+    bottom: true,
+    links: [
       { href: "/about-prototype", label: "Guide", icon: BookOpenIcon, admin: true },
-      { href: "/needs", label: "Needs", icon: HandHeartIcon, coordinator: true },
-      { href: "/settings", label: "Settings", icon: SettingsIcon, admin: true, coordinator: true },
       { href: "/developer", label: "Developer", icon: Code2Icon, admin: true },
       { href: "/feedback", label: "Feedback", icon: MessageSquarePlusIcon, superAdmin: true },
     ],
@@ -85,14 +101,19 @@ export function AppSidebar({
           }))
           .filter((section) => section.links.length > 0)
           .map((section) => (
-            <SidebarGroup key={section.label}>
+            <SidebarGroup key={section.label} className={section.bottom ? "mt-auto" : undefined}>
               <SidebarGroupLabel className="text-[0.68rem] tracking-widest text-sidebar-foreground/60 uppercase">
                 {section.label}
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
                   {section.links.map((link) => (
-                    <NavLink key={link.href} href={link.href} label={link.label}>
+                    <NavLink
+                      key={link.href}
+                      href={link.href}
+                      label={link.label}
+                      excludePrefix={link.excludePrefix}
+                    >
                       <link.icon />
                     </NavLink>
                   ))}

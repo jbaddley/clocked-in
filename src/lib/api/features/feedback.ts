@@ -33,6 +33,7 @@ import {
   extractFeedbackIdFromDescription,
   mapLinearPriorityToFeedbackPriority,
   mapLinearStateToFeedbackStatus,
+  notifySlackFeedbackWebhook,
   syncLinearIssueState,
   verifyLinearWebhookSignature,
 } from "@/lib/api/linear-issues";
@@ -812,6 +813,24 @@ export async function handleLinearWebhook(rawBody: string, signatureHeader: stri
       include: detailInclude,
     }),
   );
+
+  if (action === "create") {
+    await notifySlackFeedbackWebhook({
+      id: updated.id,
+      title: updated.title,
+      type: updated.type as FeedbackType,
+      priority: updated.priority as FeedbackPriority,
+      area: updated.area as FeedbackArea,
+      description: updated.description,
+      screenshotUrls: urls(updated.screenshotUrls),
+      submitterName: displayName(updated.user),
+      submitterUsername: updated.user.username,
+      organizationName: updated.organization?.name ?? null,
+      adminUrl: appUrl(`/feedback/${updated.id}`),
+      linearIssueIdentifier: updated.linearIssueIdentifier,
+      ticketUrl: updated.ticketUrl,
+    });
+  }
 
   if (statusChanged && !isCompletedFeedback(previous) && isCompletedFeedback(nextStatus)) {
     await trySend(updated.user.email, updated.organizationId, "FeedbackCompleted", {
