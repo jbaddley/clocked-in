@@ -365,6 +365,7 @@ export async function createOrgMembership(access: Access, organizationId: string
   const resolvedRoleId = await roleId(request.role, organizationId);
   let createdAccount = false;
   let organizationName = "";
+  let organizationSlug: string | null = null;
   const membership = await transaction(async (tx) => {
     await lockOrganization(tx, organizationId);
     let user = await tx.user.findUnique({
@@ -425,9 +426,10 @@ export async function createOrgMembership(access: Access, organizationId: string
     await linkGuest(tx, user.email, user.id);
     const organization = await tx.organization.findUniqueOrThrow({
       where: { id: organizationId },
-      select: { defaultRateType: true, name: true },
+      select: { defaultRateType: true, name: true, slug: true },
     });
     organizationName = organization.name;
+    organizationSlug = organization.slug;
     await syncDepartments(tx, organizationId, user.id, request.departmentIds, request.managedDepartmentIds);
     const saved = await tx.organizationMembership.create({
       data: {
@@ -466,7 +468,7 @@ export async function createOrgMembership(access: Access, organizationId: string
         context: {
           organization: { name: organizationName },
           user: { username: request.username, password: request.password },
-          account: { url: appUrl("/login") },
+          account: { url: appUrl("/login", organizationSlug) },
         },
       });
     } catch (error) {

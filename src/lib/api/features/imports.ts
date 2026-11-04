@@ -354,8 +354,9 @@ export async function importPeople(access: Access, organizationId: string, rows:
     return outcome;
   });
   if (emailUsers) {
-    const organizationName =
-      (await prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true } }))?.name ?? "VolunTime";
+
+    const org = await prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true, slug: true } });
+    const organizationName = org?.name ?? "VolunTime";
     for (const item of result.passwords ?? []) {
       await sendEmail({
         to: item.email,
@@ -364,7 +365,7 @@ export async function importPeople(access: Access, organizationId: string, rows:
         context: {
           organization: { name: organizationName },
           user: { username: item.username, password: item.temporaryPassword },
-          account: { url: appUrl("/login") },
+          account: { url: appUrl("/login", org?.slug) },
         },
       }).catch(() => undefined);
     }

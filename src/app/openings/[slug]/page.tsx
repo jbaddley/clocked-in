@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { PageLoader } from "@/components/skeletons";
 import { ApiError } from "@/lib/api/errors";
 import { listPublicNeeds } from "@/lib/api/features/volunteer-needs";
+import { getTenantSlug } from "@/lib/server/tenant";
 
 export const metadata: Metadata = { title: "Open volunteer needs" };
 
@@ -20,7 +21,7 @@ async function PublicOpenings({ params }: { params: Promise<{ slug: string }> })
   const { slug } = await params;
   let catalog: Awaited<ReturnType<typeof listPublicNeeds>>;
   try {
-    catalog = await listPublicNeeds(slug);
+    catalog = await listPublicNeeds(slug, { tenantSlug: await getTenantSlug() });
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) notFound();
     throw error;

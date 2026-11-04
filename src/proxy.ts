@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { refresh } from "@/lib/api/features/auth";
 import { accessCookie, refreshCookie, verifyAccessToken } from "@/lib/api/security";
-import { classifyTenantHost, stripPort, tenantHeader } from "@/lib/portal";
+import { resolveRequestTenantSlug } from "@/lib/portal";
 import { writeSession, type IssuedSession } from "@/lib/server/session-cookies";
 
 const protectedPrefixes = [
@@ -46,28 +46,6 @@ function matches(pathname: string, prefixes: string[]) {
   return prefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
-function resolveTenantSlug(request: NextRequest): string | null {
-  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
-  const configuredAppHost = process.env.APP_HOST?.trim();
-  if (configuredAppHost) {
-    return classifyTenantHost(host, configuredAppHost);
-  }
-
-  if (process.env.NODE_ENV !== "production") {
-    const localSubdomain = classifyTenantHost(host, "localhost");
-    if (localSubdomain) {
-      return localSubdomain;
-    }
-
-    const hostname = stripPort(host);
-    if (hostname === "127.0.0.1" || hostname === "localhost") {
-      return request.headers.get(tenantHeader)?.trim().toLowerCase() || null;
-    }
-  }
-
-  return null;
-}
-
 function rewriteFeedbackApi(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
   if (pathname !== "/feedback" && !pathname.startsWith("/feedback/")) {
@@ -104,7 +82,7 @@ function rewriteFeedbackApi(request: NextRequest) {
 }
 
 export async function proxy(request: NextRequest) {
-  const tenantSlug = resolveTenantSlug(request);
+  const tenantSlug = resolveRequestTenantSlug(request.headers);
   const feedbackApiUrl = rewriteFeedbackApi(request);
 
   if (request.headers.has("authorization")) {

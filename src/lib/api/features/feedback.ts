@@ -206,6 +206,11 @@ async function requireFeedbackEditor(
   access: Access,
   feedback: { userId: string; organizationId: string | null },
 ) {
+  const pinned = await access.pinnedOrganization();
+  if (pinned && feedback.organizationId !== pinned.id) {
+    notFound();
+  }
+
   if (access.isApiKey) {
     forbidden();
   }
@@ -345,8 +350,15 @@ async function notifyCreated(feedback: FeedbackRow) {
 }
 
 export async function createFeedback(access: Access, request: CreateFeedbackRequest) {
-  if (request.organizationId) {
-    const organization = await prisma.organization.findUnique({ where: { id: request.organizationId } });
+  const pinned = await access.pinnedOrganization();
+  const organizationId = request.organizationId ?? pinned?.id ?? null;
+  if (pinned) {
+    if (organizationId !== pinned.id) {
+      notFound();
+    }
+    await access.requireOrganization(pinned.id, false);
+  } else if (organizationId) {
+    const organization = await prisma.organization.findUnique({ where: { id: organizationId } });
     if (!organization) {
       notFound();
     }
@@ -358,7 +370,7 @@ export async function createFeedback(access: Access, request: CreateFeedbackRequ
     prisma.feedback.create({
       data: {
         userId: caller.id,
-        organizationId: request.organizationId,
+        organizationId,
         type: request.type,
         priority: request.priority,
         area: request.area,

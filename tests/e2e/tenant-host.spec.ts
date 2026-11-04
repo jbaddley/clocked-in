@@ -29,6 +29,14 @@ test.describe("tenant subdomain host", () => {
       tenantUrl.hostname = `${slug}.localhost`;
       const tenantOrigin = tenantUrl.origin;
 
+      const tenantOrgs = await request.get(`${tenantOrigin}/organizations`, { headers });
+      expect(tenantOrgs.ok(), await tenantOrgs.text()).toBeTruthy();
+      const tenantOrgsBody = (await tenantOrgs.json()) as { items: Array<{ id: string }> };
+      expect(tenantOrgsBody.items.map((item) => item.id)).toEqual([organization.id]);
+
+      const otherOrgOnTenant = await request.get(`${tenantOrigin}/organizations/${otherOrg.id}`, { headers });
+      expect(otherOrgOnTenant.status()).toBe(404);
+
       await page.goto(`${tenantOrigin}/signup`);
       await expect(page).toHaveURL(`${tenantOrigin}/login`);
       await expect(page.getByRole("link", { name: /Create an? account/i })).toHaveCount(0);

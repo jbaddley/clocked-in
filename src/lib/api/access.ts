@@ -20,7 +20,7 @@ import {
   type Permission,
   type RoleScope,
 } from "@/lib/permissions";
-import { tenantHeader } from "@/lib/portal";
+import { resolveRequestTenantSlug } from "@/lib/portal";
 import { prisma } from "@/lib/prisma";
 
 export const accountInclude = { profile: true } as const;
@@ -58,7 +58,7 @@ export class Access {
   }
 
   get isSuperAdmin() {
-    return this.account?.isSuperAdmin ?? false;
+    return Boolean(this.account?.isSuperAdmin && !this.tenantSlug);
   }
 
   get actorUserId() {
@@ -403,10 +403,17 @@ export class Access {
       return this.organizations;
     }
 
+    const pinned = await this.pinnedOrganization();
     if (this.apiKey) {
-      const organizations = new Map<string, CallerOrganization>([
-        [this.apiKey.organizationId, { isActive: true, role: this.apiKey.isAdmin ? "ADMIN" : "MEMBER", roleId: null, scope: "organization" }],
-      ]);
+      const organizations =
+        !pinned || this.apiKey.organizationId === pinned.id
+          ? new Map<string, CallerOrganization>([
+              [
+                this.apiKey.organizationId,
+                { isActive: true, role: this.apiKey.isAdmin ? "ADMIN" : "MEMBER", roleId: null, scope: "organization" },
+              ],
+            ])
+          : new Map<string, CallerOrganization>();
       this.organizations = organizations;
       return organizations;
     }
@@ -414,7 +421,7 @@ export class Access {
     const organizations = new Map<string, CallerOrganization>(
       (
         await prisma.organizationMembership.findMany({
-          where: { userId: this.caller.id },
+          where: { userId: this.caller.id, ...(pinned ? { organizationId: pinned.id } : {}) },
           select: { organizationId: true, isActive: true, roleId: true, role: { select: { code: true, scope: true } } },
         })
       ).map((membership) => [
@@ -436,8 +443,14 @@ export class Access {
       return this.departments;
     }
 
+    const pinned = await this.pinnedOrganization();
     if (this.apiKey) {
       const key = this.apiKey;
+      if (pinned && key.organizationId !== pinned.id) {
+        this.departments = [];
+        return this.departments;
+      }
+
       const departments = await prisma.department.findMany({
         where: { organizationId: key.organizationId },
         select: { id: true, organizationId: true },
@@ -452,7 +465,7 @@ export class Access {
 
     this.departments = (
       await prisma.departmentMembership.findMany({
-        where: { userId: this.caller.id },
+        where: { userId: this.caller.id, ...(pinned ? { department: { organizationId: pinned.id } } : {}) },
         select: { departmentId: true, department: { select: { organizationId: true } }, role: { select: { code: true } } },
       })
     ).map((membership) => ({
@@ -502,7 +515,7 @@ async function authenticateApiKey(raw: string, tenantSlug: string | null) {
 }
 
 export async function authenticate(request: Request, options?: { allowPasswordChange?: boolean }) {
-  const tenantSlug = request.headers.get(tenantHeader)?.trim().toLowerCase() || null;
+  const tenantSlug = resolveRequestTenantSlug(request.headers);
   const rawKey = presentedApiKey(request);
   if (rawKey) {
     return authenticateApiKey(rawKey, tenantSlug);

@@ -554,9 +554,18 @@ export async function listSignups(access: Access, needId: string) {
   return { items: signups.map(signupJson), limit: signups.length, offset: 0 };
 }
 
-export async function publicVolunteerNeed(token: string) {
+async function pinnedOrganizationId(tenantSlug?: string | null) {
+  const normalized = tenantSlug?.trim().toLowerCase() || null;
+  if (!normalized) return undefined;
+  const pinned = await prisma.organization.findFirst({ where: { slug: normalized }, select: { id: true } });
+  if (!pinned) notFound();
+  return pinned.id;
+}
+
+export async function publicVolunteerNeed(token: string, options?: { tenantSlug?: string | null }) {
+  const organizationId = await pinnedOrganizationId(options?.tenantSlug);
   const need = await prisma.volunteerNeed.findFirst({
-    where: { publicToken: token, allowPublic: true, status: "published" },
+    where: { publicToken: token, allowPublic: true, status: "published", ...(organizationId ? { organizationId } : {}) },
     include: { Organization: true },
   });
   if (!need) notFound();
@@ -578,12 +587,20 @@ export async function publicVolunteerNeed(token: string) {
   };
 }
 
-export async function signUpForNeed(access: Access | null, token: string, request: ReturnType<typeof parsePublicSignup>) {
+export async function signUpForNeed(
+  access: Access | null,
+  token: string,
+  request: ReturnType<typeof parsePublicSignup>,
+  options?: { tenantSlug?: string | null },
+) {
+  const organizationId = await pinnedOrganizationId(options?.tenantSlug ?? access?.tenantSlug);
   if (!request.acknowledged) validation("Acknowledge how your email will be used.");
   await verifyCaptcha(request.captchaToken);
   const user = access && !access.isApiKey ? access.caller : null;
   const signupId = await transaction(async (tx) => {
-    const need = await tx.volunteerNeed.findFirst({ where: { publicToken: token, allowPublic: true, status: "published" } });
+    const need = await tx.volunteerNeed.findFirst({
+      where: { publicToken: token, allowPublic: true, status: "published", ...(organizationId ? { organizationId } : {}) },
+    });
     if (!need) notFound();
     await tx.$queryRaw`SELECT "id" FROM "VolunteerNeed" WHERE "id" = CAST(${need.id} AS uuid) FOR UPDATE`;
     const locked = await tx.volunteerNeed.findUniqueOrThrow({ where: { id: need.id } });
@@ -732,9 +749,10 @@ export async function emailVolunteers(access: Access, needId: string, request: R
   return { sent: signups.length };
 }
 
-export async function listPublicNeeds(slug: string) {
+export async function listPublicNeeds(slug: string, options?: { tenantSlug?: string | null }) {
+  const pinnedId = await pinnedOrganizationId(options?.tenantSlug);
   const organization = await prisma.organization.findFirst({
-    where: { publicSlug: slug.toLowerCase() },
+    where: { publicSlug: slug.toLowerCase(), ...(pinnedId ? { id: pinnedId } : {}) },
     select: { id: true, name: true, publicSlug: true },
   });
   if (!organization) notFound();

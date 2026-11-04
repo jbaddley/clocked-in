@@ -1,12 +1,12 @@
 import { confirmPasswordReset, parseConfirmPasswordReset, requestPasswordReset } from "@/lib/api/features/auth";
 import { query, readBody } from "@/lib/api/json";
 import { respond } from "@/lib/api/respond";
-import { tenantHeader } from "@/lib/portal";
+import { resolveRequestTenantSlug } from "@/lib/portal";
 
 export function GET(request: Request) {
   return respond(() =>
     requestPasswordReset(query(request).get("email"), {
-      tenantSlug: request.headers.get(tenantHeader),
+      tenantSlug: resolveRequestTenantSlug(request.headers),
     }),
   );
 }

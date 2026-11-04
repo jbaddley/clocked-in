@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { classifyTenantHost, isValidTenantSlug, tenantOrigin } from "../src/lib/portal";
+import { classifyTenantHost, isValidTenantSlug, resolveRequestTenantSlug, tenantHeader, tenantOrigin } from "../src/lib/portal";
 
 describe("classifyTenantHost", () => {
   test("production APP_HOST=voluntime.app classifies tenant subdomains and reserves staging", () => {
@@ -57,5 +57,36 @@ describe("classifyTenantHost", () => {
       tenantOrigin(null, "https://voluntime.app", "voluntime.app"),
       "https://voluntime.app",
     );
+  });
+
+  test("resolveRequestTenantSlug resolves Host/X-Forwarded-Host and blocks header spoofing on configured hosts", () => {
+    const prodHeaders = new Headers({
+      host: "caswj.voluntime.app",
+      [tenantHeader]: "spoofed",
+    });
+    assert.equal(resolveRequestTenantSlug(prodHeaders, "voluntime.app"), "caswj");
+
+    const apexSpoofHeaders = new Headers({
+      host: "voluntime.app",
+      [tenantHeader]: "spoofed",
+    });
+    assert.equal(resolveRequestTenantSlug(apexSpoofHeaders, "voluntime.app"), null);
+
+    const stagingForwardedHeaders = new Headers({
+      host: "internal.vercel.app",
+      "x-forwarded-host": "caswj.staging.voluntime.app",
+    });
+    assert.equal(resolveRequestTenantSlug(stagingForwardedHeaders, "staging.voluntime.app"), "caswj");
+
+    const localSubdomainHeaders = new Headers({
+      host: "caswj.localhost:3025",
+    });
+    assert.equal(resolveRequestTenantSlug(localSubdomainHeaders, ""), "caswj");
+
+    const localHeaderFallback = new Headers({
+      host: "127.0.0.1:3025",
+      [tenantHeader]: "CASWJ",
+    });
+    assert.equal(resolveRequestTenantSlug(localHeaderFallback, ""), "caswj");
   });
 });

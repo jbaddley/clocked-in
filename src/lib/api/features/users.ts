@@ -143,7 +143,7 @@ export async function updateUser(access: Access, userId: string, request: Update
     notFound();
   }
 
-  if (caller.id !== user.id && !caller.isSuperAdmin) {
+  if (caller.id !== user.id && !access.isSuperAdmin) {
     const shared = await access.sharedOrganizationIds(user.id);
     let adminOfShared = false;
     for (const organizationId of shared) {
@@ -159,7 +159,7 @@ export async function updateUser(access: Access, userId: string, request: Update
     }
   }
 
-  if (request.isSuperAdmin.set && (fromMe || !caller.isSuperAdmin)) {
+  if (request.isSuperAdmin.set && (fromMe || !access.isSuperAdmin)) {
     forbidden();
   }
 
@@ -229,7 +229,7 @@ export async function deleteUser(access: Access, userId: string) {
     notFound();
   }
 
-  if (caller.id !== user.id && !caller.isSuperAdmin) {
+  if (caller.id !== user.id && !access.isSuperAdmin) {
     forbidden();
   }
 

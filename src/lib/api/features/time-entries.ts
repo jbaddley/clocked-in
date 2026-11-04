@@ -425,8 +425,9 @@ function timeZoneOf(user: Account) {
   return user.profile?.timezone?.trim() ? user.profile.timezone : "UTC";
 }
 
-async function hasOpenPunch(tx: Prisma.TransactionClient, userId: string) {
-  return (await tx.userTimeEntry.count({ where: { userId, mode: "Punch", endedAt: null } })) > 0;
+async function hasOpenPunch(tx: Prisma.TransactionClient, userId: string, organizationId?: string) {
+  return (await tx.userTimeEntry.count({ where: { userId, mode: "Punch", endedAt: null, ...(organizationId ? { organizationId } : {}) } })) > 0;
+
 }
 
 function punchTimes(user: Account, startedAt: Date, punch: PunchFields) {
@@ -558,8 +559,9 @@ function newEntry(
 }
 
 async function owned(access: Access, entryId: string, write: boolean) {
+  const pinned = await access.pinnedOrganization();
   const entry = await prisma.userTimeEntry.findUnique({ where: { id: entryId }, include: entryInclude });
-  if (!entry) {
+  if (!entry || (pinned && entry.organizationId !== pinned.id)) {
     notFound();
   }
 
@@ -584,7 +586,12 @@ async function owned(access: Access, entryId: string, write: boolean) {
 
 export async function listTimeEntries(access: Access, userId: string, params: URLSearchParams) {
   const paging = page(params);
-  const organizationId = queryUuid(params, "organizationId");
+  const pinned = await access.pinnedOrganization();
+  const requestedOrganizationId = queryUuid(params, "organizationId");
+  if (pinned && requestedOrganizationId !== undefined && requestedOrganizationId !== pinned.id) {
+    notFound();
+  }
+  const organizationId = requestedOrganizationId ?? pinned?.id;
   const departmentId = queryUuid(params, "departmentId");
   const from = queryDate(params, "from");
   const to = queryDate(params, "to");
@@ -725,7 +732,7 @@ async function notifyLoggedTime(userId: string, rows: EntryRow[]) {
   const organizationId = saved[0].organizationId;
   const [user, organization] = await Promise.all([
     prisma.user.findUnique({ where: { id: userId }, select: { email: true, profile: { select: { firstName: true } } } }),
-    prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true } }),
+    prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true, slug: true } }),
   ]);
   if (!user?.email || !organization) return;
   await sendEmail({
@@ -738,7 +745,7 @@ async function notifyLoggedTime(userId: string, rows: EntryRow[]) {
       entry: {
         hours: String(hoursFromMinutes(minutes)),
         date: entryDateLabel(saved.map((row) => row.occurredOn)),
-        url: appUrl("/log"),
+        url: appUrl("/log", organization.slug),
       },
     },
   }).catch(() => undefined);
@@ -759,7 +766,7 @@ export async function createTimeEntry(access: Access, userId: string, request: C
     let times: { startedAt: Date | null; endedAt: Date | null; durationMinutes: number | null; occurredOn: Date };
     if (request.punch) {
       times = punchTimes(user, request.punch.startedAt ?? utcNow(), request.punch);
-      if (times.endedAt === null && (await hasOpenPunch(tx, userId))) {
+      if (times.endedAt === null && (await hasOpenPunch(tx, userId, access.tenantSlug ? placement.organizationId : undefined))) {
         conflict("You already have an open punch.");
       }
     } else {
@@ -883,7 +890,13 @@ export async function updateTimeEntry(access: Access, entryId: string, request: 
       if (punch.endedAt === null && existing.endedAt !== null) {
         const otherOpen =
           (await prisma.userTimeEntry.count({
-            where: { userId: existing.userId, mode: "Punch", endedAt: null, NOT: { id: existing.id } },
+            where: {
+              userId: existing.userId,
+              mode: "Punch",
+              endedAt: null,
+              ...(access.tenantSlug ? { organizationId } : {}),
+              NOT: { id: existing.id },
+            },
           })) > 0;
         if (otherOpen) {
           conflict("You already have an open punch.");
@@ -930,6 +943,7 @@ function punchUserId(access: Access, userId: string | null) {
 }
 
 export async function clockIn(access: Access, request: { placement: EntryPlacement; hourlyRateId: string | null; userId: string | null }) {
+  const pinned = await access.pinnedOrganization();
   const userId = punchUserId(access, request.userId);
   const user = await prisma.user.findUnique({ where: { id: userId }, include: accountInclude });
   if (!user) {
@@ -942,7 +956,7 @@ export async function clockIn(access: Access, request: { placement: EntryPlaceme
   const startedAt = utcNow();
   const entry = await transaction(async (tx) => {
     await lockUser(tx, userId);
-    if (await hasOpenPunch(tx, userId)) {
+    if (await hasOpenPunch(tx, userId, access.tenantSlug ? placement.organizationId : undefined)) {
       conflict("You already have an open punch.");
     }
 
@@ -959,10 +973,13 @@ export async function clockIn(access: Access, request: { placement: EntryPlaceme
 }
 
 export async function clockOut(access: Access, request: ClockOutRequest) {
+  const pinned = await access.pinnedOrganization();
   const userId = punchUserId(access, request.userId);
   const entry = await transaction(async (tx) => {
     await lockUser(tx, userId);
-    const open = await tx.userTimeEntry.findFirst({ where: { userId, mode: "Punch", endedAt: null } });
+    const open = await tx.userTimeEntry.findFirst({
+      where: { userId, mode: "Punch", endedAt: null, ...(pinned ? { organizationId: pinned.id } : {}) },
+    });
     if (!open?.startedAt) {
       conflict("No open punch.");
     }
@@ -1016,7 +1033,15 @@ export async function clockOut(access: Access, request: ClockOutRequest) {
         to: user.email,
         organizationId: json.organizationId,
         for: "UnclassifiedEntry",
-        context: { user: { firstName: user.profile?.firstName || "there" }, entry: { url: appUrl("/entries?unclassified=1") } },
+        context: {
+          user: { firstName: user.profile?.firstName || "there" },
+          entry: {
+            url: appUrl(
+              "/entries?unclassified=1",
+              (await prisma.organization.findUnique({ where: { id: json.organizationId }, select: { slug: true } }))?.slug,
+            ),
+          },
+        },
       }).catch(() => undefined);
     }
   }

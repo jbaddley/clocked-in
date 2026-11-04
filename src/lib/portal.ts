@@ -68,6 +68,31 @@ export function classifyTenantHost(
   return label;
 }
 
+export function resolveRequestTenantSlug(
+  headers: Pick<Headers, "get">,
+  configuredAppHost: string | null | undefined = process.env.APP_HOST,
+): string | null {
+  const host = headers.get("x-forwarded-host") ?? headers.get("host");
+  const trimmedAppHost = configuredAppHost?.trim();
+  if (trimmedAppHost) {
+    return classifyTenantHost(host, trimmedAppHost);
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    const localSubdomain = classifyTenantHost(host, "localhost");
+    if (localSubdomain) {
+      return localSubdomain;
+    }
+
+    const hostname = stripPort(host);
+    if (!hostname || hostname === "127.0.0.1" || hostname === "localhost") {
+      return headers.get(tenantHeader)?.trim().toLowerCase() || null;
+    }
+  }
+
+  return null;
+}
+
 export function tenantOrigin(
   slug: string | null | undefined,
   configuredAppUrl: string | null | undefined = process.env.APP_URL,

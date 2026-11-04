@@ -5,6 +5,7 @@ import { PageLoader } from "@/components/skeletons";
 import { ApiError } from "@/lib/api/errors";
 import { publicVolunteerNeed } from "@/lib/api/features/volunteer-needs";
 import { getAccess } from "@/lib/server/session";
+import { getTenantSlug } from "@/lib/server/tenant";
 import { VolunteerSignup } from "./signup-form";
 
 export const metadata: Metadata = { title: "Volunteer" };
@@ -21,7 +22,7 @@ async function VolunteerNeed({ params }: { params: Promise<{ token: string }> })
   const { token } = await params;
   let need: Awaited<ReturnType<typeof publicVolunteerNeed>>;
   try {
-    need = await publicVolunteerNeed(token);
+    need = await publicVolunteerNeed(token, { tenantSlug: await getTenantSlug() });
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) notFound();
     throw error;

@@ -17,6 +17,7 @@ import {
 } from "@/lib/api/features/volunteer-needs";
 import { run } from "@/lib/server/action";
 import { getAccess, requireAccess } from "@/lib/server/session";
+import { getTenantSlug } from "@/lib/server/tenant";
 
 export async function createNeedAction(organizationId: string, body: Record<string, unknown>) {
   return run(async () => createVolunteerNeed(await requireAccess(), organizationId, parseSaveNeed(body)), "Need added.");
@@ -55,5 +56,8 @@ export async function decideNeedAction(needId: string, status: "published" | "re
 }
 
 export async function signUpForNeedAction(token: string, body: Record<string, unknown>) {
-  return run(async () => signUpForNeed(await getAccess(), token, parsePublicSignup(body)), "You are signed up.");
+  return run(
+    async () => signUpForNeed(await getAccess(), token, parsePublicSignup(body), { tenantSlug: await getTenantSlug() }),
+    "You are signed up.",
+  );
 }

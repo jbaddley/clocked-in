@@ -57,6 +57,11 @@ export async function assertLogTarget(
   organizationId: string,
   departmentId: string | null,
 ) {
+  const pinned = await access.pinnedOrganization();
+  if (pinned && pinned.id !== organizationId) {
+    notFound();
+  }
+
   await assertPlacement(organizationId, departmentId);
   if (access.isSuperAdmin) {
     return;
@@ -69,6 +74,11 @@ export async function assertLogTarget(
 }
 
 export async function assertCollectiveWrite(access: Access, organizationId: string, departmentId: string | null) {
+  const pinned = await access.pinnedOrganization();
+  if (pinned && pinned.id !== organizationId) {
+    notFound();
+  }
+
   await assertPlacement(organizationId, departmentId);
   if (access.isSuperAdmin || access.canWrite(organizationId)) {
     return;

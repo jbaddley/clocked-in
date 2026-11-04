@@ -134,7 +134,8 @@ async function load(entryId: string) {
 
 export async function listCollective(access: Access, params: URLSearchParams) {
   const paging = page(params);
-  const organizationId = queryUuid(params, "organizationId");
+  const pinned = await access.pinnedOrganization();
+  const organizationId = queryUuid(params, "organizationId") ?? pinned?.id;
   const departmentId = queryUuid(params, "departmentId");
   if (organizationId !== undefined) {
     await access.requireOrganization(organizationId, false);

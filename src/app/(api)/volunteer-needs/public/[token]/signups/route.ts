@@ -2,6 +2,7 @@ import { authenticate } from "@/lib/api/access";
 import { parsePublicSignup, signUpForNeed } from "@/lib/api/features/volunteer-needs";
 import { readBody } from "@/lib/api/json";
 import { respond } from "@/lib/api/respond";
+import { resolveRequestTenantSlug } from "@/lib/portal";
 
 async function optionalAccess(request: Request) {
   if (!request.headers.get("authorization")?.trim()) return null;
@@ -11,6 +12,8 @@ async function optionalAccess(request: Request) {
 export function POST(request: Request, context: { params: Promise<{ token: string }> }) {
   return respond(async () => {
     const { token } = await context.params;
-    return signUpForNeed(await optionalAccess(request), token, parsePublicSignup(await readBody(request)));
+    return signUpForNeed(await optionalAccess(request), token, parsePublicSignup(await readBody(request)), {
+      tenantSlug: resolveRequestTenantSlug(request.headers),
+    });
   }, 201);
 }

@@ -328,6 +328,44 @@ describe("organizations", suite, () => {
     });
     assertError(slugChangeOnTenant, 403, "forbidden", "Forbidden.");
 
+    const superAdminUsersOnTenant = await callApi("/users", {
+      token: ctx.admin.accessToken,
+      tenant: slugA,
+    });
+    assertError(superAdminUsersOnTenant, 403, "forbidden", "Forbidden.");
+
+    const entryB = await createJson(ctx.admin.accessToken, `/users/${ctx.admin.user.id}/time-entries`, {
+      organizationId: orgB.id,
+      mode: "Total",
+      durationMinutes: 60,
+      occurredOn: "2026-04-01",
+    });
+    const crossOrgEntryGet = await callApi(`/time-entries/${entryB.id}`, {
+      token: ctx.admin.accessToken,
+      tenant: slugA,
+    });
+    assertError(crossOrgEntryGet, 404, "not_found", "Not found.");
+
+    const crossOrgCreate = await callApi(`/users/${ctx.admin.user.id}/time-entries`, {
+      method: "POST",
+      token: ctx.admin.accessToken,
+      tenant: slugA,
+      body: {
+        organizationId: orgB.id,
+        mode: "Total",
+        durationMinutes: 30,
+        occurredOn: "2026-04-02",
+      },
+    });
+    assertError(crossOrgCreate, 404, "not_found", "Not found.");
+
+    const entriesOnTenantA = await callApi(`/users/${ctx.admin.user.id}/time-entries`, {
+      token: ctx.admin.accessToken,
+      tenant: slugA,
+    });
+    assert.equal(entriesOnTenantA.status, 200, entriesOnTenantA.text);
+    assert.ok(entriesOnTenantA.json.items.every((item) => item.organizationId === orgA.id));
+
     const invitee = identity("tenantinv");
     const invited = await callApi(`/organizations/${orgA.id}/invitations`, {
       method: "POST",
