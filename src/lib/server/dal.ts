@@ -1,5 +1,5 @@
 import "server-only";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { cache } from "react";
 import { listCollective } from "@/lib/api/features/collective";
 import { listOrganizationInvitations } from "@/lib/api/features/invitations";
@@ -8,7 +8,7 @@ import { listOrgMemberships } from "@/lib/api/features/memberships";
 import { listOrganizations } from "@/lib/api/features/organizations";
 import { report } from "@/lib/api/features/reports";
 import { listTimeEntries } from "@/lib/api/features/time-entries";
-import { appHost } from "@/lib/portal";
+import { displayAppOrigin } from "@/lib/portal";
 import { organizationCookie } from "@/lib/server/session-cookies";
 import { getAccess, requireAccess } from "@/lib/server/session";
 import { getPinnedOrganization, requirePinnedOrganizationOrApex } from "@/lib/server/tenant";
@@ -56,11 +56,12 @@ export const getOrganizations = cache(async () => {
 
 export const getWorkspace = cache(async () => {
   const access = await requireAccess();
-  const [viewer, organizations, store, pinned] = await Promise.all([
+  const [viewer, organizations, store, pinned, headerList] = await Promise.all([
     getViewer(),
     getOrganizations(),
     cookies(),
     requirePinnedOrganizationOrApex(),
+    headers(),
   ]);
   const stored = store.get(organizationCookie)?.value;
   const organization = pinned.pinned
@@ -89,7 +90,10 @@ export const getWorkspace = cache(async () => {
     groupDepartments,
     isTenantHost: pinned.pinned,
     pinnedOrganizationName: pinned.organization?.name ?? null,
-    appHost: appHost() || "voluntime.app",
+    appOrigin: displayAppOrigin({
+      requestHost: headerList.get("x-forwarded-host") ?? headerList.get("host"),
+      requestProtocol: headerList.get("x-forwarded-proto"),
+    }),
   };
 });
 

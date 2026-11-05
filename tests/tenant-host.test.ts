@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { classifyTenantHost, isValidTenantSlug, resolveRequestTenantSlug, tenantHeader, tenantOrigin } from "../src/lib/portal";
+import {
+  classifyTenantHost,
+  displayAppOrigin,
+  isValidTenantSlug,
+  resolveRequestTenantSlug,
+  tenantAddress,
+  tenantHeader,
+  tenantOrigin,
+} from "../src/lib/portal";
 
 describe("classifyTenantHost", () => {
   test("production APP_HOST=voluntime.app classifies tenant subdomains and reserves staging", () => {
@@ -59,6 +67,79 @@ describe("classifyTenantHost", () => {
     );
   });
 
+  test("displayAppOrigin uses APP_HOST, then the current host, then APP_URL", () => {
+    assert.equal(
+      displayAppOrigin({
+        configuredAppHost: "voluntime.app",
+        configuredAppUrl: "https://voluntime.app",
+        requestHost: "localhost:3025",
+        requestProtocol: "http",
+      }),
+      "https://voluntime.app",
+    );
+    assert.equal(
+      tenantAddress(
+        displayAppOrigin({
+          configuredAppHost: "staging.voluntime.app",
+          configuredAppUrl: "https://staging.voluntime.app",
+          requestHost: "caswj.staging.voluntime.app",
+          requestProtocol: "https",
+        }),
+        "caswj",
+      ),
+      "https://caswj.staging.voluntime.app",
+    );
+    assert.equal(
+      tenantAddress(
+        displayAppOrigin({
+          configuredAppHost: "",
+          configuredAppUrl: "http://localhost:3025",
+          requestHost: "localhost:3025",
+        }),
+        "CASWJ",
+      ),
+      "http://caswj.localhost:3025",
+    );
+    assert.equal(
+      displayAppOrigin({
+        configuredAppHost: null,
+        configuredAppUrl: null,
+        requestHost: "caswj.localhost:3025",
+        requestProtocol: "http",
+      }),
+      "http://localhost:3025",
+    );
+    assert.equal(
+      tenantAddress(
+        displayAppOrigin({
+          configuredAppHost: undefined,
+          configuredAppUrl: undefined,
+          requestHost: "staging.voluntime.app, internal",
+          requestProtocol: "https",
+        }),
+        "caswj",
+      ),
+      "https://caswj.staging.voluntime.app",
+    );
+    assert.equal(
+      displayAppOrigin({
+        configuredAppHost: "",
+        configuredAppUrl: "https://staging.voluntime.app/app",
+        requestHost: null,
+      }),
+      "https://staging.voluntime.app",
+    );
+    assert.equal(
+      displayAppOrigin({
+        configuredAppHost: "localhost",
+        configuredAppUrl: "http://localhost:3025",
+        requestHost: "127.0.0.1:9999",
+      }),
+      "http://localhost:3025",
+    );
+    assert.equal(tenantAddress("https://voluntime.app", null), "https://voluntime.app");
+  });
+
   test("resolveRequestTenantSlug resolves Host/X-Forwarded-Host and blocks header spoofing on configured hosts", () => {
     const prodHeaders = new Headers({
       host: "caswj.voluntime.app",
@@ -88,5 +169,34 @@ describe("classifyTenantHost", () => {
       [tenantHeader]: "CASWJ",
     });
     assert.equal(resolveRequestTenantSlug(localHeaderFallback, ""), "caswj");
+    assert.equal(resolveRequestTenantSlug(localHeaderFallback, "", "http://localhost:3025"), "caswj");
+
+    const stagingWithoutAppHost = new Headers({
+      host: "internal.vercel.app",
+      "x-forwarded-host": "caswj.staging.voluntime.app, clocked-in.vercel.app",
+    });
+    assert.equal(
+      resolveRequestTenantSlug(stagingWithoutAppHost, "", "https://staging.voluntime.app"),
+      "caswj",
+    );
+    assert.equal(
+      resolveRequestTenantSlug(new Headers({ host: "caswj.voluntime.app" }), "", "https://voluntime.app"),
+      "caswj",
+    );
+    assert.equal(
+      resolveRequestTenantSlug(
+        new Headers({ host: "caswj.staging.voluntime.app" }),
+        "",
+        "https://voluntime.app",
+      ),
+      null,
+    );
+    assert.equal(
+      resolveRequestTenantSlug(
+        new Headers({ "x-forwarded-host": "caswj.staging.voluntime.app, internal" }),
+        "staging.voluntime.app",
+      ),
+      "caswj",
+    );
   });
 });
