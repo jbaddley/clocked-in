@@ -152,28 +152,28 @@ export const emailTemplateFields: Record<EmailTemplateFor, Record<string, string
     "invite.roleName": "Staff",
     "user.username": "jsmith",
     "invite.code": "482913",
-    "invite.url": "https://clocked-in.baddley.us/accept?code=482913",
+    "invite.url": "https://voluntime.app/accept?code=482913",
   },
   Welcome: {
     "organization.name": "Harbor Volunteers",
     "user.username": "jsmith",
     "user.password": "Temp-Pass-42",
-    "account.url": "https://clocked-in.baddley.us/login",
+    "account.url": "https://voluntime.app/login",
   },
   PasswordReset: {
     "reset.code": "715204",
-    "reset.url": "https://clocked-in.baddley.us/forgot-password?code=715204",
+    "reset.url": "https://voluntime.app/forgot-password?code=715204",
   },
   LoggedTime: {
     "user.firstName": "Jamie",
     "organization.name": "Harbor Volunteers",
     "entry.hours": "2.5",
     "entry.date": "Tue, Oct 27, 2026",
-    "entry.url": "https://clocked-in.baddley.us/log",
+    "entry.url": "https://voluntime.app/log",
   },
   UnclassifiedEntry: {
     "user.firstName": "Jamie",
-    "entry.url": "https://clocked-in.baddley.us/entries?unclassified=1",
+    "entry.url": "https://voluntime.app/entries?unclassified=1",
   },
   FeedbackReceived: {
     "user.firstName": "Jamie",
@@ -187,7 +187,7 @@ export const emailTemplateFields: Record<EmailTemplateFor, Record<string, string
     "feedback.areaLabel": "Reports",
     "feedback.title": "Export misses October",
     "feedback.description": "The October rows are missing from the CSV.",
-    "feedback.url": "https://clocked-in.baddley.us/feedback",
+    "feedback.url": "https://voluntime.app/feedback",
   },
   FeedbackCompleted: {
     "user.firstName": "Jamie",

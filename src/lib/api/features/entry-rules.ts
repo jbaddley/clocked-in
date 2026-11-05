@@ -1,3 +1,4 @@
+import { Prisma } from "@/generated/prisma/client";
 import { Access } from "@/lib/api/access";
 import { forbidden, notFound, validation } from "@/lib/api/errors";
 import { volunteerConnectedTo } from "@/lib/api/features/connections";
@@ -166,15 +167,42 @@ export async function tags(organizationId: string, tagIds: string[]) {
   return found.map((tag) => tag.id);
 }
 
+async function paidCatalogRate(organizationId: string, amount: Prisma.Decimal | null) {
+  if (amount === null) {
+    validation("Set a pay rate for this person before logging paid time.");
+  }
+
+  const rate = await prisma.hourlyRate.findFirst({
+    where: { organizationId, type: "Paid", isArchived: false, perHourRate: amount },
+    orderBy: { name: "asc" },
+  });
+  if (!rate) {
+    validation("Add a paid hourly rate that matches this person's pay rate.");
+  }
+
+  return { id: rate.id, rate: Number(rate.perHourRate), type: "Paid" as const };
+}
+
 export async function resolveHourlyRate(
   access: Access,
   userId: string,
   organizationId: string,
   hourlyRateId: string | null | undefined,
 ) {
-  const lockToDefault = !access.isApiKey && !access.isSuperAdmin && (await access.isOrgVolunteer(organizationId));
+  const membership = await prisma.organizationMembership.findUnique({
+    where: { userId_organizationId: { userId, organizationId } },
+    select: { rateType: true, professionalBillingRate: true },
+  });
+  const paidMember = membership?.rateType === "Paid";
+  const lockToDefault =
+    !paidMember && !access.isApiKey && !access.isSuperAdmin && (await access.isOrgVolunteer(organizationId));
+  if (paidMember && !hourlyRateId) {
+    return paidCatalogRate(organizationId, membership.professionalBillingRate);
+  }
+
   if (lockToDefault || !hourlyRateId) {
-    return defaultVolunteerRate(organizationId);
+    const volunteer = await defaultVolunteerRate(organizationId);
+    return { ...volunteer, type: "Volunteer" as const };
   }
 
   const rate = await prisma.hourlyRate.findFirst({ where: { id: hourlyRateId, organizationId } });
@@ -186,5 +214,9 @@ export async function resolveHourlyRate(
     validation("This hourly rate is archived.");
   }
 
-  return { id: rate.id, rate: Number(rate.perHourRate) };
+  if (paidMember && rate.type !== "Paid") {
+    validation("Choose a paid hourly rate.");
+  }
+
+  return { id: rate.id, rate: Number(rate.perHourRate), type: rate.type };
 }

@@ -62,9 +62,9 @@ Run deployment once per database in a serialized release step before deploying a
 ## Backend Cutover
 
 1. Adopt the baseline in staging and smoke-test the Next.js revision there before production. Verify login/refresh, tenant access, time entry CRUD/punch, reports and CSV, need/access approval, mail integration, API-key management, and authenticated MCP tools.
-2. Point public REST/MCP clients at the Next.js origin. Existing scoped organization keys remain valid for REST and MCP with the same `API_KEY_PEPPER`; key management requires a human admin JWT. C#-only platform-key endpoints are intentionally not ported. Retain all existing key records.
+2. Point public REST/MCP clients at the Next.js origin. Existing scoped organization keys remain valid for REST and MCP with the same `API_KEY_PEPPER`; key management requires a human admin JWT. Platform-key endpoints are not part of this app. Existing platform-key rows stay in the database and do not grant access.
 3. Deploy Next.js after the database gate. Remove retired `CSHARP_API_URL`, `API_TARGET`, and `EF_DATABASE_URL` settings from operator-managed env files/platform configuration; existing local env files are not changed by this task. Keep `DATABASE_URL`, JWT settings, MCP key pepper, mail/GitHub settings, and tenant host configuration intact.
-4. Once smoke tests and client URL changes succeed, stop the old API service and retire its Azure publish-profile/deployment secrets. Check that no queued workflow can redeploy it. Keep backups and old infrastructure available until the rollback window closes.
+4. Once smoke tests and client URL changes succeed, stop any previous API service and retire its deployment secrets. Check that no queued workflow can redeploy it. Keep backups available until the rollback window closes.
 
 ## Rollback
 

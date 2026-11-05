@@ -39,8 +39,8 @@ Those totals are the grant invariant. Staging uses anonymized names so real volu
 | Reports by group, category, person, date range + CSV | **Met**, then **Beyond the ask** | Summary, People, Group sessions, and Staff tabs. Volunteer Log and Summary CSVs in grant format, plus “Download this view.” |
 | Import 2026 hours; match 14,609 | **Met** | Local named seed matches the workbook. Staging seed is anonymized. |
 | Fix Clockify problems (fake times, entered-by, shared accounts, missing fields, 999-hour cap) | **Met** | Total-hours mode, individual accounts, entered-by vs volunteer, 999-hour cap on totals (24 hours on a timer/duration punch). Missing fields become **unclassified** instead of disappearing. |
-| CASWJ look (navy sidebar, gold, wordmark, flame, approved gradients) | **Partial** | Navy and gold tokens, gradient on login and empty states (the approved 30% on white / 45% on navy treatments), wordmark slot in the sidebar. Default tab icon is still a clock unless a CASWJ flame mark is uploaded. Login still says VolunTime unless the portal name is set. |
-| Host at `portal.wjarts.org` or `wjarts.org/portal`; CASWJ-owned production | **Not yet** | The product is built to live there (invite-only portal mode, same codebase). It is not on wjarts.org yet, and the public VolunTime URLs were down when I checked. Ownership transfer is still an ops step. |
+| CASWJ look (navy sidebar, gold, wordmark, flame, approved gradients) | **Met for a tenant** | Platform chrome stays VolunTime. Navy and gold tokens, gradients, and upload slots are there. CASWJ uploads its own wordmark and mark. The product does not ship a flame. |
+| Host at `portal.wjarts.org` or `wjarts.org/portal`; CASWJ-owned production | **Amended** | VolunTime stays one multi-tenant deployment. CASWJ is a tenant at `{slug}.voluntime.app`, alongside sister organizations and other communities. A CASWJ-owned project and a path on wjarts.org are not the plan. |
 | Keep real names, emails, and zips out of development | **Met** | Named workbook is local-only. Staging uses the anonymized Clockify sample. |
 
 Later items from the brief:
@@ -48,8 +48,8 @@ Later items from the brief:
 | Later item | Status |
 | --- | --- |
 | Volunteer coordinator limited to their group(s) | **Met** as Group manager (one or more groups) |
-| Admin staff role | **Partial** — Staff can see reports; they are not a full “admin staff” named role |
-| Paid staff time tracking | **Not yet** — professional rates exist; there is no payroll, and no “exclude from volunteer in-kind” switch |
+| Admin staff role | **Met** as the optional Staff role. Every organization can assign it. It is not hidden on the CASWJ tenant. |
+| Paid staff time tracking | **Met** as gross pay, not a payroll processor. A Paid rate stores zero in-kind, stays out of the grant CSVs, and appears on the admin-only Payroll report (person, group, hours, pay rate, gross pay). |
 
 ---
 
@@ -134,9 +134,9 @@ If you want someone to accept an invite and pick their own password, use **Invit
 
 - **Timer:** you can start and stop without a project, category, or group. After Stop, “Check this time before saving” asks you to confirm those fields, and says you can leave them blank and classify later.
 - Blank on all three is **unclassified**. The volunteer gets a banner and an email pointing at those entries (admins can set both **Logged time** and **Unclassified entry** emails to **Immediately**, **Weekly digest**, or **Off** under **Settings → Email**).
-- **Handwritten duration and total hours:** the form currently also allows those fields to be blank (same unclassified path). For grant-quality hours we still recommend picking a project and category before you save a typed total.
+- **Handwritten duration and total hours:** project and task category are required before save. Group may stay the whole organization. Those rows cannot sit unclassified.
 
-That is the recommendation: keep classify-after for the timer; do not let handwritten grant hours sit unclassified if you can help it.
+That is the rule: classify-after stays on the timer; typed grant hours must name a project and a category.
 
 ### What should we call the levels?
 
@@ -152,7 +152,7 @@ Access levels to use in the product and in conversation:
 - **Group manager** — a leader of one or more groups
 - **Volunteer** — everyone else; own time and own history, and they can request more access
 
-We also have an optional **Staff** role (they can see reports, including a Staff tab). It is not in your three levels. We can keep it as a customizable role or hide it on the CASWJ portal if it confuses people.
+We also have an optional **Staff** role (they can see reports, including a Staff tab). It stays available for every organization, including CASWJ. An organization that does not want it simply does not assign it.
 
 ### Is sign-up from a public Need the same as self-signup?
 
@@ -181,22 +181,16 @@ On top of the brief we also shipped:
 
 ---
 
-## 5. Still open before launch
+## 5. Decisions since this letter
 
-1. **Stand the site back up and put it on a CASWJ home.** `portal.wjarts.org` (or a reverse-proxy path later), CASWJ-owned hosting and database, Jason as collaborator. The runbook is ready; the DNS and ownership are not.
-2. **CASWJ chrome on login.** Upload the flame badge and white wordmark, set the portal name to CASWJ, and keep Create account off if you want invite-only.
-3. **Once-over on leftover Clockify names.** Confirm no group still appears as a project and an “(Org)” tag on the database you will launch.
-4. **Decide on Staff.** Keep the extra role, or hide it on the CASWJ portal so volunteers only see Admin / Group manager / Volunteer.
-5. **Paid staff vs volunteer in-kind.** Not built. Say when you want hours marked “paid — leave them out of the grant packet.”
+Updated 5 November 2026.
 
----
+1. **Hosting.** VolunTime is multi-tenant on `voluntime.app`. CASWJ is one tenant. Sister organizations and other communities each get a slug on the same deployment. `portal.wjarts.org` and a CASWJ-owned project are not the plan. The runbook is [ops/caswj-portal.md](ops/caswj-portal.md).
+2. **Chrome.** The platform name stays VolunTime. Each organization uploads its own wordmark and mark. We do not invent a flame.
+3. **Staff.** The Staff role stays available. Organizations that do not want it do not assign it.
+4. **Public needs URL.** `/openings/{organization-slug}` is the page to share.
+5. **Handwritten hours.** Duration and Total require a project and a task category. The timer may stay unclassified. Immediate email still goes out on an unclassified clock-out. Weekly digest sends when that setting is Weekly.
+6. **Paid time.** A Paid rate records gross pay, stores in-kind as zero, and is left out of the volunteer grant CSVs. Admins with `view_payroll` see the Payroll report. This is not tax withholding or pay stubs.
+7. **Clockify leftovers.** A fresh CASWJ seed archives duplicate projects and `(Org)` / `(Type)` tags. The same pass can be run again with `tsx scripts/archive-caswj-clockify-duplicates.ts` on an older database.
 
-## Suggested next conversation
-
-Three decisions from you would finish the product side:
-
-1. Keep **Staff** visible on the CASWJ portal, or hide it?
-2. Are you happy with unclassified-after-timer, with a nudge to classify handwritten totals?
-3. When should we cut over to `portal.wjarts.org` and a CASWJ-owned project?
-
-The grant math is already there. The remaining work is hosting, ownership, and those labels — not rebuilding Clockify again.
+The grant math is unchanged. The product is a multi-tenant hour tracker, not a CASWJ-owned portal.

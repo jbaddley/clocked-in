@@ -19,7 +19,7 @@ import {
 import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
 import type { SavedReport } from "@/lib/api/features/saved-reports";
 import { downloadTextFile } from "@/lib/download";
-import { csvUrl, keys, summaryCsvUrl } from "@/lib/queries";
+import { csvUrl, keys, payrollCsvUrl, summaryCsvUrl } from "@/lib/queries";
 import { filtersEqual, filtersQuery, type ReportCard, type ReportFilters } from "@/lib/report-layout";
 import { downloadReportPdf } from "@/lib/report-pdf/download";
 import { viewCsvFromLayout } from "@/lib/report-view-csv";
@@ -52,6 +52,7 @@ export function ReportMenu({
   const { isAdmin, permissions } = useWorkspace();
   const canDesign = isAdmin || permissions.includes("design_reports");
   const canExport = isAdmin || permissions.includes("export_reports");
+  const canViewPayroll = permissions.includes("view_payroll");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
@@ -159,6 +160,11 @@ export function ReportMenu({
           <DropdownMenuItem render={<a href={summaryCsvUrl(organization.id, filters)} download="summary.csv" />}>
             Download Full Summary
           </DropdownMenuItem>
+          {canViewPayroll && active === "payroll" ? (
+            <DropdownMenuItem render={<a href={payrollCsvUrl(organization.id, filters)} download="payroll.csv" />}>
+              Download payroll
+            </DropdownMenuItem>
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
       <ConfirmDialog

@@ -75,7 +75,7 @@ npm run db:seed:caswj:anon
 
 ## MCP and API reference
 
-MCP is Streamable HTTP at `/mcp` on Next.js. Organization API keys work on REST and MCP (Bearer or `X-Api-Key`), subject to their scopes. Key management requires a human admin JWT. C#-only platform-key endpoints are retired; existing key records remain in the database.
+MCP is Streamable HTTP at `/mcp` on Next.js. Organization API keys work on REST and MCP (Bearer or `X-Api-Key`), subject to their scopes. Key management requires a human admin JWT. Platform-key endpoints are not part of this app. Existing platform-key rows stay in the database and do not grant access.
 
 ```json
 {
@@ -100,7 +100,7 @@ HTTP contract tests (`npm run test:http`) target Next.js. Use a disposable datab
 
 `npm run test:migrations` needs an explicit `MIGRATION_TEST_DATABASE_URL` with permission to create disposable databases. It checks fresh deployment, adoption without data changes, drift rejection, and migration replay. CI runs it against an isolated PostgreSQL service.
 
-`npm run openapi` checks the maintained Next.js snapshot against route exports. After changing routes, `npm run openapi -- --write` reconciles paths; maintain request/response schemas in `src/lib/developer/openapi.json`. No .NET tooling is needed.
+`npm run openapi` checks the maintained Next.js snapshot against route exports. After changing routes, `npm run openapi -- --write` reconciles paths; maintain request/response schemas in `src/lib/developer/openapi.json`.
 
 ## Deploy
 

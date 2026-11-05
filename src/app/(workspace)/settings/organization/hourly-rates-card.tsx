@@ -20,6 +20,7 @@ import type { HourlyRate } from "@/lib/types";
 const types = [
   { value: "Volunteer", label: "Volunteer" },
   { value: "Professional", label: "Professional" },
+  { value: "Paid", label: "Paid" },
 ];
 
 export function HourlyRatesCard() {

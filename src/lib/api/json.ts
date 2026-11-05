@@ -326,7 +326,7 @@ export function normalizePassword(value: string) {
 
 export type SystemRoleCode = "MEMBER" | "VOLUNTEER" | "ADMIN";
 export type RoleCode = string;
-export type RateType = "Volunteer" | "Professional";
+export type RateType = "Volunteer" | "Professional" | "Paid";
 export type AccessType = "Public" | "Private" | "Department";
 export type ProjectType = "Project" | "Event";
 export type FeedbackType = "Bug" | "Feature";
@@ -364,8 +364,8 @@ export function normalizeRole(value: string): RoleCode {
 
 export function normalizeRateType(value: string): RateType {
   const rateType = value.trim();
-  if (rateType !== "Volunteer" && rateType !== "Professional") {
-    validation("rateType must be Volunteer or Professional.");
+  if (rateType !== "Volunteer" && rateType !== "Professional" && rateType !== "Paid") {
+    validation("rateType must be Volunteer, Professional, or Paid.");
   }
 
   return rateType;

@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useSavedReports } from "@/hooks/use-saved-reports";
+import { useWorkspace } from "@/hooks/use-workspace";
 import type { SavedReport } from "@/lib/api/features/saved-reports";
 import {
   isReportViewerPath,
@@ -31,14 +32,17 @@ export function ReportSwitcher() {
   const router = useRouter();
   const search = useSearchParams();
   const { reports } = useSavedReports();
+  const { permissions } = useWorkspace();
+  const canViewPayroll = permissions.includes("view_payroll");
   const custom = listedSavedReports(reports);
   const slug = viewerSlug(pathname);
   const spec = slug ? standardReports.find((item) => item.slug === slug) : null;
+  const payroll = slug === "payroll";
   const saved = slug
     ? custom.find((report) => slugForSavedReport(report.name) === slug || report.id === slug)
     : null;
   const active = spec?.slug ?? (saved ? slugForSavedReport(saved.name) : slug);
-  const label = spec?.label ?? saved?.name ?? "Report";
+  const label = payroll ? "Payroll" : (spec?.label ?? saved?.name ?? "Report");
 
   if (!isReportViewerPath(pathname)) return null;
 
@@ -72,6 +76,12 @@ export function ReportSwitcher() {
               {active === item.slug ? <CheckIcon className="ml-auto" /> : null}
             </DropdownMenuItem>
           ))}
+          {canViewPayroll ? (
+            <DropdownMenuItem onClick={() => openReport("payroll")}>
+              <span className="truncate">Payroll</span>
+              {active === "payroll" ? <CheckIcon className="ml-auto" /> : null}
+            </DropdownMenuItem>
+          ) : null}
         </DropdownMenuGroup>
         {custom.length > 0 ? (
           <>

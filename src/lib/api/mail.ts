@@ -24,7 +24,11 @@ export function emailTemplateDefault(kind: EmailTemplateFor) {
 }
 
 /** The organization's saved copy, or the default when there is none. Null when an optional mail is off. */
-async function templateFor(organizationId: string | null, kind: EmailTemplateFor): Promise<EmailTemplateContent | null> {
+async function templateFor(
+  organizationId: string | null,
+  kind: EmailTemplateFor,
+  ignoreSchedule = false,
+): Promise<EmailTemplateContent | null> {
   const fallback = emailTemplateDefault(kind);
   const content = { subject: fallback.subject, heading: fallback.heading, preview: fallback.preview, template: fallback.html };
   if (!organizationId) {
@@ -45,7 +49,7 @@ async function templateFor(organizationId: string | null, kind: EmailTemplateFor
       ? (organization.preferences as Record<string, unknown>)
       : null;
   const emailSettings = readEmailSettings(prefs?.emailSettings);
-  if (!shouldSendEmailImmediate(emailSettings, kind)) {
+  if (!ignoreSchedule && !shouldSendEmailImmediate(emailSettings, kind)) {
     return null;
   }
 
@@ -65,13 +69,16 @@ export async function sendEmail({
   organizationId,
   for: kind,
   context,
+  ignoreSchedule = false,
 }: {
   to: string;
   organizationId: string | null;
   for: EmailTemplateFor;
   context: EmailContext;
+  /** Weekly digest sends the same templates after the immediate check has already declined them. */
+  ignoreSchedule?: boolean;
 }) {
-  const content = await templateFor(organizationId, kind);
+  const content = await templateFor(organizationId, kind, ignoreSchedule);
   if (!content) {
     return;
   }

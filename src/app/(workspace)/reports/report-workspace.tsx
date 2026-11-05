@@ -12,7 +12,7 @@ import { useLookups } from "@/hooks/use-lookups";
 import { useMembers } from "@/hooks/use-members";
 import { useReport } from "@/hooks/use-report";
 import { useSavedReports } from "@/hooks/use-saved-reports";
-import { useOrganization } from "@/hooks/use-workspace";
+import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
 import type { ReportTemplate } from "@/lib/api/features/report-templates";
 import type { SavedReport } from "@/lib/api/features/saved-reports";
 import type { EntityLabels } from "@/lib/labels";
@@ -28,6 +28,7 @@ import {
   standardReports,
   viewerSlug,
 } from "@/lib/report-slug";
+import { PayrollView } from "./payroll-view";
 import { ReportMenu } from "./report-menu";
 import { listedSavedReports } from "./report-switcher";
 import { ReportFilters, reportFiltersFromSearch } from "./report-filters";
@@ -59,7 +60,7 @@ function writeLastSlug(organizationId: string, slug: string) {
 }
 
 function slugStillExists(slug: string, reports: SavedReport[]) {
-  if (canonicalStandardSlug(slug)) return true;
+  if (slug === "payroll" || canonicalStandardSlug(slug)) return true;
   return reports.some((report) => slugForSavedReport(report.name) === slug);
 }
 
@@ -110,6 +111,8 @@ export function ReportWorkspace() {
   const router = useRouter();
   const search = useSearchParams();
   const organization = useOrganization();
+  const { permissions } = useWorkspace();
+  const canViewPayroll = permissions.includes("view_payroll");
   const copy = useLabels();
   const { names } = useLookups();
   const { members } = useMembers();
@@ -124,6 +127,7 @@ export function ReportWorkspace() {
   const query = search.toString();
   const [appliedFiltersFor, setAppliedFiltersFor] = useState<string | null>(null);
 
+  const payrollMode = slug === "payroll";
   const canonical = slug ? canonicalStandardSlug(slug) : null;
   const uuidReport = slug && isReportId(slug) ? reports.find((item) => item.id === slug) : null;
   const resolved = useMemo(() => {
@@ -159,6 +163,15 @@ export function ReportWorkspace() {
       return;
     }
 
+    if (payrollMode && !canViewPayroll) {
+      router.replace(reportPath("summary", query), { scroll: false });
+      return;
+    }
+
+    if (payrollMode) {
+      writeLastSlug(organization.id, "payroll");
+    }
+
     if (canonical && canonical !== slug) {
       router.replace(reportPath(canonical, query), { scroll: false });
       return;
@@ -186,9 +199,11 @@ export function ReportWorkspace() {
     }
   }, [
     appliedFiltersFor,
+    canViewPayroll,
     canonical,
     listed,
     organization.id,
+    payrollMode,
     query,
     reportsPending,
     resolved,
@@ -199,10 +214,11 @@ export function ReportWorkspace() {
 
   const waitingForRedirect =
     !slug ||
+    (payrollMode && !canViewPayroll) ||
     Boolean(canonical && canonical !== slug) ||
     Boolean(uuidReport && slugForSavedReport(uuidReport.name) !== slug);
-  const waitingForLayout = Boolean(slug) && !resolved && (reportsPending || templates.isPending);
-  const missing = Boolean(slug) && !waitingForRedirect && !waitingForLayout && !resolved;
+  const waitingForLayout = Boolean(slug) && !payrollMode && !resolved && (reportsPending || templates.isPending);
+  const missing = Boolean(slug) && !waitingForRedirect && !waitingForLayout && !resolved && !payrollMode;
   const showSkeleton = waitingForRedirect || waitingForLayout || (isPending && !report);
 
   return (
@@ -214,11 +230,11 @@ export function ReportWorkspace() {
             <div className='ml-auto flex flex-wrap items-center gap-2'>
               {isFetching ? <span className='text-xs text-muted-foreground'>Updating…</span> : null}
               <ReportMenu
-                active={resolved?.slug ?? null}
-                title={resolved?.title ?? "Report"}
+                active={payrollMode ? "payroll" : (resolved?.slug ?? null)}
+                title={payrollMode ? "Payroll" : (resolved?.title ?? "Report")}
                 filters={filters}
                 filterSummary={filterSummary}
-                editHref={resolved?.editHref}
+                editHref={payrollMode ? null : resolved?.editHref}
                 cards={resolved?.cards ?? []}
                 data={report}
                 saved={resolved?.saved ?? null}
@@ -236,6 +252,8 @@ export function ReportWorkspace() {
           title='That report is not available'
           description='It may have been renamed or deleted.'
         />
+      ) : payrollMode && canViewPayroll ? (
+        <PayrollView filters={filters} />
       ) : resolved ? (
         <ReportGrid cards={resolved.cards} data={report} filters={filters} />
       ) : null}

@@ -1,9 +1,10 @@
 # Original goals assessment
 
 > Superseded for current status on 27 October 2026. Use [`voluntime-audit.md`](voluntime-audit.md).
+> Hosting was amended on 5 November 2026: VolunTime is one multi-tenant deployment, and CASWJ is one tenant. Next.js is the only backend.
 
 **Date:** 21 October 2026  
-**Sources:** `docs/base/Volunteer_Hours_Tracker_Project_Brief (1).pdf` (15 October 2026, Dillon Workman), the CASWJ brand files in `docs/base/`, the 2026 Volunteer Hours workbook, `docs/schema/domain.md`, `docs/api/http.md`, the Next.js and `ClockedIn.Api` implementations, and the HTTP / Playwright suites.
+**Sources:** `docs/base/Volunteer_Hours_Tracker_Project_Brief (1).pdf` (15 October 2026, Dillon Workman), the CASWJ brand files in `docs/base/`, the 2026 Volunteer Hours workbook, `docs/schema/domain.md`, `docs/api/http.md`, the Next.js implementation, and the HTTP / Playwright suites.
 
 This is a product and test assessment against the original brief, not a changelog. The brief asked for a Clockify-and-spreadsheet replacement that volunteers and coordinators can use, and that grant writers can trust.
 
@@ -11,7 +12,7 @@ This is a product and test assessment against the original brief, not a changelo
 
 Launch scope is largely solved. The product tracks individual volunteer time, values it in-kind, imports the 2026 history, and reproduces the workbook reports closely enough to use for grants.
 
-The implementation is also larger and more disciplined than the brief. Roles, security, dual APIs, themes, MCP, and contract tests go well past “replace Clockify.” The remaining gaps are concentrated in four places: the volunteer “total hours” path in the UI, CASWJ brand and portal hosting, seed/PII hygiene, and later-scope coordinator / staff roles.
+The implementation is also larger and more disciplined than the brief. Roles, security, themes, MCP, and contract tests go well past “replace Clockify.” The remaining gaps at the time of this note were concentrated in four places: the volunteer “total hours” path in the UI, CASWJ brand and portal hosting, seed/PII hygiene, and later-scope coordinator / staff roles.
 
 The original numeric acceptance test holds. The 2026 workbook sums to **14,609.41667 hours** across **249 entries**, **17 unique volunteers**, and **$517,273.91** in-kind. The seed writes those rows as `Total` entries with `sourceRef` keys, and `tests/e2e/caswj-hours.spec.ts` asserts the same rollups from JSON, the Reports UI, Volunteer Log CSV, and Summary CSV.
 
@@ -52,7 +53,7 @@ The brief is five pages. The load-bearing requirements are:
 8. Hosting inside a future CASWJ portal, path or subdomain.
 9. Development without real volunteer PII.
 
-Stack in the brief was Next.js, Supabase, and Vercel. The app kept Next.js and Vercel and replaced Supabase with PostgreSQL, Prisma, Entity Framework, and an optional .NET API.
+Stack in the brief was Next.js, Supabase, and Vercel. The app kept Next.js and Vercel and replaced Supabase with PostgreSQL and Prisma.
 
 ## Where we met or beat the original goals
 
@@ -135,10 +136,10 @@ The brief described one CASWJ tool. The app is a multi-tenant product:
 
 - Any signed-in user can create an organization and become its admin.
 - Themes, wordmarks, marks, and entity labels (`Group` vs `Department`, `Project / Event`).
-- Dual HTTP contract: Next.js and `ClockedIn.Api` share `docs/api/http.md`.
-- MCP tools on both hosts for the same features.
+- One HTTP contract in `docs/api/http.md`, served by Next.js.
+- MCP tools for the same features.
 - Feedback inbox with optional GitHub issues.
-- Local / staging / production env split, Azure App Service path for the .NET API.
+- Local / staging / production env split.
 
 Those are the right foundations if VolunTime outlives a single portal install. They also explain why the default UI says “VolunTime” instead of CASWJ.
 
@@ -224,7 +225,7 @@ The HTTP contract suite is the best part of the quality story. The Playwright su
 Covered well:
 
 - Auth, users, orgs, departments, tags, categories, projects, memberships, invitations, time (punch / duration / total / batch), collective time, rates, reports, CSV formats, API keys, MCP, feedback, hardening.
-- Same contract against Next.js and .NET (`test:http:next`, `test:http:csharp`).
+- HTTP contract tests against Next.js.
 - Seeded 2026 report JSON, Summary UI, People tables, empty group-sessions tab, Volunteer Log CSV (249 rows, Total Hours, Utah Volunteer Rate, Volunteer ID), Summary CSV KPIs.
 - Admin add-person dialog (success + conflict).
 - Multi-day save.

@@ -525,7 +525,11 @@ export async function updateOrgMembership(
     if (rateType === "Volunteer") {
       professionalBillingRate = null;
     } else if (professionalBillingRate === null || professionalBillingRate <= 0) {
-      validation("professionalBillingRate is required when rateType is Professional.");
+      validation(
+        rateType === "Paid"
+          ? "professionalBillingRate is required when rateType is Paid."
+          : "professionalBillingRate is required when rateType is Professional.",
+      );
     }
 
     const primaryDepartmentId = request.primaryDepartmentId.set
