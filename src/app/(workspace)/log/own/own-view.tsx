@@ -9,6 +9,7 @@ import { PlacementFields } from "@/components/placement-fields";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useClock } from "@/hooks/use-clock";
 import { useEntries } from "@/hooks/use-entries";
 import { useLookups } from "@/hooks/use-lookups";
@@ -24,9 +25,22 @@ export function OwnTimeView({ range }: { range: DateRange }) {
   return (
     <div className="flex flex-col gap-6">
       <UnclassifiedBanner />
-      <TimerCard />
-      <ManualEntryCard />
-      <EntriesCard range={range} />
+      <Tabs defaultValue={range.from || range.to ? "entries" : "timer"}>
+        <TabsList variant="line">
+          <TabsTrigger value="timer">Timer</TabsTrigger>
+          <TabsTrigger value="manual">Manual</TabsTrigger>
+          <TabsTrigger value="entries">Entries</TabsTrigger>
+        </TabsList>
+        <TabsContent value="timer" className="mt-4">
+          <TimerCard />
+        </TabsContent>
+        <TabsContent value="manual" className="mt-4">
+          <ManualEntryCard />
+        </TabsContent>
+        <TabsContent value="entries" className="mt-4">
+          <EntriesCard range={range} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

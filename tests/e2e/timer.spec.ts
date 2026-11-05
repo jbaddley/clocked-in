@@ -32,5 +32,6 @@ test("volunteer starts and stops the timer", async ({ page, request }) => {
   await page.getByRole("button", { name: "Stop", exact: true }).click();
   await page.getByRole("alertdialog", { name: "Check this time before saving" }).getByRole("button", { name: "Save time" }).click();
   await expect(page.getByRole("button", { name: "Start timer" })).toBeVisible();
+  await page.getByRole("tab", { name: "Entries" }).click();
   await expect(page.getByText(`e2e-timer ${stamp}`)).toBeVisible();
 });

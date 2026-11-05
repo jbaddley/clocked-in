@@ -183,6 +183,7 @@ test("log form can add an e2e- Duration row that cleanup removes", async ({ page
   await page.goto("/log/own");
   await expect(page.getByRole("heading", { name: "Log time", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Log Own Time" })).toHaveAttribute("aria-current", "page");
+  await page.getByRole("tab", { name: "Manual" }).click();
   await expect(page.getByText("Add time manually").filter({ visible: true })).toBeVisible();
   await page.getByRole("link", { name: "Log Member Time" }).click();
   await expect(page).toHaveURL(/\/log\/member$/);
@@ -192,6 +193,7 @@ test("log form can add an e2e- Duration row that cleanup removes", async ({ page
   await expect(page.getByText("Record a session").filter({ visible: true })).toBeVisible();
   await page.getByRole("link", { name: "Log Own Time" }).click();
   await expect(page).toHaveURL(/\/log\/own$/);
+  await page.getByRole("tab", { name: "Manual" }).click();
   const notes = page.getByLabel("Notes").filter({ visible: true });
   const save = page.getByRole("button", { name: "Save time" }).filter({ visible: true });
   await page.getByLabel("Duration", { exact: true }).filter({ visible: true }).fill("1:00");
@@ -199,6 +201,7 @@ test("log form can add an e2e- Duration row that cleanup removes", async ({ page
   await notes.fill(extraNotes);
   await save.click();
   await expect(page.getByText("Time saved.")).toBeVisible();
+  await page.getByRole("tab", { name: "Entries" }).click();
   await expect(page.getByRole("listitem").filter({ hasText: extraNotes })).toBeVisible();
   await expect
     .poll(async () => (await getReport(page.request, organization.id)).user.entries)

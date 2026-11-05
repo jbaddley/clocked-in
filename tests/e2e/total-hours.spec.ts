@@ -11,6 +11,7 @@ test.afterEach(async ({ request }) => {
 test("total hours saves a Total row without clock times", async ({ page }) => {
   const organization = await loginAsAdmin(page);
   await page.goto("/log/own");
+  await page.getByRole("tab", { name: "Manual" }).click();
   await expect(page.getByText("Add time manually")).toBeVisible();
   await page.getByRole("button", { name: "Total hours" }).click();
   await expect(page.getByLabel("Hours")).toBeVisible();
@@ -22,6 +23,7 @@ test("total hours saves a Total row without clock times", async ({ page }) => {
   await page.getByLabel("Hours").fill("2:30");
   await page.getByRole("button", { name: "Save time" }).click();
   await expect(page.getByText("Time saved.")).toBeVisible();
+  await page.getByRole("tab", { name: "Entries" }).click();
   await expect(page.getByText(notes, { exact: true })).toBeVisible();
 
   const session = await loginBearer(page.request);

@@ -36,6 +36,7 @@ function localDate(date: Date) {
 test("adding days saves the same entry once per day", async ({ page }) => {
   const organization = await loginAsAdmin(page);
   await page.goto("/log/own");
+  await page.getByRole("tab", { name: "Manual" }).click();
   await expect(page.getByText("Add time manually")).toBeVisible();
 
   const extraDay = page.getByRole("textbox", { name: "Additional day 2", exact: true });
@@ -67,6 +68,7 @@ test("adding days saves the same entry once per day", async ({ page }) => {
   await expect(page.getByText("Time saved for 2 days.")).toBeVisible();
   await expect(page.getByLabel("Notes")).toHaveValue("");
   await expect(page.getByRole("button", { name: "Save time" })).toBeVisible();
+  await page.getByRole("tab", { name: "Entries" }).click();
   await expect(page.getByText(notes, { exact: true })).toHaveCount(2);
 
   await page.goto(`/entries?from=${yesterdayValue}&to=${todayValue}`);

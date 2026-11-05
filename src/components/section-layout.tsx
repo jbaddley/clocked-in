@@ -13,9 +13,9 @@ export function SectionLayout({
   scrollKey?: string;
 }) {
   return (
-    <div data-section-layout className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden">
+    <div data-section-layout className="flex flex-1 flex-col gap-6 lg:min-h-0 lg:overflow-hidden">
       <PageHeader className="shrink-0" />
-      <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-6 overflow-hidden lg:grid-cols-[14rem_minmax(0,1fr)] lg:grid-rows-1">
+      <div className="grid flex-1 grid-rows-[auto_minmax(0,1fr)] gap-6 lg:min-h-0 lg:grid-cols-[14rem_minmax(0,1fr)] lg:grid-rows-1 lg:overflow-hidden">
         {nav}
         <SectionPanel footer={footer} scrollKey={scrollKey}>
           {children}
