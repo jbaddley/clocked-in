@@ -72,6 +72,7 @@ function fromProject(project: Project): Draft {
 
 export function ProjectForm({
   project,
+  defaultProjectType = "Project",
   idPrefix = "project",
   submitLabel,
   layout = "stack",
@@ -81,6 +82,7 @@ export function ProjectForm({
   onCancel,
 }: {
   project?: Project;
+  defaultProjectType?: "Project" | "Event";
   idPrefix?: string;
   submitLabel?: string;
   layout?: "grid" | "stack";
@@ -93,7 +95,9 @@ export function ProjectForm({
   const copy = useLabels();
   const queryClient = useQueryClient();
   const { lookups } = useLookups();
-  const [draft, setDraft] = useState<Draft>(() => (project ? fromProject(project) : blank));
+  const [draft, setDraft] = useState<Draft>(() =>
+    project ? fromProject(project) : { ...blank, projectType: defaultProjectType },
+  );
   const [error, setError] = useState<string | null>(null);
   const [addingDepartment, setAddingDepartment] = useState(false);
   const invalidate = [keys.lookups(organization.id)];
@@ -229,12 +233,14 @@ export function ProjectDialog({
   open,
   onOpenChange,
   project,
+  defaultProjectType = "Project",
   onCreated,
   onSaved,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   project?: Project | null;
+  defaultProjectType?: "Project" | "Event";
   onCreated?: (project: Project) => void;
   onSaved?: (project: Project) => void;
 }) {
@@ -244,14 +250,15 @@ export function ProjectDialog({
     <EntityFormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={editing ? "Edit project" : "Add a project"}
+      title={editing ? "Edit project" : defaultProjectType === "Event" ? "Add an event" : "Add a project"}
       description="Assign a project to a department and give it a start and end date. Leave the department as the whole organization when everyone should see it."
       className="sm:max-w-lg"
     >
       <ProjectForm
         project={project ?? undefined}
+        defaultProjectType={defaultProjectType}
         idPrefix={idPrefix}
-        submitLabel={editing ? "Save" : "Add project"}
+        submitLabel={editing ? "Save" : defaultProjectType === "Event" ? "Add event" : "Add project"}
         layout="stack"
         autoFocus
         onCancel={() => onOpenChange(false)}

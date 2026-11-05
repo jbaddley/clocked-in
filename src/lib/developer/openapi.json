@@ -1363,7 +1363,8 @@
                   "rateType": {
                     "enum": [
                       "Volunteer",
-                      "Professional"
+                      "Professional",
+                      "Paid"
                     ],
                     "type": "string"
                   },
@@ -3934,7 +3935,8 @@
                   "defaultRateType": {
                     "enum": [
                       "Volunteer",
-                      "Professional"
+                      "Professional",
+                      "Paid"
                     ],
                     "type": "string"
                   },
@@ -4438,7 +4440,8 @@
                   "type": {
                     "enum": [
                       "Volunteer",
-                      "Professional"
+                      "Professional",
+                      "Paid"
                     ],
                     "type": "string"
                   },
@@ -4625,7 +4628,8 @@
                   "type": {
                     "enum": [
                       "Volunteer",
-                      "Professional"
+                      "Professional",
+                      "Paid"
                     ],
                     "type": "string"
                   },
@@ -19747,6 +19751,81 @@
           }
         ]
       }
+    },
+    "/organizations/{id}/payroll": {
+      "get": {
+        "operationId": "get__organizations_id_payroll",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Response from the Next.js handler."
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "apiKeyAuth": []
+          }
+        ]
+      }
+    },
+    "/organizations/{id}/payroll.csv": {
+      "get": {
+        "operationId": "get__organizations_id_payroll_csv",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Response from the Next.js handler."
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "apiKeyAuth": []
+          }
+        ]
+      }
+    },
+    "/api/cron/email-digest": {
+      "get": {
+        "operationId": "get__api_cron_email_digest",
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Response from the Next.js handler."
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "apiKeyAuth": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -21847,20 +21926,44 @@
             "properties": {
               "LoggedTime": {
                 "type": "string",
-                "enum": ["immediate", "weekly", "off"]
+                "enum": [
+                  "immediate",
+                  "weekly",
+                  "off"
+                ]
               },
               "UnclassifiedEntry": {
                 "type": "string",
-                "enum": ["immediate", "weekly", "off"]
+                "enum": [
+                  "immediate",
+                  "weekly",
+                  "off"
+                ]
               },
-              "FeedbackReceived": { "type": "boolean" },
-              "FeedbackNotify": { "type": "boolean" },
-              "FeedbackCompleted": { "type": "boolean" },
-              "AccessRequestReceived": { "type": "boolean" },
-              "AccessRequestDecided": { "type": "boolean" },
-              "NeedSubmitted": { "type": "boolean" },
-              "NeedDecided": { "type": "boolean" },
-              "VolunteerMessage": { "type": "boolean" }
+              "FeedbackReceived": {
+                "type": "boolean"
+              },
+              "FeedbackNotify": {
+                "type": "boolean"
+              },
+              "FeedbackCompleted": {
+                "type": "boolean"
+              },
+              "AccessRequestReceived": {
+                "type": "boolean"
+              },
+              "AccessRequestDecided": {
+                "type": "boolean"
+              },
+              "NeedSubmitted": {
+                "type": "boolean"
+              },
+              "NeedDecided": {
+                "type": "boolean"
+              },
+              "VolunteerMessage": {
+                "type": "boolean"
+              }
             }
           }
         }

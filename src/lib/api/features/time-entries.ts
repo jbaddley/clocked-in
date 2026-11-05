@@ -521,6 +521,19 @@ async function timeEditingAllowed(organizationId: string) {
   return readPreferences(organization?.preferences).allowTimeEntryEditing;
 }
 
+function assertHandwrittenClassified(mode: Mode, projectId: string | null, taskCategoryId: string | null) {
+  if (mode === "Punch") return;
+  if (!projectId || !taskCategoryId) {
+    validation("Choose a project and a task category.");
+  }
+}
+
+function entryInKind(rateType: string, minutes: number | null, hourlyRate: number) {
+  if (minutes === null) return null;
+  if (rateType === "Paid") return 0;
+  return inKindFromMinutes(minutes, hourlyRate);
+}
+
 async function assertPlacementRules(access: Access, userId: string, placement: EntryPlacement) {
   await assertCanWriteUserEntry(access, userId, placement.organizationId, placement.departmentId);
   await assertLogTarget(access, userId, placement.organizationId, placement.departmentId);
@@ -758,6 +771,7 @@ export async function createTimeEntry(access: Access, userId: string, request: C
   }
 
   const placement = request.placement;
+  assertHandwrittenClassified(request.mode, placement.projectId, placement.taskCategoryId);
   const tagIds = await assertPlacementRules(access, userId, placement);
   const resolved = await resolveHourlyRate(access, userId, placement.organizationId, request.hourlyRateId);
   const entry = await transaction(async (tx) => {
@@ -777,7 +791,7 @@ export async function createTimeEntry(access: Access, userId: string, request: C
       data: {
         ...base,
         ...times,
-        inKindValue: times.durationMinutes === null ? null : inKindFromMinutes(times.durationMinutes, resolved.rate),
+        inKindValue: entryInKind(resolved.type, times.durationMinutes, resolved.rate),
       },
       include: entryInclude,
     });
@@ -797,6 +811,9 @@ export async function createTimeEntries(access: Access, userId: string, requests
   }
 
   const first = requests[0];
+  for (const request of requests) {
+    assertHandwrittenClassified(request.mode, request.placement.projectId, request.placement.taskCategoryId);
+  }
   const tagIds = await assertPlacementRules(access, userId, first.placement);
   const resolved = await resolveHourlyRate(access, userId, first.placement.organizationId, first.hourlyRateId);
   const created = await transaction(async (tx) => {
@@ -813,7 +830,7 @@ export async function createTimeEntries(access: Access, userId: string, requests
           data: {
             ...newEntry(access, userId, request.placement, request.mode, resolved.id, resolved.rate, tagIds),
             ...times,
-            inKindValue: inKindFromMinutes(times.durationMinutes, resolved.rate),
+            inKindValue: entryInKind(resolved.type, times.durationMinutes, resolved.rate),
           },
           include: entryInclude,
         }),
@@ -836,6 +853,7 @@ export async function updateTimeEntry(access: Access, entryId: string, request: 
   const departmentId = or(request.departmentId, existing.departmentId);
   const projectId = or(request.projectId, existing.projectId);
   const taskCategoryId = or(request.taskCategoryId, existing.taskCategoryId);
+  assertHandwrittenClassified(existing.mode, projectId, taskCategoryId);
   await assertCanWriteUserEntry(access, existing.userId, organizationId, departmentId);
   await assertLogTarget(access, existing.userId, organizationId, departmentId);
   if (projectId) await assertProject(access, existing.userId, organizationId, departmentId, projectId);
@@ -843,6 +861,7 @@ export async function updateTimeEntry(access: Access, entryId: string, request: 
   const tagIds = request.tagIds.set ? await tagIdsFor(organizationId, request.tagIds.value) : null;
   let hourlyRate = Number(existing.hourlyRate);
   let hourlyRateId = existing.hourlyRateId;
+  let rateType = "Volunteer";
   let inKindValue = existing.inKindValue === null ? null : Number(existing.inKindValue);
   if (organizationId !== existing.organizationId) {
     if (tagIds === null && existing.tags.some((row) => row.tag.organizationId !== organizationId)) {
@@ -863,9 +882,13 @@ export async function updateTimeEntry(access: Access, entryId: string, request: 
     );
     hourlyRateId = resolved.id;
     hourlyRate = resolved.rate;
+    rateType = resolved.type;
     if (existing.mode === "Punch" && existing.durationMinutes !== null) {
-      inKindValue = inKindFromMinutes(existing.durationMinutes, hourlyRate);
+      inKindValue = entryInKind(rateType, existing.durationMinutes, hourlyRate);
     }
+  } else if (existing.hourlyRateId) {
+    const rate = await prisma.hourlyRate.findUnique({ where: { id: existing.hourlyRateId }, select: { type: true } });
+    rateType = rate?.type ?? "Volunteer";
   }
 
   const timesRequested = anyTimes(request.times);
@@ -904,12 +927,12 @@ export async function updateTimeEntry(access: Access, entryId: string, request: 
       }
 
       times = punch;
-      inKindValue = punch.durationMinutes === null ? null : inKindFromMinutes(punch.durationMinutes, hourlyRate);
+      inKindValue = entryInKind(rateType, punch.durationMinutes, hourlyRate);
     }
   } else {
     const resolved = existing.mode === "Duration" ? durationTimes(request.times, existing) : totalTimes(request.times, existing);
     times = resolved;
-    inKindValue = inKindFromMinutes(resolved.durationMinutes, hourlyRate);
+    inKindValue = entryInKind(rateType, resolved.durationMinutes, hourlyRate);
   }
 
   const updated = await guard(
@@ -1005,12 +1028,15 @@ export async function clockOut(access: Access, request: ClockOutRequest) {
 
     assertDurationMinutes(durationMinutes);
     const tagIds = request.tagIds.set ? await tagIdsFor(open.organizationId, request.tagIds.value) : null;
+    const rateType = open.hourlyRateId
+      ? ((await tx.hourlyRate.findUnique({ where: { id: open.hourlyRateId }, select: { type: true } }))?.type ?? "Volunteer")
+      : "Volunteer";
     return tx.userTimeEntry.update({
       where: { id: open.id },
       data: {
         endedAt,
         durationMinutes,
-        inKindValue: inKindFromMinutes(durationMinutes, Number(open.hourlyRate)),
+        inKindValue: entryInKind(rateType, durationMinutes, Number(open.hourlyRate)),
         description: or(request.description, open.description),
         departmentId,
         projectId,

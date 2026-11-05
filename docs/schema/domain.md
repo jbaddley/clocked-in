@@ -224,7 +224,7 @@ classDiagram
   User "0..1" --> "*" Guest
 ```
 
-`TimeEntryMode` is `Punch`, `Duration`, or `Total`. Seed `Role.code` with `MEMBER`, `VOLUNTEER`, and `ADMIN`. The same role rows are used on organization and department memberships. `HourlyRate.type`, `defaultRateType`, and membership `rateType` are `Volunteer` or `Professional` (stored as text). `accessType` is `Public`, `Private`, or `Department` (stored as text). `headingFont` and `bodyFont` are `HelveticaNeue`, `AvenirNext`, `SourceSans3`, `NunitoSans`, or `Geist`. Tag and project-editor links are many-to-many; join tables are not domain entities. Color fields are `#RRGGBB`.
+`TimeEntryMode` is `Punch`, `Duration`, or `Total`. Seed `Role.code` with `MEMBER`, `VOLUNTEER`, and `ADMIN`. The same role rows are used on organization and department memberships. `HourlyRate.type`, `defaultRateType`, and membership `rateType` are `Volunteer`, `Professional`, or `Paid` (stored as text). `Paid` is compensation: the entry snapshots the pay rate and stores `inKindValue` as zero. Gross pay is hours times that snapshot and is reported only on the payroll view. `accessType` is `Public`, `Private`, or `Department` (stored as text). `headingFont` and `bodyFont` are `HelveticaNeue`, `AvenirNext`, `SourceSans3`, `NunitoSans`, or `Geist`. Helvetica Neue and Avenir Next are system font names with Source Sans 3 and Nunito Sans fallbacks. Tag and project-editor links are many-to-many; join tables are not domain entities. Color fields are `#RRGGBB`.
 
 ## Entities
 
@@ -284,7 +284,7 @@ In-kind valuation catalogs live on `HourlyRate`. Creating an organization seeds 
 | publicSlug         | no       | Unique case-insensitive slug for `/openings/{publicSlug}`.                                                                                                                                                                                                                                                                                                                                                                                                           |
 | description        | no       | Organization about information in Markdown                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | websiteUrl         | no       |                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| defaultRateType    | yes      | `Volunteer` or `Professional`, default `Volunteer`                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| defaultRateType    | yes      | `Volunteer`, `Professional`, or `Paid`, default `Volunteer`                                                                                                                                                                                                                                                                                                                                                                                                          |
 | preferences        | yes      | jsonb. `allowTimeEntryEditing` defaults to false. When false, a time entry update cannot change `startedAt`, `endedAt`, `durationMinutes`, or `occurredOn`. `allowVolunteersToAddVolunteers` defaults to false. When true, a volunteer can create another volunteer and must record a relationship. `entityLabels` holds display names for `organization`, `project`, `department`, and `taskCategory` (defaults: Organization, Project, Department, Task category). |
 | themeId            | yes      | Foreign key to Theme. Defaults to the seeded VolunTime global theme.                                                                                                                                                                                                                                                                                                                                                                                                 |
 | wordmarkUrl        | no       | Light-on-dark sidebar wordmark. Stays on the organization so switching themes does not wipe marks. Uploads are resized to fit 800×200, stored privately, and served at `/brand/wordmark` for members.                                                                                                                                                                                                                                                                |
@@ -310,8 +310,8 @@ Global presets have `organizationId` empty and are read-only. Organizations can 
 | surfaceForeground  | yes      | `#RRGGBB`. Text on surface                            |
 | foreground         | yes      | `#RRGGBB`. Body text                                  |
 | chartColor         | yes      | `#RRGGBB`. Base color for every chart                 |
-| headingFont        | yes      | `SourceSans3`, `NunitoSans`, or `Geist`               |
-| bodyFont           | yes      | `SourceSans3`, `NunitoSans`, or `Geist`               |
+| headingFont        | yes      | `HelveticaNeue`, `AvenirNext`, `SourceSans3`, `NunitoSans`, or `Geist` |
+| bodyFont           | yes      | `HelveticaNeue`, `AvenirNext`, `SourceSans3`, `NunitoSans`, or `Geist` |
 | categoricalPalette | yes      | JSON array of 6–8 `#RRGGBB` colors                    |
 | sequentialPalette  | yes      | JSON array of 5–10 `#RRGGBB` colors                   |
 | divergingPalette   | yes      | JSON array of 7 `#RRGGBB` colors                      |
@@ -324,7 +324,7 @@ An organization-scoped catalog of rates. Names are unique within that organizati
 | -------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | id             | yes      | UUID primary key                                                                                                                             |
 | organizationId | yes      | Foreign key to Organization                                                                                                                  |
-| type           | yes      | `Volunteer` or `Professional`                                                                                                                |
+| type           | yes      | `Volunteer`, `Professional`, or `Paid`. Only a volunteer rate can be the default. Paid hours are gross pay, not in-kind. |
 | name           | yes      | Unique per organization, case-insensitive                                                                                                    |
 | perHourRate    | yes      | decimal(10,2), greater than zero                                                                                                             |
 | isDefault      | yes      | Default false. True only when `type` is `Volunteer`. One default volunteer rate per organization                                             |
@@ -341,7 +341,7 @@ A user has at most one membership in a given organization. A person may belong t
 | userId                  | yes      | Foreign key to User. Unique with organizationId                                           |
 | organizationId          | yes      | Foreign key to Organization. Unique with userId                                           |
 | roleId                  | yes      | Foreign key to Role                                                                       |
-| rateType                | yes      | `Volunteer` or `Professional`. Default from the org’s `defaultRateType` at join time      |
+| rateType                | yes      | `Volunteer`, `Professional`, or `Paid`. Default from the org’s `defaultRateType` at join time. `Professional` and `Paid` require `professionalBillingRate` greater than zero. |
 | professionalBillingRate | no       | decimal(10,2). Required and greater than zero when `Professional`; empty when `Volunteer` |
 | isActive                | yes      | Default true. Workbook Active? without deleting history                                   |
 | primaryDepartmentId     | no       | Foreign key to Department. Cleared when that department is deleted                        |
@@ -591,7 +591,7 @@ Stores a hash of the refresh token so a backend can end a session. Access tokens
 
 ### Invitation
 
-A pending invite to one organization, or to one department of that organization. `departmentId` is empty for an organization invite. The emailed code is stored only as `codeHash`. `roleId` is `MEMBER` or `ADMIN`.
+A pending invite to one organization, or to one department of that organization. `departmentId` is empty for an organization invite. The emailed code is stored only as `codeHash`. `roleId` may be Volunteer, Staff, Admin, or a custom role.
 
 One pending invite is allowed per email and target. Pending means `acceptedAt` and `revokedAt` are both empty. That rule is a partial unique index.
 
@@ -647,7 +647,7 @@ A user entry always has an organization. `departmentId` is empty for organizatio
 - **Punch:** `startedAt` is required. `endedAt`, `durationMinutes`, and `inKindValue` stay empty while the punch is open. Closing it sets `endedAt`, stores whole minutes between the two times (1–1440), and sets `inKindValue`. `occurredOn` is the user’s local date of `startedAt`. A user has at most one open punch.
 - **Duration:** `occurredOn` is required. `durationMinutes` is 1–1440. `startedAt` and `endedAt` are both empty, or both set. A start with an end calculates the minutes. A start with minutes calculates the end. When all three are sent, the minutes must match the two times. A duration entry is never open. `inKindValue` is required.
 - **Total:** `occurredOn` and `durationMinutes` (1–59940, 999 hours) are required. `startedAt` and `endedAt` may be stored as clock times on `occurredOn` so a Volunteer Log import can match the sheet. `inKindValue` is required. A Total row is one person’s hours, including a monthly dump. It is not a collective entry.
-- **In-kind snapshot (user):** at write and on punch close, `hourlyRateId` and `hourlyRate` snapshot the selected `HourlyRate`. A volunteer logging their own time always uses the organization’s default volunteer rate. Admins and members may choose any unarchived rate; the default is the volunteer default. `inKindValue` equals `durationMinutes * hourlyRate / 60`, rounded to cents, when a duration is present.
+- **In-kind snapshot (user):** at write and on punch close, `hourlyRateId` and `hourlyRate` snapshot the selected `HourlyRate`. A volunteer logging their own time always uses the organization’s default volunteer rate, unless that person's membership `rateType` is `Paid`. Admins and members may choose any unarchived rate; the default is the volunteer default. Volunteer and Professional `inKindValue` equals `durationMinutes * hourlyRate / 60`, rounded to cents, when a duration is present. A Paid rate keeps that pay-rate snapshot and stores `inKindValue` as zero. The database also allows zero so that row can be saved. Gross pay is hours times the snapshot and is only on the payroll report.
 - **In-kind snapshot (collective):** `hourlyRateId` and `hourlyRate` snapshot the selected `HourlyRate`, defaulting to the volunteer default. `inKindValue` equals elapsed hours × `participantCount` × `hourlyRate`, rounded to cents. No 24-hour cap. Collective totals are reported separately from user totals.
 - Later changes to catalog rates do not rewrite existing entries.
 - **Tags and description:** optional on both user and collective entries. A tag belongs to one organization, its name is unique in that organization, and an entry can use only tags from its organization.

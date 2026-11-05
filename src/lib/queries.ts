@@ -379,6 +379,33 @@ export function summaryCsvUrl(organizationId: string, filter: ReportFilters) {
   return `/organizations/${organizationId}/summary.csv${query({ ...filter })}`;
 }
 
+export function payrollCsvUrl(organizationId: string, filter: ReportFilters) {
+  return `/organizations/${organizationId}/payroll.csv${query({ ...filter })}`;
+}
+
+export function payrollQuery(organizationId: string, filter: ReportFilters) {
+  return queryOptions({
+    queryKey: ["org", organizationId, "payroll", filter] as const,
+    queryFn: ({ signal }) =>
+      fetchJson<{
+        hours: number;
+        grossPay: number;
+        people: number;
+        entries: number;
+        rows: {
+          id: string;
+          userId: string;
+          person: string;
+          group: string;
+          hours: number;
+          payRate: number;
+          grossPay: number;
+          entries: number;
+        }[];
+      }>(`/organizations/${organizationId}/payroll${query({ ...filter })}`, signal),
+  });
+}
+
 export function viewCsvUrl(organizationId: string, filter: ReportFilters) {
   return `/organizations/${organizationId}/view.csv${query({ ...filter })}`;
 }

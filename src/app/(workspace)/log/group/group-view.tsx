@@ -17,6 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useActionMutation } from "@/hooks/use-action-mutation";
 import { useClientRedirect } from "@/hooks/use-client-redirect";
 import { useGroupSessions } from "@/hooks/use-group-sessions";
@@ -81,66 +82,75 @@ export function GroupTimeView() {
       {missingProject || missingCategory ? (
         <SetupAlert isAdmin={isAdmin} missingProject={missingProject} missingCategory={missingCategory} action="save group time" />
       ) : null}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <UsersIcon className="size-4 text-muted-foreground" />
-            Record a session
-          </CardTitle>
-          <CardDescription>
-            Log a group session or an event total. In-kind value is the session length times the number of people, at the volunteer rate.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <GroupSessionForm key={departmentIds?.join(",") ?? "all"} departmentIds={departmentIds} />
-        </CardContent>
-      </Card>
-
-      {sessions.length ? (
-        <p className="text-sm text-muted-foreground">
-          {sessions.length} session{sessions.length === 1 ? "" : "s"} · {formatCurrency(totalValue)} in-kind
-          {hasNextPage ? " (loaded so far)" : ""}
-        </p>
-      ) : null}
-
-      {days.length === 0 ? (
-        <EmptyState
-          icon={UsersIcon}
-          title="No group sessions yet"
-          description={isPending ? "Loading…" : "Sessions you record show up here and on the group tab of Reports."}
-        />
-      ) : (
-        <div className="flex flex-col gap-5">
-          {days.map(([day, items]) => (
-            <Card key={day} className="gap-0 py-0">
-              <div className="flex items-center justify-between bg-primary px-4 py-2.5 text-primary-foreground">
-                <h2 className="text-xs font-semibold tracking-widest uppercase" suppressHydrationWarning>
-                  {dayLabel(day)}
-                </h2>
-                <p className="text-xs tracking-wide uppercase">
-                  {items.length} session{items.length === 1 ? "" : "s"}
-                </p>
-              </div>
-              <EntryList>
-                {items.map((session) => (
-                  <SessionRow
-                    key={session.id}
-                    session={session}
-                    onEdit={canEdit(session) ? setPendingEdit : undefined}
-                    onDelete={canEdit(session) ? setPendingDelete : undefined}
-                  />
-                ))}
-              </EntryList>
-            </Card>
-          ))}
-          {hasNextPage ? (
-            <Button variant="outline" className="self-center" onClick={() => fetchNextPage()} disabled={isFetchingNextPage}>
-              {isFetchingNextPage ? <Loader2Icon className="animate-spin" /> : null}
-              Load more
-            </Button>
+      <Tabs defaultValue="record">
+        <TabsList variant="line">
+          <TabsTrigger value="record">Record</TabsTrigger>
+          <TabsTrigger value="entries">Entries</TabsTrigger>
+        </TabsList>
+        <TabsContent value="record" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <UsersIcon className="size-4 text-muted-foreground" />
+                Record a session
+              </CardTitle>
+              <CardDescription>
+                Log a group session or an event total. In-kind value is the session length times the number of people, at the volunteer rate.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <GroupSessionForm key={departmentIds?.join(",") ?? "all"} departmentIds={departmentIds} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="entries" className="mt-4 flex flex-col gap-6">
+          {sessions.length ? (
+            <p className="text-sm text-muted-foreground">
+              {sessions.length} session{sessions.length === 1 ? "" : "s"} · {formatCurrency(totalValue)} in-kind
+              {hasNextPage ? " (loaded so far)" : ""}
+            </p>
           ) : null}
-        </div>
-      )}
+
+          {days.length === 0 ? (
+            <EmptyState
+              icon={UsersIcon}
+              title="No group sessions yet"
+              description={isPending ? "Loading…" : "Sessions you record show up here and on the group tab of Reports."}
+            />
+          ) : (
+            <div className="flex flex-col gap-5">
+              {days.map(([day, items]) => (
+                <Card key={day} className="gap-0 py-0">
+                  <div className="flex items-center justify-between bg-primary px-4 py-2.5 text-primary-foreground">
+                    <h2 className="text-xs font-semibold tracking-widest uppercase" suppressHydrationWarning>
+                      {dayLabel(day)}
+                    </h2>
+                    <p className="text-xs tracking-wide uppercase">
+                      {items.length} session{items.length === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                  <EntryList>
+                    {items.map((session) => (
+                      <SessionRow
+                        key={session.id}
+                        session={session}
+                        onEdit={canEdit(session) ? setPendingEdit : undefined}
+                        onDelete={canEdit(session) ? setPendingDelete : undefined}
+                      />
+                    ))}
+                  </EntryList>
+                </Card>
+              ))}
+              {hasNextPage ? (
+                <Button variant="outline" className="self-center" onClick={() => fetchNextPage()} disabled={isFetchingNextPage}>
+                  {isFetchingNextPage ? <Loader2Icon className="animate-spin" /> : null}
+                  Load more
+                </Button>
+              ) : null}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
 
       <GroupSessionDialog
         open={pendingEdit !== null}

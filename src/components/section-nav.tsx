@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-type LinkItem = { href: string; label: string; icon: LucideIcon };
+type LinkItem = { href: string; label: string; icon: LucideIcon; exact?: boolean };
 type StateItem<T extends string> = { id: T; label: string; icon: LucideIcon };
 
 /** Section navigation: links by default, or local state when `value` and `onValueChange` are passed. */
@@ -30,7 +30,7 @@ export function SectionNav<T extends string>(
           key: item.href,
           label: item.label,
           icon: item.icon,
-          current: pathname === item.href || pathname.startsWith(`${item.href}/`),
+          current: item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`),
         }));
   const active = entries.find((entry) => entry.current) ?? entries[0];
   const choose = (key: string) => {

@@ -50,12 +50,11 @@ const sections: { label: string; bottom?: boolean; links: NavItem[] }[] = [
     label: "Manage",
     links: [
       { href: "/needs", label: "Needs", icon: HandHeartIcon, admin: true, coordinator: true },
-      { href: "/settings/members", label: "People", icon: UsersIcon, admin: true, coordinator: true },
+      { href: "/people", label: "People", icon: UsersIcon, admin: true, coordinator: true },
       {
         href: "/settings",
         label: "Settings",
         icon: SettingsIcon,
-        excludePrefix: "/settings/members",
         admin: true,
         coordinator: true,
       },

@@ -56,7 +56,7 @@ export function AboutPrototypeView() {
     {
       title: "Invite people",
       body: "Volunteer logs their own hours. Staff can also choose a professional rate. Admin can run the organization with you.",
-      href: "/settings/members",
+      href: "/people/invites",
       label: "People",
     },
     {
@@ -162,8 +162,8 @@ export function AboutPrototypeView() {
       features: [
         {
           title: "People",
-          href: "/settings/members",
-          where: "Manage · Settings · People",
+          href: "/people/invites",
+          where: "Manage · People",
           summary:
             "Invite by email with a 6-digit code, or add a person directly. Roles are Volunteer, Staff, and Admin. Assign groups, deactivate someone (access stops, history stays), or remove them. Add time from a person’s row.",
           access: {

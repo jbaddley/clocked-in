@@ -33,6 +33,7 @@ test("volunteer logs Duration and Total and does not see Reports", async ({ page
   await createOrgPerson(request, person);
   const organization = await loginAs(page, person.username, person.password);
   await page.goto("/log/own");
+  await page.getByRole("tab", { name: "Manual" }).click();
   await expect(page.getByText("Add time manually")).toBeVisible();
 
   await page.getByRole("button", { name: "Start and duration" }).click();

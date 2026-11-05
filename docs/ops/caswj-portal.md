@@ -1,5 +1,9 @@
 # White-label subdomain hosting on voluntime.app
 
+VolunTime stays one deployment for every community. CASWJ is one tenant (`caswj.voluntime.app` when its slug is `caswj`). Sister organizations and other communities launch the same way, each with its own slug, theme, and marks. They do not get a separate Vercel project, and the product is not hosted at `portal.wjarts.org` or `wjarts.org/portal`.
+
+Platform chrome stays VolunTime. Each organization uploads its own wordmark and mark. Do not invent a CASWJ flame in the product.
+
 Each environment is a single deployment of this codebase with its own database and environment variables. The apex host serves multi-tenant VolunTime, and each launched organization is served on its own subdomain (`{slug}.{APP_HOST}`).
 
 Launching an organization writes `Organization.slug` in that environment's database from **Settings → Organization** on the apex host. It does not require creating a separate Vercel project.

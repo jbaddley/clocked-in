@@ -2,7 +2,7 @@
 
 **Date:** 27 October 2026  
 **Audience:** developers  
-**Status:** historical snapshot of the 27 October working tree. The C# backend was subsequently retired; see [Prisma adoption](ops/prisma-adoption.md) for the current architecture and rollout.
+**Status:** historical snapshot of the 27 October working tree. Next.js is the only backend. On 5 November 2026 hosting was amended to multi-tenant VolunTime: CASWJ is one tenant, not the owner of the deployment. See [Prisma adoption](ops/prisma-adoption.md) and [the portal runbook](ops/caswj-portal.md).
 
 This historical audit scores the app against the Oct 15 launch brief and Dillon Workman’s Oct 27 staging feedback, answers his five open questions, and lists gaps at that time. The Oct 21 snapshot in [`original-goals-assessment.md`](original-goals-assessment.md) is also historical; do not treat either as current architecture guidance.
 
@@ -15,13 +15,13 @@ Under [`docs/base/`](base/):
 - Brand pack: `CASWJ_Brand_Guidelines_v1_1_DRAFT.pdf`, `Design for Agenda Builder.png`, `caswj-gradient-usage.png`
 - Seed workbooks: `2026 Volunteer Hours.xlsx` (named, local-only), `clockify-export-ANONYMIZED-sample.xlsx`
 
-Also: [`schema/domain.md`](schema/domain.md), [`api/http.md`](api/http.md), [`ops/caswj-portal.md`](ops/caswj-portal.md), Next.js (`src/`), Prisma, and `ClockedIn.Api`.
+Also: [`schema/domain.md`](schema/domain.md), [`api/http.md`](api/http.md), [`ops/caswj-portal.md`](ops/caswj-portal.md), Next.js (`src/`), and Prisma.
 
 ## Verdict
 
 Launch minimums from the brief are largely met: individual accounts, live timer, start/end, total hours, in-kind at $35.47, reports, CSV, 14,609-hour import, and per-role security.
 
-Oct 27 feedback is **closed in the app** except paid-staff vs volunteer in-kind (audit item 16, still out of scope). People can assign Group manager per group, Punch can save unclassified with a banner and email, dashboard cards drill into `/entries`, import rows can Skip or Merge, invite forms preview usernames, and C# now has custom roles, access requests, invite usernames, clock-out placement, and permission-based Access. Portal hosting remains an ops checklist in [`ops/caswj-portal.md`](ops/caswj-portal.md).
+Oct 27 feedback was closed in the Next.js app. People can assign Group manager per group, Punch can save unclassified with a banner and email, dashboard cards drill into `/entries`, import rows can Skip or Merge, and invite forms preview usernames. Later product decisions (multi-tenant hosting, paid gross pay, required placement on handwritten hours) are in the 5 November 2026 update to the review, not in this snapshot.
 
 We exceeded the internship schema and the two-role brief. That is not the same as done.
 
@@ -124,9 +124,9 @@ flowchart LR
 | Group manager on several groups + combined reports | Met    | People / invite assign Member vs Group manager per group. Reports use assigned groups                                                       |
 | Event-level totals without naming people           | Met    | `CollectiveTimeEntry` with `departmentId` null + `participantCount`; needs `log_event_totals`                                               |
 | Volunteer requests more access; admin decides      | Met    | Default request is Group manager + groups. Approving writes department `ADMIN` and leaves org Volunteer unless they asked for a system role |
-| Custom roles / permissions table                   | Met    | Next and C#. `Role.scope` now drives report, time, and collective list visibility                                                           |
+| Custom roles / permissions table                   | Met    | `Role.scope` drives report, time, and collective list visibility                                                                            |
 
-Key files: [`src/lib/permissions.ts`](../src/lib/permissions.ts), [`src/lib/api/access.ts`](../src/lib/api/access.ts), [`src/lib/api/features/roles.ts`](../src/lib/api/features/roles.ts), [`src/lib/api/features/access-requests.ts`](../src/lib/api/features/access-requests.ts), [`ClockedIn.Api/Features/Shared/Access.cs`](../ClockedIn.Api/Features/Shared/Access.cs).
+Key files: [`src/lib/permissions.ts`](../src/lib/permissions.ts), [`src/lib/api/access.ts`](../src/lib/api/access.ts), [`src/lib/api/features/roles.ts`](../src/lib/api/features/roles.ts), [`src/lib/api/features/access-requests.ts`](../src/lib/api/features/access-requests.ts).
 
 ### Inviting and importing
 
@@ -134,7 +134,7 @@ Key files: [`src/lib/permissions.ts`](../src/lib/permissions.ts), [`src/lib/api/
 | ------------------------------------------------------------------------ | ------------ | ------------------------------------------------------------------------------- |
 | First + last name on invite                                              | Met          |                                                                                 |
 | Username = first initial + last name; tell admin if taken; number suffix | Met          | Invite form previews `jsmith` / `jsmith1` before send                           |
-| Invite subject / preview                                                 | Met          | `{{organizationName}} invited you to join VolunTime`. Next and C# send username |
+| Invite subject / preview                                                 | Met          | `{{organizationName}} invited you to join VolunTime`. The invite email includes the username |
 | Import review list                                                       | Met          | Per-row Import / Skip / Merge. Near-match defaults to Skip                      |
 | Duplicate + near-match                                                   | Met          | Email match or chosen near-match can merge; Skip does not create a second user  |
 | Does import send invites?                                                | Answered: no | Copy is clear                                                                   |
@@ -166,7 +166,9 @@ Key files: [`src/app/(workspace)/log/own/own-view.tsx`](<../src/app/(workspace)/
 
 ## Remaining gaps
 
-Waves 0–5 of the close-gaps plan are in the tree. What is still open:
+This list is the 27 October snapshot. On 5 November 2026 those items were decided: multi-tenant hosting, handwritten project and category, and paid gross pay with a payroll report. See the review. They are not still open.
+
+Waves 0–5 of the close-gaps plan are in the tree. What was still open on that date:
 
 13. **CASWJ portal hosting and ownership** — ops checklist in [`ops/caswj-portal.md`](ops/caswj-portal.md). Not app code.
 14. **Official CASWJ logo files** — do not invent a flame mark. Seed the wordmark/favicon when CASWJ provides them.
@@ -186,7 +188,7 @@ These are real. Dillon already named some of them. Do not treat “exceeded” a
 - Custom org roles and a permissions matrix (`RolePermission`, 23 keys in [`src/lib/permissions.ts`](../src/lib/permissions.ts))
 - In-app access requests (profile + admin decide + Need signup path)
 - Saved reports, report designer, dashboard layouts, three CSV endpoints
-- Dual HTTP contract (Next.js and `ClockedIn.Api`) and MCP tools
+- HTTP contract on Next.js and MCP tools
 - Themes, wordmarks, entity labels (`Group` vs `Department`)
 - JWT sessions, rotating refresh tokens, organization and platform API keys, volunteer-scoped reports
 - Multi-tenant product (any signed-in user can create an organization) with a documented CASWJ portal install

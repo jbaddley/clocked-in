@@ -17,8 +17,8 @@ test.afterEach(async ({ request }) => {
 
 test("add person closes on success and shows a conflict in the dialog", async ({ page }) => {
   await loginAsAdmin(page);
-  await page.goto("/settings/members");
-  await expect(page.getByText("Invite someone")).toBeVisible();
+  await page.goto("/people");
+  await expect(page.getByRole("button", { name: "Add person" })).toBeVisible();
 
   const stamp = Date.now().toString(36);
   const person = {

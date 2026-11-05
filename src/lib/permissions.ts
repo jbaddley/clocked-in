@@ -12,6 +12,7 @@ export const permissions = [
   "view_reports",
   "export_reports",
   "design_reports",
+  "view_payroll",
   "create_needs",
   "approve_needs",
   "create_projects",
@@ -53,6 +54,7 @@ export const permissionGroups: { label: string; items: { key: Permission; label:
       { key: "view_reports", label: "View reports" },
       { key: "export_reports", label: "Export reports" },
       { key: "design_reports", label: "Design custom reports" },
+      { key: "view_payroll", label: "View payroll" },
     ],
   },
   {

@@ -3,6 +3,7 @@
 import { removeOrganizationBrandAction, uploadOrganizationBrandAction } from "@/app/actions/organizations";
 import { ImageUploader, imageUploaderHint } from "@/components/image-uploader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useActionMutation } from "@/hooks/use-action-mutation";
 import { useOrganization } from "@/hooks/use-workspace";
 import { brandAssetSrc, brandField, type BrandKind } from "@/lib/brand";
@@ -42,21 +43,29 @@ const copy: Record<
 
 export function BrandForm() {
   return (
-    <>
-      <BrandAssetCard kind="mark" />
-      <Card>
-        <CardHeader>
-          <CardTitle>Logo</CardTitle>
-          <CardDescription>
-            Upload a light-on-dark wordmark for the sidebar and a dark-on-light wordmark for light backgrounds.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-6 lg:grid-cols-2">
-          <BrandAssetFields kind="wordmark" />
-          <BrandAssetFields kind="wordmarkOnLight" />
-        </CardContent>
-      </Card>
-    </>
+    <Tabs defaultValue="favicon">
+      <TabsList variant="line">
+        <TabsTrigger value="favicon">Favicon</TabsTrigger>
+        <TabsTrigger value="logos">Logos</TabsTrigger>
+      </TabsList>
+      <TabsContent value="favicon" className="mt-4">
+        <BrandAssetCard kind="mark" />
+      </TabsContent>
+      <TabsContent value="logos" className="mt-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Logo</CardTitle>
+            <CardDescription>
+              Upload a light-on-dark wordmark for the sidebar and a dark-on-light wordmark for light backgrounds.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-6 lg:grid-cols-2">
+            <BrandAssetFields kind="wordmark" />
+            <BrandAssetFields kind="wordmarkOnLight" />
+          </CardContent>
+        </Card>
+      </TabsContent>
+    </Tabs>
   );
 }
 

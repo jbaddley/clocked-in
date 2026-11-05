@@ -326,6 +326,10 @@ export function TimeEntryForm({
       onSubmit={(event) => {
         event.preventDefault();
         if (!entry && showPerson && !selectedPersonId) return;
+        if (!punch && !placement.ready) {
+          setError("Choose a project and a task category.");
+          return;
+        }
         const base = placement.placement(notes);
         if (entry) {
           const times = timePatch();
@@ -568,7 +572,7 @@ export function TimeEntryForm({
         {!canEditTimes && !punch ? (
           <p className="col-span-full text-sm text-muted-foreground">Times stay as saved until an admin allows time entry editing.</p>
         ) : null}
-        <PlacementFields state={placement} embedded optional />
+        <PlacementFields state={placement} embedded optional={punch} />
       </div>
       <Field label="Notes" htmlFor={`${idPrefix}-notes`}>
         <Textarea

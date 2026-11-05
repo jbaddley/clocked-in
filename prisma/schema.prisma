@@ -100,7 +100,7 @@ model RolePermission {
 model Organization {
   id                    String                   @id(map: "PK_Organization") @default(uuid()) @db.Uuid
   name                  String
-  /// Volunteer or Professional.
+  /// Volunteer, Professional, or Paid.
   defaultRateType       String                   @default("Volunteer")
   /// Org settings. Known fields are defined by OrganizationPreferences.
   preferences           Json                     @default("{\"allowTimeEntryEditing\": false}")
@@ -146,7 +146,7 @@ model OrganizationMembership {
   joinedAt                DateTime     @default(now()) @db.Timestamptz(6)
   isActive                Boolean      @default(true)
   professionalBillingRate Decimal?     @db.Decimal(10, 2)
-  /// Volunteer or Professional.
+  /// Volunteer, Professional, or Paid. Paid and Professional require professionalBillingRate.
   rateType                String       @default("Volunteer")
   primaryDepartmentId     String?      @db.Uuid
   /// Description of the user for this organization in Markdown.
@@ -403,7 +403,7 @@ model UserTimeEntryTag {
 model HourlyRate {
   id                    String                @id(map: "PK_HourlyRate") @default(uuid()) @db.Uuid
   organizationId        String                @db.Uuid
-  /// Volunteer or Professional.
+  /// Volunteer, Professional, or Paid. Paid hours are gross pay, not in-kind.
   type                  String
   name                  String                @db.Citext
   perHourRate           Decimal               @db.Decimal(10, 2)

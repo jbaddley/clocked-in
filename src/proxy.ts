@@ -10,6 +10,7 @@ const protectedPrefixes = [
   "/entries",
   "/groups",
   "/reports",
+  "/people",
   "/settings",
   "/developer",
   "/about-prototype",

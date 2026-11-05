@@ -20,6 +20,7 @@ import type { HourlyRate } from "@/lib/types";
 const types = [
   { value: "Volunteer", label: "Volunteer" },
   { value: "Professional", label: "Professional" },
+  { value: "Paid", label: "Paid" },
 ];
 
 export function HourlyRatesCard() {
@@ -72,13 +73,13 @@ export function HourlyRatesCard() {
       </CardHeader>
       <CardContent className='flex flex-col gap-5'>
         <form
-          className='grid gap-4 sm:grid-cols-[minmax(0,1fr)_8rem_7rem_auto]'
+          className='grid grid-cols-2 gap-4 sm:grid-cols-[minmax(0,1fr)_8rem_7rem_auto]'
           onSubmit={(event) => {
             event.preventDefault();
             create.mutate();
           }}
         >
-          <Field label='Name' htmlFor='rate-name'>
+          <Field label='Name' htmlFor='rate-name' className='col-span-2 sm:col-span-1'>
             <Input
               id='rate-name'
               value={name}
@@ -110,14 +111,11 @@ export function HourlyRatesCard() {
               className='h-9'
             />
           </Field>
-          <SubmitButton pending={create.isPending} className='h-9 sm:mt-6'>
-            Add rate
-          </SubmitButton>
           <Field
             label='Source'
             htmlFor='rate-source'
             hint='Optional. Where this amount comes from.'
-            className='sm:col-span-4'
+            className='col-span-2 sm:col-span-4'
           >
             <Input
               id='rate-source'
@@ -128,13 +126,19 @@ export function HourlyRatesCard() {
               className='h-9'
             />
           </Field>
+          {type === "Volunteer" ? (
+            <label className='col-span-2 flex items-center gap-2 text-sm sm:col-span-4'>
+              <Checkbox checked={isDefault} onCheckedChange={(checked) => setIsDefault(checked === true)} />
+              Make this the default volunteer rate
+            </label>
+          ) : null}
+          <SubmitButton
+            pending={create.isPending}
+            className='col-span-2 h-9 sm:col-span-1 sm:col-start-4 sm:row-start-1 sm:mt-6'
+          >
+            Add rate
+          </SubmitButton>
         </form>
-        {type === "Volunteer" ? (
-          <label className='flex items-center gap-2 text-sm'>
-            <Checkbox checked={isDefault} onCheckedChange={(checked) => setIsDefault(checked === true)} />
-            Make this the default volunteer rate
-          </label>
-        ) : null}
         <ul className='divide-y rounded-lg border'>
           {lookups.hourlyRates.map((rate) => (
             <RateRow
@@ -170,9 +174,9 @@ function RateRow({
 }) {
   return (
     <li className='flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5'>
-      <div className='min-w-0 flex-1'>
-        <p className='truncate text-sm font-medium'>{rate.name}</p>
-        <p className='text-xs text-muted-foreground'>
+      <div className='w-full min-w-0 sm:w-auto sm:min-w-40 sm:flex-1'>
+        <p className='break-words text-sm font-medium sm:truncate'>{rate.name}</p>
+        <p className='truncate text-xs text-muted-foreground'>
           {rate.type} · {formatCurrency(rate.perHourRate)}/h
         </p>
       </div>
@@ -230,7 +234,7 @@ function SourceField({
 
         onSource(next || null);
       }}
-      className='h-8 w-full max-w-56 text-sm sm:w-56'
+      className='h-8 w-full text-sm sm:w-56'
     />
   );
 }

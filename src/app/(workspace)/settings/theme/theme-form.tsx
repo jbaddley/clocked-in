@@ -10,6 +10,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useActionMutation } from "@/hooks/use-action-mutation";
 import { useCardPin } from "@/hooks/use-card-pin";
 import { useOrganization } from "@/hooks/use-workspace";
@@ -224,196 +225,204 @@ function ThemeFields() {
   const pin = useCardPin(cardRef, barRef);
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]">
-      <Card ref={cardRef}>
-        <CardHeader>
-          <CardTitle>Themes</CardTitle>
-          <CardDescription>
-            Choose a global theme to fill the colors, then save a named theme for this organization. Chart palettes stay
-            with the theme.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form
-            className="grid gap-4 pb-28 sm:grid-cols-2"
-            onSubmit={(event) => {
-              event.preventDefault();
-              save.mutate(draft);
-            }}
-          >
-            <Field label="Apply theme">
-              <SelectField
-                value={organization.themeId}
-                onValueChange={(themeId) => {
-                  const selected = catalog.find((theme) => theme.id === themeId);
-                  if (selected) {
-                    setDraft(cloneTheme(selected));
-                  }
+    <Tabs defaultValue="colors">
+      <TabsList variant="line">
+        <TabsTrigger value="colors">Colors &amp; fonts</TabsTrigger>
+        <TabsTrigger value="charts">Chart palettes</TabsTrigger>
+      </TabsList>
+      <div className="mt-4 grid gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]">
+        <Card ref={cardRef}>
+          <CardHeader>
+            <CardTitle>Themes</CardTitle>
+            <CardDescription>
+              Choose a global theme to fill the colors, then save a named theme for this organization. Chart palettes stay
+              with the theme.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form
+              className="grid gap-4 pb-28"
+              onSubmit={(event) => {
+                event.preventDefault();
+                save.mutate(draft);
+              }}
+            >
+              <TabsContent value="colors" keepMounted className="grid gap-4 sm:grid-cols-2">
+                <Field label="Apply theme">
+                  <SelectField
+                    value={organization.themeId}
+                    onValueChange={(themeId) => {
+                      const selected = catalog.find((theme) => theme.id === themeId);
+                      if (selected) {
+                        setDraft(cloneTheme(selected));
+                      }
 
-                  apply.mutate(themeId);
-                }}
-                options={catalog.map((theme) => ({
-                  value: theme.id,
-                  label: theme.organizationId ? theme.name : `${theme.name} (global)`,
-                }))}
-                className="h-9"
-              />
-            </Field>
-            <Field label="Theme name" htmlFor="themeName">
-              <Input
-                id="themeName"
-                value={draft.name}
-                onChange={(event) => setDraft({ ...draft, name: event.target.value })}
-                className="h-9"
-              />
-            </Field>
-            {colorFields.map((field) => {
-              const value = String(draft[field.key]);
-              return (
-                <Field key={field.key} label={field.label} htmlFor={field.key}>
+                      apply.mutate(themeId);
+                    }}
+                    options={catalog.map((theme) => ({
+                      value: theme.id,
+                      label: theme.organizationId ? theme.name : `${theme.name} (global)`,
+                    }))}
+                    className="h-9"
+                  />
+                </Field>
+                <Field label="Theme name" htmlFor="themeName">
+                  <Input
+                    id="themeName"
+                    value={draft.name}
+                    onChange={(event) => setDraft({ ...draft, name: event.target.value })}
+                    className="h-9"
+                  />
+                </Field>
+                {colorFields.map((field) => {
+                  const value = String(draft[field.key]);
+                  return (
+                    <Field key={field.key} label={field.label} htmlFor={field.key}>
+                      <div className="flex items-center gap-2">
+                        <input
+                          id={field.key}
+                          type="color"
+                          value={hexColor.test(value) ? value : "#000000"}
+                          onChange={(event) => setDraft({ ...draft, [field.key]: event.target.value.toUpperCase() })}
+                          className="size-9 shrink-0 cursor-pointer rounded-md border bg-card p-1"
+                        />
+                        <Input
+                          value={value}
+                          onChange={(event) => setDraft({ ...draft, [field.key]: event.target.value.toUpperCase() })}
+                          className="h-9 font-mono"
+                        />
+                      </div>
+                    </Field>
+                  );
+                })}
+                <Field label="Heading font">
+                  <SelectField
+                    value={draft.headingFont}
+                    onValueChange={(headingFont) => setDraft({ ...draft, headingFont })}
+                    options={fontOptions}
+                    className="h-9"
+                  />
+                </Field>
+                <Field label="Body font">
+                  <SelectField
+                    value={draft.bodyFont}
+                    onValueChange={(bodyFont) => setDraft({ ...draft, bodyFont })}
+                    options={fontOptions}
+                    className="h-9"
+                  />
+                </Field>
+              </TabsContent>
+              <TabsContent value="charts" keepMounted className="grid gap-4">
+                <Field label="Base chart color" htmlFor="chartColor" hint="Used by the single-color chart palette">
                   <div className="flex items-center gap-2">
                     <input
-                      id={field.key}
+                      id="chartColor"
                       type="color"
-                      value={hexColor.test(value) ? value : "#000000"}
-                      onChange={(event) => setDraft({ ...draft, [field.key]: event.target.value.toUpperCase() })}
+                      value={hexColor.test(draft.chartColor) ? draft.chartColor : "#000000"}
+                      onChange={(event) => setDraft({ ...draft, chartColor: event.target.value.toUpperCase() })}
                       className="size-9 shrink-0 cursor-pointer rounded-md border bg-card p-1"
                     />
                     <Input
-                      value={value}
-                      onChange={(event) => setDraft({ ...draft, [field.key]: event.target.value.toUpperCase() })}
+                      value={draft.chartColor}
+                      onChange={(event) => setDraft({ ...draft, chartColor: event.target.value.toUpperCase() })}
                       className="h-9 font-mono"
                     />
                   </div>
                 </Field>
-              );
-            })}
-            <Field label="Heading font">
-              <SelectField
-                value={draft.headingFont}
-                onValueChange={(headingFont) => setDraft({ ...draft, headingFont })}
-                options={fontOptions}
-                className="h-9"
-              />
-            </Field>
-            <Field label="Body font">
-              <SelectField
-                value={draft.bodyFont}
-                onValueChange={(bodyFont) => setDraft({ ...draft, bodyFont })}
-                options={fontOptions}
-                className="h-9"
-              />
-            </Field>
-            <div className="sm:col-span-2 grid gap-4">
-              <Field label="Base chart color" htmlFor="chartColor" hint="Used by the single-color chart palette">
-                <div className="flex items-center gap-2">
-                  <input
-                    id="chartColor"
-                    type="color"
-                    value={hexColor.test(draft.chartColor) ? draft.chartColor : "#000000"}
-                    onChange={(event) => setDraft({ ...draft, chartColor: event.target.value.toUpperCase() })}
-                    className="size-9 shrink-0 cursor-pointer rounded-md border bg-card p-1"
-                  />
-                  <Input
-                    value={draft.chartColor}
-                    onChange={(event) => setDraft({ ...draft, chartColor: event.target.value.toUpperCase() })}
-                    className="h-9 font-mono"
-                  />
-                </div>
-              </Field>
-              <PaletteEditor
-                label="Categorical chart palette"
-                colors={draft.categoricalPalette}
-                min={6}
-                max={8}
-                onChange={(categoricalPalette) => setDraft({ ...draft, categoricalPalette })}
-              />
-              <PaletteEditor
-                label="Sequential chart palette"
-                colors={draft.sequentialPalette}
-                min={5}
-                max={10}
-                onChange={(sequentialPalette) => setDraft({ ...draft, sequentialPalette })}
-                header={
-                  <SequentialPaletteGenerator
-                    theme={draft}
-                    onGenerate={(sequentialPalette) => setDraft({ ...draft, sequentialPalette })}
-                  />
+                <PaletteEditor
+                  label="Categorical chart palette"
+                  colors={draft.categoricalPalette}
+                  min={6}
+                  max={8}
+                  onChange={(categoricalPalette) => setDraft({ ...draft, categoricalPalette })}
+                />
+                <PaletteEditor
+                  label="Sequential chart palette"
+                  colors={draft.sequentialPalette}
+                  min={5}
+                  max={10}
+                  onChange={(sequentialPalette) => setDraft({ ...draft, sequentialPalette })}
+                  header={
+                    <SequentialPaletteGenerator
+                      theme={draft}
+                      onGenerate={(sequentialPalette) => setDraft({ ...draft, sequentialPalette })}
+                    />
+                  }
+                />
+                <PaletteEditor
+                  label="Diverging chart palette"
+                  colors={draft.divergingPalette}
+                  min={7}
+                  max={7}
+                  onChange={(divergingPalette) => setDraft({ ...draft, divergingPalette })}
+                />
+              </TabsContent>
+              <div
+                ref={barRef}
+                role="group"
+                aria-label="Theme actions"
+                className={`fixed z-30 flex flex-wrap gap-2 border-t bg-card px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_16px_-12px_rgb(0_0_0/0.35)] ${pin?.docked ? "rounded-b-xl" : ""}`}
+                style={
+                  pin
+                    ? { left: pin.left, width: pin.width, top: pin.top, bottom: "auto" }
+                    : { left: 0, right: 0, bottom: 0, visibility: "hidden" }
                 }
-              />
-              <PaletteEditor
-                label="Diverging chart palette"
-                colors={draft.divergingPalette}
-                min={7}
-                max={7}
-                onChange={(divergingPalette) => setDraft({ ...draft, divergingPalette })}
-              />
-            </div>
-            <div
-              ref={barRef}
-              role="group"
-              aria-label="Theme actions"
-              className={`fixed z-30 flex flex-wrap gap-2 border-t bg-card px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_16px_-12px_rgb(0_0_0/0.35)] ${pin?.docked ? "rounded-b-xl" : ""}`}
-              style={
-                pin
-                  ? { left: pin.left, width: pin.width, top: pin.top, bottom: "auto" }
-                  : { left: 0, right: 0, bottom: 0, visibility: "hidden" }
-              }
-            >
-              <SubmitButton pending={save.isPending} className="h-9">
-                Save theme
-              </SubmitButton>
-              {draft.organizationId ? (
+              >
+                <SubmitButton pending={save.isPending} className="h-9">
+                  Save theme
+                </SubmitButton>
+                {draft.organizationId ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-9"
+                    disabled={remove.isPending}
+                    onClick={() => remove.mutate(draft.id)}
+                  >
+                    Delete theme
+                  </Button>
+                ) : null}
                 <Button
                   type="button"
                   variant="outline"
                   className="h-9"
-                  disabled={remove.isPending}
-                  onClick={() => remove.mutate(draft.id)}
+                  disabled={apply.isPending}
+                  onClick={() => {
+                    const def = catalog.find((theme) => theme.id === clockedInTheme.id) ?? clockedInTheme;
+                    setDraft(cloneTheme(def));
+                    apply.mutate(def.id);
+                  }}
                 >
-                  Delete theme
+                  Reset to default
                 </Button>
-              ) : null}
-              <Button
-                type="button"
-                variant="outline"
-                className="h-9"
-                disabled={apply.isPending}
-                onClick={() => {
-                  const def = catalog.find((theme) => theme.id === clockedInTheme.id) ?? clockedInTheme;
-                  setDraft(cloneTheme(def));
-                  apply.mutate(def.id);
-                }}
-              >
-                Reset to default
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-      <Card className="h-fit overflow-hidden py-0" style={brandStyle(draft)}>
-        <div className="bg-sidebar px-4 py-5 text-sidebar-foreground">
-          <p className="text-xs tracking-widest uppercase opacity-70">Preview</p>
-          <p className="mt-1 font-heading text-lg font-semibold">{organization.name}</p>
-        </div>
-        <div className="brand-rule" />
-        <CardContent className="bg-card py-4 text-card-foreground">
-          <p className="text-sm text-muted-foreground">Volunteer hours</p>
-          <p className="text-2xl font-heading font-semibold text-highlight">12.5 h</p>
-          <div className="mt-3 grid gap-2">
-            <div className="flex gap-1">
-              <span className="h-6 flex-1 rounded-sm" style={{ background: draft.chartColor }} />
-            </div>
-            {[draft.categoricalPalette, draft.sequentialPalette, draft.divergingPalette].map((palette, index) => (
-              <div key={["categorical", "sequential", "diverging"][index]} className="flex gap-1">
-                {palette.map((color, colorIndex) => (
-                  <span key={`${color}-${colorIndex}`} className="h-6 flex-1 rounded-sm" style={{ background: color }} />
-                ))}
               </div>
-            ))}
+            </form>
+          </CardContent>
+        </Card>
+        <Card className="h-fit overflow-hidden py-0" style={brandStyle(draft)}>
+          <div className="bg-sidebar px-4 py-5 text-sidebar-foreground">
+            <p className="text-xs tracking-widest uppercase opacity-70">Preview</p>
+            <p className="mt-1 font-heading text-lg font-semibold">{organization.name}</p>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+          <div className="brand-rule" />
+          <CardContent className="bg-card py-4 text-card-foreground">
+            <p className="text-sm text-muted-foreground">Volunteer hours</p>
+            <p className="text-2xl font-heading font-semibold text-highlight">12.5 h</p>
+            <div className="mt-3 grid gap-2">
+              <div className="flex gap-1">
+                <span className="h-6 flex-1 rounded-sm" style={{ background: draft.chartColor }} />
+              </div>
+              {[draft.categoricalPalette, draft.sequentialPalette, draft.divergingPalette].map((palette, index) => (
+                <div key={["categorical", "sequential", "diverging"][index]} className="flex gap-1">
+                  {palette.map((color, colorIndex) => (
+                    <span key={`${color}-${colorIndex}`} className="h-6 flex-1 rounded-sm" style={{ background: color }} />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </Tabs>
   );
 }

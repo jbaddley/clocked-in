@@ -22,6 +22,7 @@ const reservedSlugs = new Set<string>([
   "templates",
   "design",
   "groups",
+  "payroll",
   ...standardReports.map((item) => item.slug),
 ]);
 

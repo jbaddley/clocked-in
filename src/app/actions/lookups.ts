@@ -71,3 +71,28 @@ export async function deleteLookupAction(kind: LookupKind, id: string) {
     }
   }, "Deleted.");
 }
+
+export async function deleteLookupsAction(kind: LookupKind, ids: string[]) {
+  return run(
+    async () => {
+      const access = await requireAccess();
+      for (const id of ids) {
+        switch (kind) {
+          case "departments":
+            await deleteDepartment(access, id);
+            break;
+          case "categories":
+            await deleteTaskCategory(access, id);
+            break;
+          case "tags":
+            await deleteTag(access, id);
+            break;
+          case "projects":
+            await deleteProject(access, id);
+            break;
+        }
+      }
+    },
+    ids.length === 1 ? "Deleted." : `${ids.length} deleted.`,
+  );
+}

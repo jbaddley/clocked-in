@@ -1,7 +1,7 @@
 import { Prisma } from "@/generated/prisma/client";
 import { Access } from "@/lib/api/access";
 import { forbidden } from "@/lib/api/errors";
-import { asDateOnly, cents, hoursFromMinutes, queryDate, queryUuids } from "@/lib/api/json";
+import { asDateOnly, cents, hoursFromMinutes, inKindFromMinutes, queryDate, queryUuids } from "@/lib/api/json";
 import { labels } from "@/lib/labels";
 import { readPreferences } from "@/lib/api/features/organizations";
 import { prisma } from "@/lib/prisma";
@@ -428,7 +428,7 @@ export async function csv(access: Access, organizationId: string, params: URLSea
     "Volunteer ID",
   ].join(",");
   const entries = await prisma.userTimeEntry.findMany({
-    where: userWhere(organizationId, filter),
+    where: { ...userWhere(organizationId, filter), NOT: { rate: { type: "Paid" } } },
     orderBy: [{ occurredOn: "asc" }, { createdAt: "asc" }],
     select: {
       occurredOn: true,
@@ -501,6 +501,82 @@ export async function summaryCsv(access: Access, organizationId: string, params:
     ...table("Month", data.user.byMonth, "Volunteer Hours"),
     ...table("Volunteer", data.user.byVolunteer, "Total Hours"),
     ...table(copy.project, data.user.byProject, "Volunteer Hours"),
+  ];
+  return csvResponse(lines);
+}
+
+export async function payroll(access: Access, organizationId: string, params: URLSearchParams) {
+  await access.requirePermission(organizationId, "view_payroll");
+  const filter = await forCaller(access, organizationId, parseFilter(params));
+  const organization = await prisma.organization.findUniqueOrThrow({
+    where: { id: organizationId },
+    select: { name: true },
+  });
+  const entries = await prisma.userTimeEntry.findMany({
+    where: { ...userWhere(organizationId, filter), rate: { type: "Paid" }, durationMinutes: { not: null } },
+    select: {
+      userId: true,
+      departmentId: true,
+      durationMinutes: true,
+      hourlyRate: true,
+      user: { select: personSelect },
+      department: { select: { name: true } },
+    },
+  });
+  const groups = new Map<
+    string,
+    { userId: string; person: string; group: string; minutes: number; payRate: number; grossCents: number; entries: number }
+  >();
+  for (const entry of entries) {
+    if (entry.durationMinutes === null) continue;
+    const payRate = Number(entry.hourlyRate);
+    const key = `${entry.userId}:${entry.departmentId ?? ""}:${payRate.toFixed(2)}`;
+    const row = groups.get(key) ?? {
+      userId: entry.userId,
+      person: personLabel(entry.user),
+      group: entry.department?.name ?? organization.name,
+      minutes: 0,
+      payRate,
+      grossCents: 0,
+      entries: 0,
+    };
+    row.minutes += entry.durationMinutes;
+    row.entries += 1;
+    row.grossCents += Math.round(inKindFromMinutes(entry.durationMinutes, payRate) * 100);
+    groups.set(key, row);
+  }
+
+  const rows = [...groups.values()]
+    .map((row) => ({
+      id: `${row.userId}:${row.group}:${row.payRate.toFixed(2)}`,
+      userId: row.userId,
+      person: row.person,
+      group: row.group,
+      hours: hoursFromMinutes(row.minutes),
+      payRate: row.payRate,
+      grossPay: row.grossCents / 100,
+      entries: row.entries,
+    }))
+    .sort((a, b) => ordinal(a.person, b.person) || ordinal(a.group, b.group) || b.payRate - a.payRate);
+  const minutes = [...groups.values()].reduce((sum, row) => sum + row.minutes, 0);
+  return {
+    hours: hoursFromMinutes(minutes),
+    grossPay: rows.reduce((sum, row) => sum + row.grossPay, 0),
+    people: new Set(rows.map((row) => row.userId)).size,
+    entries: rows.reduce((sum, row) => sum + row.entries, 0),
+    rows,
+  };
+}
+
+export async function payrollCsv(access: Access, organizationId: string, params: URLSearchParams) {
+  const data = await payroll(access, organizationId, params);
+  const lines = [
+    ["Person", "Group", "Hours", "Pay rate", "Gross pay", "Entries"].map(csvCell).join(","),
+    ...data.rows.map((row) =>
+      [row.person, row.group, hoursCell(Math.round(row.hours * 60)), row.payRate.toFixed(2), row.grossPay.toFixed(2), String(row.entries)]
+        .map(csvCell)
+        .join(","),
+    ),
   ];
   return csvResponse(lines);
 }

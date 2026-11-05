@@ -45,6 +45,7 @@ test("admin logs member time and Entered By is not the volunteer", async ({ page
 
   await loginAs(page, person.username, person.password);
   await page.goto("/log/own");
+  await page.getByRole("tab", { name: "Entries" }).click();
   await expect(page.getByText(`e2e-member-log ${stamp}`).filter({ visible: true })).toBeVisible();
   await expect(page.getByText("entered by an admin")).toBeVisible();
 
