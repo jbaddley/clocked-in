@@ -17,12 +17,14 @@ const shellHeading: Record<string, RegExp | string> = {
   "/log/group": "Log time",
   "/entries": "Entries",
   "/reports": /Report|Summary/,
+  "/people": "People",
+  "/people/invites": "People",
+  "/people/roles": "People",
   "/settings": "Settings",
   "/about-prototype": "Guide",
   "/settings/organization": "Settings",
   "/settings/departments": "Settings",
   "/settings/lists": "Settings",
-  "/settings/members": "Settings",
   "/settings/theme": "Settings",
   "/settings/brand": "Settings",
   "/settings/email": "Settings",
@@ -41,15 +43,17 @@ const viewCopy: Record<string, RegExp | string> = {
   "/log/group": "Record a session",
   "/entries": "All time",
   "/reports": "All time",
+  "/people": "Volunteers log their own time",
+  "/people/invites": "Invite someone",
+  "/people/roles": "Roles",
   "/settings": "Hourly rates",
   "/about-prototype": "How this app works",
   "/settings/organization": "Hourly rates",
   "/settings/departments": /Teams or sites inside/,
-  "/settings/lists": "What kind of work was this?",
-  "/settings/members": "Invite someone",
+  "/settings/lists": /give it a start and end date/,
   "/settings/theme": /Chart palettes stay/,
   "/settings/brand": "Square mark for the browser tab",
-  "/settings/email": /Every email .* sends/,
+  "/settings/email": "When emails are sent",
   "/profile": "Name, contact, and sign-in are saved together.",
   "/accept": "Accept an invite",
 };
@@ -65,10 +69,12 @@ const signedInPaths = [
   "/dashboard/design",
   "/needs",
   "/feedback",
+  "/people",
+  "/people/invites",
+  "/people/roles",
   "/settings/organization",
   "/settings/departments",
   "/settings/lists",
-  "/settings/members",
   "/settings/theme",
   "/settings/brand",
   "/settings/email",
@@ -145,10 +151,12 @@ test("signed-in views rebuild a cache and open on the first click", async ({ pag
     "/log/group",
     "/entries",
     "/reports",
+    "/people",
+    "/people/invites",
+    "/people/roles",
     "/settings/organization",
     "/settings/departments",
     "/settings/lists",
-    "/settings/members",
     "/settings/theme",
     "/settings/brand",
     "/profile",
@@ -178,6 +186,8 @@ async function rebuild(page: Page, paths: string[]) {
 const redirects: Record<string, string> = {
   "/log": "/log/own",
   "/settings": "/settings/organization",
+  "/settings/members": "/people",
+  "/settings/roles": "/people/roles",
   "/groups": "/log/group",
 };
 
@@ -195,14 +205,16 @@ async function showLink(page: Page, href: string) {
   const host = nestedSetting
     ? nestedSetting
     : href.startsWith("/settings/")
-    ? "/settings/organization"
-    : href.startsWith("/log/")
-      ? "/log/own"
-      : href.startsWith("/developer/")
-        ? href === "/developer/api-keys"
-          ? "/developer/mcp"
-          : "/developer/api-keys"
-        : "/dashboard";
+      ? "/settings/organization"
+      : href.startsWith("/people/")
+        ? "/people"
+        : href.startsWith("/log/")
+          ? "/log/own"
+          : href.startsWith("/developer/")
+            ? href === "/developer/api-keys"
+              ? "/developer/mcp"
+              : "/developer/api-keys"
+            : "/dashboard";
   if (new URL(page.url()).pathname !== host) {
     await page.goto(host);
     await expectView(page, new URL(page.url()).pathname);

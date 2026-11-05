@@ -12,7 +12,6 @@ test("admin updates email send settings on /settings/email and sees updated temp
   await page.goto("/settings/email");
 
   await expect(page.getByText("When emails are sent")).toBeVisible();
-  await expect(page.getByText("Email Templates")).toBeVisible();
 
   await page.getByLabel("Hours logged frequency").click();
   await page.getByRole("option", { name: "Weekly digest" }).last().click();
@@ -23,10 +22,13 @@ test("admin updates email send settings on /settings/email and sees updated temp
   await page.getByRole("button", { name: "Save email settings" }).click();
   await expect(page.getByRole("status")).toContainText("Email settings saved.");
 
+  await page.getByRole("tab", { name: "Templates" }).click();
+  await expect(page.getByText("Email Templates")).toBeVisible();
   const templatesList = page.locator("ul.divide-y");
   await expect(templatesList.locator("li", { hasText: "Hours logged" })).toContainText("Weekly digest");
   await expect(templatesList.locator("li", { hasText: "Unclassified time" })).toContainText("Off");
 
+  await page.getByRole("tab", { name: "Delivery" }).click();
   await page.getByLabel("Hours logged frequency").click();
   await page.getByRole("option", { name: "Immediately" }).last().click();
 
@@ -35,6 +37,8 @@ test("admin updates email send settings on /settings/email and sees updated temp
 
   await page.getByRole("button", { name: "Save email settings" }).click();
   await expect(page.getByRole("status")).toContainText("Email settings saved.");
+
+  await page.getByRole("tab", { name: "Templates" }).click();
   await expect(templatesList.locator("li", { hasText: "Hours logged" })).toContainText("Immediately");
   await expect(templatesList.locator("li", { hasText: "Unclassified time" })).toContainText("Immediately");
 });

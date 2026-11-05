@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useActionMutation } from "@/hooks/use-action-mutation";
 import { useLabels } from "@/hooks/use-labels";
 import { useOrganization } from "@/hooks/use-workspace";
@@ -134,159 +135,158 @@ export function ImportView() {
   const canImport = Boolean(rows) && data.length > 0 && !tooMany && missing.length === 0 && !parseError && !importRows.isPending;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Import</CardTitle>
-        <CardDescription>
-          Import creates accounts. It does not send invitations. Existing emails are skipped. Check Email users to send
-          welcome credentials. Add {copy.departments.toLowerCase()} one at a time on the {copy.departments} screen.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <div className="flex flex-wrap gap-2">
-          {entities.map((item) => (
-            <Button
-              key={item.id}
-              type="button"
-              variant={entity === item.id ? "default" : "outline"}
-              aria-pressed={entity === item.id}
-              onClick={() => chooseEntity(item.id)}
+    <Tabs
+      value={entity}
+      onValueChange={(next) => chooseEntity(next === "projects" ? "projects" : "people")}
+    >
+      <TabsList variant="line">
+        {entities.map((item) => (
+          <TabsTrigger key={item.id} value={item.id}>
+            {item.label(copy)}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+      <Card className="mt-4">
+        <CardHeader>
+          <CardTitle>Import {entity === "people" ? "people" : copy.projects.toLowerCase()}</CardTitle>
+          <CardDescription>
+            Import creates accounts. It does not send invitations. Existing emails are skipped. Check Email users to send
+            welcome credentials. Add {copy.departments.toLowerCase()} one at a time on the {copy.departments} screen.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-wrap gap-3">
+            <a
+              className="text-sm underline-offset-2 hover:underline"
+              href={`data:text/csv;charset=utf-8,${encodeURIComponent(fields.map((field) => field.label).join(","))}`}
+              download={`${entity}-template.csv`}
             >
-              {item.label(copy)}
-            </Button>
-          ))}
-        </div>
-        <div className="flex flex-wrap gap-3">
-          <a
-            className="text-sm underline-offset-2 hover:underline"
-            href={`data:text/csv;charset=utf-8,${encodeURIComponent(fields.map((field) => field.label).join(","))}`}
-            download={`${entity}-template.csv`}
-          >
-            Download template
-          </a>
-        </div>
-        {entity === "people" ? (
+              Download template
+            </a>
+          </div>
+          {entity === "people" ? (
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={emailUsers} onCheckedChange={(checked) => setEmailUsers(checked === true)} />
+              Email users welcome credentials after import
+            </label>
+          ) : null}
           <label className="flex items-center gap-2 text-sm">
-            <Checkbox checked={emailUsers} onCheckedChange={(checked) => setEmailUsers(checked === true)} />
-            Email users welcome credentials after import
+            <Checkbox
+              checked={hasHeaders}
+              onCheckedChange={(checked) => {
+                setHasHeaders(checked === true);
+                setOverrides({});
+                setResult(null);
+              }}
+            />
+            First row is column headers
           </label>
-        ) : null}
-        <label className="flex items-center gap-2 text-sm">
-          <Checkbox
-            checked={hasHeaders}
-            onCheckedChange={(checked) => {
-              setHasHeaders(checked === true);
-              setOverrides({});
-              setResult(null);
+          <Input
+            key={`${entity}-${fileKey}`}
+            type="file"
+            accept=".csv,text/csv"
+            aria-label="CSV file"
+            className="h-9"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) {
+                void loadFile(file);
+              }
             }}
           />
-          First row is column headers
-        </label>
-        <Input
-          key={`${entity}-${fileKey}`}
-          type="file"
-          accept=".csv,text/csv"
-          aria-label="CSV file"
-          className="h-9"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) {
-              void loadFile(file);
-            }
-          }}
-        />
-        {fileName ? <p className="text-xs text-muted-foreground">{fileName}</p> : null}
-        {parseError ? (
-          <p role="alert" className="text-sm text-destructive">
-            {parseError}
-          </p>
-        ) : null}
-        {tooMany ? (
-          <p role="alert" className="text-sm text-destructive">
-            A CSV import can include at most 1000 rows.
-          </p>
-        ) : null}
-        {rows && data.length === 0 && !parseError ? (
-          <p className="text-sm text-muted-foreground">This file has no data rows.</p>
-        ) : null}
-        {rows && preview.length > 0 ? (
-          <div className="flex flex-col gap-2">
-            <p className="text-xs text-muted-foreground">
-              Showing the first {preview.length} of {data.length} {data.length === 1 ? "row" : "rows"}.
+          {fileName ? <p className="text-xs text-muted-foreground">{fileName}</p> : null}
+          {parseError ? (
+            <p role="alert" className="text-sm text-destructive">
+              {parseError}
             </p>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {assignments.map((column) => (
-                    <TableHead key={column.column} className="h-auto align-top whitespace-normal">
-                      <ColumnHeader
-                        column={column}
-                        header={headerRow?.[column.column]}
-                        fields={fields}
-                        assignments={assignments}
-                        onChange={setColumn}
-                      />
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {preview.map((row, index) => (
-                  <TableRow key={index}>
-                    {assignments.map((column) => {
-                      const value = row[column.column] ?? "";
-                      return (
-                        <TableCell key={column.column} className="max-w-48 truncate" title={value}>
-                          {value}
-                        </TableCell>
-                      );
-                    })}
+          ) : null}
+          {tooMany ? (
+            <p role="alert" className="text-sm text-destructive">
+              A CSV import can include at most 1000 rows.
+            </p>
+          ) : null}
+          {rows && data.length === 0 && !parseError ? (
+            <p className="text-sm text-muted-foreground">This file has no data rows.</p>
+          ) : null}
+          {rows && preview.length > 0 ? (
+            <div className="flex flex-col gap-2">
+              <p className="text-xs text-muted-foreground">
+                Showing the first {preview.length} of {data.length} {data.length === 1 ? "row" : "rows"}.
+              </p>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {assignments.map((column) => (
+                      <TableHead key={column.column} className="h-auto align-top whitespace-normal">
+                        <ColumnHeader
+                          column={column}
+                          header={headerRow?.[column.column]}
+                          fields={fields}
+                          assignments={assignments}
+                          onChange={setColumn}
+                        />
+                      </TableHead>
+                    ))}
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        ) : null}
-        {entity === "people" && rows && missing.length === 0 && data.length > 0 ? (
-          <PeopleReview
-            rows={applyMapping(data, assignments)}
-            members={members}
-            actions={reviewActions}
-            onAction={(key, action) => setReviewActions((current) => ({ ...current, [key]: action }))}
-          />
-        ) : null}
-        {rows && missing.length > 0 && data.length > 0 && !tooMany ? (
-          <p className="text-sm text-muted-foreground">{requiredMessage(missing)}</p>
-        ) : null}
-        {importRows.error ? (
-          <p role="alert" className="text-sm text-destructive">
-            {importRows.error.message}
-          </p>
-        ) : null}
-        {result ? <ImportSummary result={result} /> : null}
-      </CardContent>
-      <CardFooter className="justify-end">
-        <Button
-          type="button"
-          disabled={!canImport}
-          onClick={() => {
-            const mapped = applyMapping(data, assignments);
-            importRows.mutate(
-              mapped.map((row, index) => {
-                const match = peopleRowMatch(
-                  row,
-                  members.map((member) => member.user),
-                );
-                const key = `${row.email}-${index}`;
-                return { ...row, _action: reviewActions[key] ?? defaultReviewAction(match) };
-              }),
-            );
-          }}
-        >
-          {importRows.isPending ? "Importing…" : "Import"}
-        </Button>
-      </CardFooter>
-    </Card>
+                </TableHeader>
+                <TableBody>
+                  {preview.map((row, index) => (
+                    <TableRow key={index}>
+                      {assignments.map((column) => {
+                        const value = row[column.column] ?? "";
+                        return (
+                          <TableCell key={column.column} className="max-w-48 truncate" title={value}>
+                            {value}
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : null}
+          {entity === "people" && rows && missing.length === 0 && data.length > 0 ? (
+            <PeopleReview
+              rows={applyMapping(data, assignments)}
+              members={members}
+              actions={reviewActions}
+              onAction={(key, action) => setReviewActions((current) => ({ ...current, [key]: action }))}
+            />
+          ) : null}
+          {rows && missing.length > 0 && data.length > 0 && !tooMany ? (
+            <p className="text-sm text-muted-foreground">{requiredMessage(missing)}</p>
+          ) : null}
+          {importRows.error ? (
+            <p role="alert" className="text-sm text-destructive">
+              {importRows.error.message}
+            </p>
+          ) : null}
+          {result ? <ImportSummary result={result} /> : null}
+        </CardContent>
+        <CardFooter className="justify-end">
+          <Button
+            type="button"
+            disabled={!canImport}
+            onClick={() => {
+              const mapped = applyMapping(data, assignments);
+              importRows.mutate(
+                mapped.map((row, index) => {
+                  const match = peopleRowMatch(
+                    row,
+                    members.map((member) => member.user),
+                  );
+                  const key = `${row.email}-${index}`;
+                  return { ...row, _action: reviewActions[key] ?? defaultReviewAction(match) };
+                }),
+              );
+            }}
+          >
+            {importRows.isPending ? "Importing…" : "Import"}
+          </Button>
+        </CardFooter>
+      </Card>
+    </Tabs>
   );
 }
 

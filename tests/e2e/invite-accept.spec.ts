@@ -20,7 +20,7 @@ test("admin invite is accepted and the person appears on People", async ({ page,
   expect(signup.ok(), await signup.text()).toBeTruthy();
 
   await loginAsAdmin(page);
-  await page.goto("/settings/members");
+  await page.goto("/people/invites");
   await expect(page.getByText("Invite someone")).toBeVisible();
   await page.locator("#invite-first").fill("E2e");
   await page.locator("#invite-last").fill("Invitee");
@@ -43,7 +43,7 @@ test("admin invite is accepted and the person appears on People", async ({ page,
   const admin = await loginBearer(request);
   await page.context().clearCookies();
   await loginAsAdmin(page);
-  await page.goto("/settings/members");
+  await page.goto("/people");
   await expect(page.getByRole("row").filter({ hasText: email }).getByRole("button", { name: "E2e Invitee", exact: true })).toBeVisible();
   expect(admin.user.id).toBeTruthy();
 });

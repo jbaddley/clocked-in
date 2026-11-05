@@ -8,6 +8,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLabels } from "@/hooks/use-labels";
 import { useMembers } from "@/hooks/use-members";
 import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
@@ -18,11 +19,22 @@ import { formatPersonName } from "@/lib/format";
 export function OrganizationForm() {
   const organization = useOrganization();
   return (
-    <>
-      <OrganizationFields key={`${organization.id}:${JSON.stringify(organization.preferences)}`} />
-      <LaunchCard key={`${organization.id}:${organization.slug ?? ""}`} />
-      <HourlyRatesCard />
-    </>
+    <Tabs defaultValue="general">
+      <TabsList variant="line">
+        <TabsTrigger value="general">General</TabsTrigger>
+        <TabsTrigger value="address">White-label address</TabsTrigger>
+        <TabsTrigger value="rates">Hourly rates</TabsTrigger>
+      </TabsList>
+      <TabsContent value="general" className="mt-4">
+        <OrganizationFields key={`${organization.id}:${JSON.stringify(organization.preferences)}`} />
+      </TabsContent>
+      <TabsContent value="address" className="mt-4">
+        <LaunchCard key={`${organization.id}:${organization.slug ?? ""}`} />
+      </TabsContent>
+      <TabsContent value="rates" className="mt-4">
+        <HourlyRatesCard />
+      </TabsContent>
+    </Tabs>
   );
 }
 

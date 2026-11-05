@@ -1,8 +1,5 @@
-import type { Metadata } from "next";
-import { MembersView } from "./members-view";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "People" };
-
-export default function MembersPage() {
-  return <MembersView />;
+export default function MembersRedirectPage() {
+  redirect("/people");
 }

@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useOrganization } from "@/hooks/use-workspace";
 import {
   defaultEmailSettings,
@@ -78,10 +79,18 @@ const booleanEmailItems: { key: BooleanEmailSettingKey; label: string; descripti
 export function EmailSettingsView() {
   const organization = useOrganization();
   return (
-    <div className="flex flex-col gap-6">
-      <EmailSendSettingsCard key={organization.id} />
-      <EmailTemplatesCard />
-    </div>
+    <Tabs defaultValue="delivery">
+      <TabsList variant="line">
+        <TabsTrigger value="delivery">Delivery</TabsTrigger>
+        <TabsTrigger value="templates">Templates</TabsTrigger>
+      </TabsList>
+      <TabsContent value="delivery" className="mt-4">
+        <EmailSendSettingsCard key={organization.id} />
+      </TabsContent>
+      <TabsContent value="templates" className="mt-4">
+        <EmailTemplatesCard />
+      </TabsContent>
+    </Tabs>
   );
 }
 
