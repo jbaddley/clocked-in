@@ -15,6 +15,7 @@ import { useOrganization, useWorkspace } from "@/hooks/use-workspace";
 import type { Membership } from "@/lib/types";
 import { HourlyRatesCard } from "./hourly-rates-card";
 import { formatPersonName } from "@/lib/format";
+import { tenantAddress } from "@/lib/portal";
 
 export function OrganizationForm() {
   const organization = useOrganization();
@@ -38,12 +39,21 @@ export function OrganizationForm() {
   );
 }
 
+function originHost(origin: string) {
+  try {
+    return new URL(origin).host;
+  } catch {
+    return origin.replace(/^https?:\/\//, "");
+  }
+}
+
 function LaunchCard() {
   const organization = useOrganization();
-  const { isTenantHost, appHost = "voluntime.app" } = useWorkspace();
+  const { isTenantHost, appOrigin = "" } = useWorkspace();
   const [slug, setSlug] = useState(organization.slug ?? "");
   const [result, action] = useActionState(updateOrganizationSlugAction.bind(null, organization.id), null);
   const previewSlug = slug.trim().toLowerCase();
+  const hostLabel = originHost(appOrigin);
 
   if (isTenantHost) {
     const currentSlug = organization.slug ?? previewSlug;
@@ -52,13 +62,11 @@ function LaunchCard() {
         <CardHeader>
           <CardTitle>White-label address</CardTitle>
           <CardDescription>
-            This organization is launched on its own address. Manage subdomain settings from the main {appHost} workspace.
+            This organization is launched on its own address. Manage subdomain settings from the main {hostLabel} workspace.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm font-medium">
-            {currentSlug ? `https://${currentSlug}.${appHost}` : `https://${appHost}`}
-          </p>
+          <p className="text-sm font-medium">{tenantAddress(appOrigin, currentSlug)}</p>
         </CardContent>
       </Card>
     );
@@ -79,8 +87,8 @@ function LaunchCard() {
             htmlFor="slug"
             hint={
               previewSlug
-                ? `Preview: https://${previewSlug}.${appHost}`
-                : `Your organization will only be accessible from https://${appHost}.`
+                ? `Preview: ${tenantAddress(appOrigin, previewSlug)}`
+                : `Your organization will only be accessible from ${appOrigin}.`
             }
           >
             <Input

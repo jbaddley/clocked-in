@@ -17,7 +17,7 @@ export type Workspace = {
   groupDepartments: GroupDepartments;
   isTenantHost?: boolean;
   pinnedOrganizationName?: string | null;
-  appHost?: string;
+  appOrigin?: string;
 };
 
 const WorkspaceContext = createContext<Workspace | null>(null);
